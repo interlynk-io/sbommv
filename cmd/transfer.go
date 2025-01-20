@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/interlynk-io/sbommv/pkg/logger"
+	"github.com/interlynk-io/sbommv/pkg/source/github"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -82,6 +83,14 @@ func transferSBOM(cmd *cobra.Command, args []string) error {
 	}
 
 	logger.LogDebug(ctx, "Transfer command constructed successfully", "command", cfg)
+
+	outPutDir := "allSboms"
+	// Download the SBOM
+	err = github.DownloadSBOM(ctx, cfg.FromURL, outPutDir)
+	if err != nil {
+		logger.LogError(ctx, err, "Failed to fetch SBOM")
+		return err
+	}
 
 	// Placeholder for actual transfer logic
 	logger.LogInfo(ctx, "Starting SBOM transfer...")
