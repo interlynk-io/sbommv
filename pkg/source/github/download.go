@@ -10,17 +10,17 @@ import (
 )
 
 // DownloadSBOM downloads and saves all SBOM files found in the repository
-func DownloadSBOM(ctx context.Context, url, outputDir string) error {
+func DownloadSBOM(ctx context.Context, url, outputDir string) ([]string, error) {
 	scanner := NewScanner()
 
 	// Find SBOMs in releases
 	sboms, err := scanner.FindSBOMs(ctx, url)
 	if err != nil {
-		return fmt.Errorf("finding SBOMs: %w", err)
+		return nil, fmt.Errorf("finding SBOMs: %w", err)
 	}
 
 	if len(sboms) == 0 {
-		return fmt.Errorf("no SBOMs found in repository")
+		return nil, fmt.Errorf("no SBOMs found in repository")
 	}
 
 	fmt.Printf("Found %d SBOM(s) in latest release %s\n", len(sboms), sboms[0].Release)
@@ -28,7 +28,7 @@ func DownloadSBOM(ctx context.Context, url, outputDir string) error {
 	// Create output directory if specified and doesn't exist
 	if outputDir != "" {
 		if err := os.MkdirAll(outputDir, 0o755); err != nil {
-			return fmt.Errorf("creating output directory: %w", err)
+			return nil, fmt.Errorf("creating output directory: %w", err)
 		}
 	}
 
@@ -101,18 +101,20 @@ func DownloadSBOM(ctx context.Context, url, outputDir string) error {
 			errors = append(errors, err)
 		}
 	}()
+	var allSBOMs []string
 
 	// Submit work
 	for _, sbom := range sboms {
 		var outputPath string
 		if outputDir != "" {
 			outputPath = filepath.Join(outputDir, sbom.Name)
+			allSBOMs = append(allSBOMs, outputPath)
 		}
 		select {
 		case workChan <- downloadWork{sbom: sbom, output: outputPath}:
 		case <-ctx.Done():
 			close(workChan)
-			return ctx.Err()
+			return nil, ctx.Err()
 		}
 	}
 
@@ -124,8 +126,8 @@ func DownloadSBOM(ctx context.Context, url, outputDir string) error {
 
 	// Check for errors
 	if len(errors) > 0 {
-		return fmt.Errorf("encountered %d download errors: %v", len(errors), errors[0])
+		return nil, fmt.Errorf("encountered %d download errors: %v", len(errors), errors[0])
 	}
 
-	return nil
+	return allSBOMs, nil
 }

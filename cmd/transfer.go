@@ -6,9 +6,11 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/interlynk-io/sbommv/pkg/logger"
 	"github.com/interlynk-io/sbommv/pkg/source/github"
+	"github.com/interlynk-io/sbommv/pkg/target/interlynk"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -86,10 +88,35 @@ func transferSBOM(cmd *cobra.Command, args []string) error {
 
 	outPutDir := "allSboms"
 	// Download the SBOM
-	err = github.DownloadSBOM(ctx, cfg.FromURL, outPutDir)
+	allSBOMs, err := github.DownloadSBOM(ctx, cfg.FromURL, outPutDir)
 	if err != nil {
 		logger.LogError(ctx, err, "Failed to fetch SBOM")
 		return err
+	}
+
+	// Initialize Interlynk client
+	client := interlynk.NewClient(interlynk.Config{
+		Token:     cfg.Token,
+		ProjectID: cfg.ProjectID,
+	})
+
+	// Initialize upload service
+	uploadService := interlynk.NewUploadService(client, interlynk.UploadOptions{
+		MaxAttempts:   3,
+		MaxConcurrent: 2,
+		RetryDelay:    time.Second,
+	})
+
+	// Upload SBOMs
+	results := uploadService.UploadSBOMs(ctx, allSBOMs)
+
+	// Log results
+	for _, result := range results {
+		if result.Error != nil {
+			logger.LogError(ctx, result.Error, "Failed to upload SBOM")
+		} else {
+			logger.LogInfo(ctx, "SBOM uploaded successfully", "file", result.Path)
+		}
 	}
 
 	// Placeholder for actual transfer logic
