@@ -14,6 +14,8 @@
 
 package main
 
+import "github.com/interlynk-io/sbommv/cmd"
+
 func main() {
-	// execute root command
+	cmd.Execute()
 }
