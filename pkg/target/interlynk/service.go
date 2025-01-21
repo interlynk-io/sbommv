@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
-	"sync"
 	"time"
 )
 
@@ -49,56 +48,27 @@ type UploadResult struct {
 	Error error
 }
 
-// UploadSBOMs uploads multiple SBOM files concurrently
+// UploadSBOMs uploads multiple SBOM files sequentially
 func (s *UploadService) UploadSBOMs(ctx context.Context, files []string) []UploadResult {
 	results := make([]UploadResult, len(files))
-	var wg sync.WaitGroup
-	sem := make(chan struct{}, s.maxConcurrent)
 
 	for i, file := range files {
-		wg.Add(1)
-		go func(idx int, filepath string) {
-			defer wg.Done()
-
-			sem <- struct{}{}        // Acquire semaphore
-			defer func() { <-sem }() // Release semaphore
-
-			var err error
-			for attempt := 1; attempt <= s.maxAttempts; attempt++ {
-				select {
-				case <-ctx.Done():
-					results[idx] = UploadResult{
-						Path:  filepath,
-						Error: ctx.Err(),
-					}
-					return
-				default:
-				}
-
-				err = s.client.UploadSBOM(ctx, filepath)
-				if err == nil {
-					results[idx] = UploadResult{Path: filepath}
-					return
-				}
-
-				if attempt < s.maxAttempts {
-					select {
-					case <-ctx.Done():
-						return
-					case <-time.After(s.retryDelay * time.Duration(attempt)):
-						continue
-					}
-				}
+		select {
+		case <-ctx.Done():
+			results[i] = UploadResult{
+				Path:  file,
+				Error: ctx.Err(),
 			}
-
-			results[idx] = UploadResult{
-				Path:  filepath,
-				Error: fmt.Errorf("failed after %d attempts: %w", s.maxAttempts, err),
+			return results
+		default:
+			err := s.client.UploadSBOM(ctx, file)
+			results[i] = UploadResult{
+				Path:  file,
+				Error: err,
 			}
-		}(i, file)
+		}
 	}
 
-	wg.Wait()
 	return results
 }
 

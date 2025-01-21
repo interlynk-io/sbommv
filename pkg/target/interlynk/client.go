@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -26,9 +27,15 @@ mutation uploadSbom($doc: Upload!, $projectId: ID!) {
 }
 `
 
+type graphQLRequest struct {
+	Query     string                 `json:"query"`
+	Variables map[string]interface{} `json:"variables,omitempty"`
+}
+
 const (
 	defaultTimeout = 30 * time.Second
-	defaultAPIURL  = "https://api.interlynk.io/graphql"
+	// defaultAPIURL  = "https://api.interlynk.io/lynkapi"
+	defaultAPIURL = "http://localhost:3000/lynkapi"
 )
 
 // Client handles interactions with the Interlynk API
@@ -69,50 +76,111 @@ func NewClient(config Config) *Client {
 
 // UploadSBOM uploads a single SBOM file to Interlynk
 func (c *Client) UploadSBOM(ctx context.Context, filePath string) error {
-	file, err := os.Open(filePath)
+	// Validate file existence and size
+	fileInfo, err := os.Stat(filePath)
 	if err != nil {
-		return fmt.Errorf("opening SBOM file: %w", err)
+		return fmt.Errorf("checking file: %w", err)
 	}
-	defer file.Close()
-
-	// Prepare the GraphQL operation
-	operations := map[string]interface{}{
-		"query": uploadMutation,
-		"variables": map[string]interface{}{
-			"doc":       nil,
-			"projectId": c.projectID,
-		},
+	if fileInfo.Size() == 0 {
+		return fmt.Errorf("file is empty: %s", filePath)
 	}
 
-	operationsJSON, err := json.Marshal(operations)
+	// Create a context-aware request with appropriate timeout
+	req, err := c.createUploadRequest(ctx, filePath)
 	if err != nil {
-		return fmt.Errorf("marshaling operations: %w", err)
+		return fmt.Errorf("preparing request: %w", err)
 	}
 
-	// Prepare the map
-	mapData := map[string][]string{
-		"0": {"variables.doc"},
-	}
-	mapJSON, err := json.Marshal(mapData)
+	// Execute request with retry logic
+	return c.executeUploadRequest(ctx, req)
+}
+
+func (c *Client) createUploadRequest(ctx context.Context, filePath string) (*http.Request, error) {
+	// GraphQL query for file upload
+	const uploadMutation = `
+        mutation uploadSbom($doc: Upload!, $projectId: ID!) {
+            sbomUpload(input: { doc: $doc, projectId: $projectId }) {
+                errors
+            }
+        }
+    `
+
+	// Prepare multipart form data
+	body, writer, err := c.prepareMultipartForm(filePath, uploadMutation)
 	if err != nil {
-		return fmt.Errorf("marshaling map: %w", err)
+		return nil, err
 	}
 
-	// Create multipart form
+	// Create request with context
+	req, err := http.NewRequestWithContext(ctx, "POST", c.apiURL, body)
+	if err != nil {
+		return nil, fmt.Errorf("creating request: %w", err)
+	}
+
+	// Set headers
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.token))
+	req.Header.Set("User-Agent", "sbommv/1.0")
+	req.Header.Set("Accept", "application/json")
+
+	return req, nil
+}
+
+func (c *Client) prepareMultipartForm(filePath, query string) (*bytes.Buffer, *multipart.Writer, error) {
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
 
 	// Add operations
-	if err := writer.WriteField("operations", string(operationsJSON)); err != nil {
-		return fmt.Errorf("writing operations field: %w", err)
+	operations := map[string]interface{}{
+		"query": strings.TrimSpace(strings.ReplaceAll(query, "\n", " ")),
+		"variables": map[string]interface{}{
+			"projectId": c.projectID,
+			"doc":       nil,
+		},
+	}
+
+	if err := writeJSONField(writer, "operations", operations); err != nil {
+		return nil, nil, err
 	}
 
 	// Add map
-	if err := writer.WriteField("map", string(mapJSON)); err != nil {
-		return fmt.Errorf("writing map field: %w", err)
+	if err := writeJSONField(writer, "map", map[string][]string{
+		"0": {"variables.doc"},
+	}); err != nil {
+		return nil, nil, err
 	}
 
 	// Add file
+	if err := c.attachFile(writer, filePath); err != nil {
+		return nil, nil, err
+	}
+
+	if err := writer.Close(); err != nil {
+		return nil, nil, fmt.Errorf("closing multipart writer: %w", err)
+	}
+
+	return &body, writer, nil
+}
+
+func writeJSONField(writer *multipart.Writer, fieldName string, data interface{}) error {
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		return fmt.Errorf("marshaling %s: %w", fieldName, err)
+	}
+
+	if err := writer.WriteField(fieldName, string(jsonData)); err != nil {
+		return fmt.Errorf("writing %s field: %w", fieldName, err)
+	}
+	return nil
+}
+
+func (c *Client) attachFile(writer *multipart.Writer, filePath string) error {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return fmt.Errorf("opening file: %w", err)
+	}
+	defer file.Close()
+
 	part, err := writer.CreateFormFile("0", filepath.Base(filePath))
 	if err != nil {
 		return fmt.Errorf("creating form file: %w", err)
@@ -122,46 +190,46 @@ func (c *Client) UploadSBOM(ctx context.Context, filePath string) error {
 		return fmt.Errorf("copying file content: %w", err)
 	}
 
-	if err := writer.Close(); err != nil {
-		return fmt.Errorf("closing multipart writer: %w", err)
-	}
+	return nil
+}
 
-	// Create request
-	req, err := http.NewRequestWithContext(ctx, "POST", c.apiURL, &body)
-	if err != nil {
-		return fmt.Errorf("creating request: %w", err)
-	}
-
-	req.Header.Set("Content-Type", writer.FormDataContentType())
-	req.Header.Set("Authorization", "Bearer "+c.token)
-
-	// Send request
+func (c *Client) executeUploadRequest(ctx context.Context, req *http.Request) error {
 	resp, err := c.client.Do(req)
 	if err != nil {
 		return fmt.Errorf("sending request: %w", err)
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("upload failed with status %d: %s", resp.StatusCode, string(body))
+	// Read response body
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("reading response: %w", err)
 	}
 
 	// Parse response
-	var result struct {
+	var response struct {
 		Data struct {
 			SBOMUpload struct {
 				Errors []string `json:"errors"`
 			} `json:"sbomUpload"`
 		} `json:"data"`
+		Errors []struct {
+			Message string `json:"message"`
+		} `json:"errors"`
 	}
 
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return fmt.Errorf("decoding response: %w", err)
+	if err := json.Unmarshal(body, &response); err != nil {
+		return fmt.Errorf("parsing response: %w", err)
 	}
 
-	if len(result.Data.SBOMUpload.Errors) > 0 {
-		return fmt.Errorf("upload failed: %v", result.Data.SBOMUpload.Errors)
+	// Check for GraphQL errors
+	if len(response.Errors) > 0 {
+		return fmt.Errorf("GraphQL error: %s", response.Errors[0].Message)
+	}
+
+	// Check for upload errors
+	if len(response.Data.SBOMUpload.Errors) > 0 {
+		return fmt.Errorf("upload failed: %s", response.Data.SBOMUpload.Errors[0])
 	}
 
 	return nil

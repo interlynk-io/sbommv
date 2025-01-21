@@ -11,6 +11,7 @@ import (
 	"github.com/interlynk-io/sbommv/pkg/logger"
 	"github.com/interlynk-io/sbommv/pkg/source/github"
 	"github.com/interlynk-io/sbommv/pkg/target/interlynk"
+	"github.com/interlynk-io/sbommv/pkg/utils"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -87,11 +88,25 @@ func transferSBOM(cmd *cobra.Command, args []string) error {
 	logger.LogDebug(ctx, "Transfer command constructed successfully", "command", cfg)
 
 	outPutDir := "allSboms"
+	jsonDir := "allSboms/json"
+
 	// Download the SBOM
 	allSBOMs, err := github.DownloadSBOM(ctx, cfg.FromURL, outPutDir)
 	if err != nil {
 		logger.LogError(ctx, err, "Failed to fetch SBOM")
 		return err
+	}
+
+	// Convert all SBOMs to JSON format
+	var jsonSBOMs []string
+	for _, sbomPath := range allSBOMs {
+		jsonPath, err := utils.ConvertToJSON(sbomPath, jsonDir)
+		if err != nil {
+			logger.LogError(ctx, err, "Failed to convert SBOM to JSON")
+			continue
+		}
+		jsonSBOMs = append(jsonSBOMs, jsonPath)
+		logger.LogInfo(ctx, "Converted SBOM to JSON", "original", sbomPath, "json", jsonPath)
 	}
 
 	// Initialize Interlynk client
@@ -103,12 +118,12 @@ func transferSBOM(cmd *cobra.Command, args []string) error {
 	// Initialize upload service
 	uploadService := interlynk.NewUploadService(client, interlynk.UploadOptions{
 		MaxAttempts:   3,
-		MaxConcurrent: 2,
+		MaxConcurrent: 1,
 		RetryDelay:    time.Second,
 	})
 
 	// Upload SBOMs
-	results := uploadService.UploadSBOMs(ctx, allSBOMs)
+	results := uploadService.UploadSBOMs(ctx, jsonSBOMs)
 
 	// Log results
 	for _, result := range results {
@@ -119,8 +134,14 @@ func transferSBOM(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// Placeholder for actual transfer logic
-	logger.LogInfo(ctx, "Starting SBOM transfer...")
+	// Delete the "allSBOMs" folder
+	if err := os.RemoveAll(outPutDir); err != nil {
+		logger.LogError(ctx, err, "Failed to delete the directory")
+		return fmt.Errorf("failed to delete directory %s: %w", outPutDir, err)
+	}
+
+	logger.LogInfo(ctx, "Successfully deleted the directory", "directory", outPutDir)
+
 	return nil
 }
 
@@ -143,7 +164,7 @@ func parseTransferConfig(ctx context.Context, cmd *cobra.Command) (*TransferCmd,
 	// Parse required flags
 	fromURL, _ := cmd.Flags().GetString("from-url")
 	toURL, _ := cmd.Flags().GetString("to-url")
-	projectID, _ := cmd.Flags().GetString("project-id")
+	projectID, _ := cmd.Flags().GetString("interlynk-project-id")
 
 	// Validate URLs
 	if err := validateURLs(fromURL, toURL); err != nil {
@@ -174,14 +195,9 @@ func validateURLs(fromURL, toURL string) error {
 	}
 
 	// Validate target URL
-	targetURL, err := url.Parse(toURL)
+	_, err := url.Parse(toURL)
 	if err != nil {
 		return fmt.Errorf("invalid target URL: %w", err)
-	}
-
-	// Ensure target URL uses HTTPS
-	if targetURL.Scheme != "https" {
-		return fmt.Errorf("target URL must use HTTPS")
 	}
 
 	return nil
