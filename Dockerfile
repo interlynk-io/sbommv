@@ -23,7 +23,4 @@ LABEL org.opencontainers.image.licenses=Apache-2.0
 
 COPY --from=builder /app/sbommv /app/sbommv
 
-# Disable version check
-ENV INTERLYNK_DISABLE_VERSION_CHECK=true
-
 ENTRYPOINT ["/app/sbommv"]
