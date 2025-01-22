@@ -10,16 +10,20 @@ In server mode the expectation is to have a server running that can periodically
 
 
 ## Usage
+
 Security tokens for all systems would need to be provided via ENV variables.
 
-### Create/Move SBOM from github repo to a specified project in interlynk free tier  
+### Create/Move SBOM from github repo to a specified project in interlynk free tier
+
 sbommv from-url=<repo-url> to-url=<interlynk-url> interlynk-project-id=<project-id> 
 e.g. sbommv from-url=github.com/interlynk-io/sbomqs to-url=https://api.interlynk.io/lynkapi --interlynk-project-id=1234 
 
-### Create/Move sboms from all github repos in the organization to Interlynk, auto create outgoing projects on interlynk.
+### Create/Move sboms from all github repos in the organization to Interlynk, auto create outgoing projects on interlynk
+
 sbommv from-url=<repo-url> to-url=<interlynk-url> interlynk-project-id=<project-id> 
-e.g. sbommv from-url=github.com/interlynk-io to-url=https://api.interlynk.io/lynkapi --auto-create-outgoing-projects 
+e.g. sbommv from-url=github.com/interlynk-io to-url=https://api.interlynk.io/lynkapi --auto-create-outgoing-projects
 
 ### Create/Move SBOM from github repo to a specified project in interlynk free tier using cdxgen
+
 sbommv from-url=<repo-url> to-url=<interlynk-url> interlynk-project-id=<project-id> 
 e.g. sbommv from-url=github.com/interlynk-io/sbomqs to-url=https://api.interlynk.io/lynkapi --interlynk-project-id=1234  --gen-sbom-using=cdxgen
