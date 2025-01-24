@@ -32,17 +32,17 @@ type S3Adapter struct {
 }
 
 // NewS3Adapter creates a new S3 adapter
-func NewS3Adapter(bucket, prefix string, opts InputOptions) (*S3Adapter, error) {
+func NewS3Adapter(adpConfig AdapterConfig) (*S3Adapter, error) {
 	cfg, err := config.LoadDefaultConfig(context.Background())
 	if err != nil {
 		return nil, fmt.Errorf("failed to load AWS config: %w", err)
 	}
 
 	return &S3Adapter{
-		bucket:  bucket,
-		prefix:  prefix,
+		bucket:  adpConfig.Bucket,
+		prefix:  adpConfig.Prefix,
 		client:  s3.NewFromConfig(cfg),
-		options: opts,
+		options: adpConfig.InputOptions,
 	}, nil
 }
 

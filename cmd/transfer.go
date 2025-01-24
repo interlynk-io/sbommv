@@ -118,14 +118,14 @@ func transferSBOM(cmd *cobra.Command, args []string) error {
 
 		logger.LogInfo(ctx, "adapter mode", "value", cfg.Adapter)
 
-		sourceType, err := adapter.DetectSourceType(adpCfg.URL)
+		sourceType, err := utils.DetectSourceType(adpCfg.URL)
 		if err != nil {
 			return fmt.Errorf("input URL is invalid source type")
 		}
 
 		logger.LogInfo(ctx, "input adapter", "source", sourceType)
 
-		sourceAdapter, err := adapter.NewAdapter(string(sourceType), adpCfg)
+		sourceAdapter, err := adapter.NewSourceAdapter(sourceType, adpCfg)
 		if err != nil {
 			return fmt.Errorf("Failed to get an Adapter")
 		}
@@ -208,8 +208,8 @@ func validateToken(token string) error {
 	return nil
 }
 
-func parseAdapterConfig(cfg *TransferCmd) (adapter.AdapterConfig, error) {
-	adpCfg := adapter.AdapterConfig{}
+func parseAdapterConfig(cfg *TransferCmd) (source.AdapterConfig, error) {
+	adpCfg := source.AdapterConfig{}
 	adpCfg.URL = cfg.FromURL
 	adpCfg.APIKey = cfg.Token
 	if cfg.SbomTool == "" {

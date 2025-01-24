@@ -30,16 +30,16 @@ type FileAdapter struct {
 }
 
 // NewFileAdapter creates a new file-based adapter
-func NewFileAdapter(path string, opts InputOptions) (*FileAdapter, error) {
-	info, err := os.Stat(path)
+func NewFileAdapter(config AdapterConfig) (*FileAdapter, error) {
+	info, err := os.Stat(config.Path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to stat path: %w", err)
 	}
 
 	return &FileAdapter{
-		path:    path,
+		path:    config.Path,
 		isDir:   info.IsDir(),
-		options: opts,
+		options: config.InputOptions,
 	}, nil
 }
 

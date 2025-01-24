@@ -31,17 +31,17 @@ type InterlynkAdapter struct {
 }
 
 // NewInterlynkAdapter creates a new Interlynk adapter
-func NewInterlynkAdapter(projectID, baseURL, apiKey string, opts InputOptions) *InterlynkAdapter {
-	if baseURL == "" {
-		baseURL = "https://api.interlynk.io" // default URL
+func NewInterlynkAdapter(config AdapterConfig) *InterlynkAdapter {
+	if config.BaseURL == "" {
+		config.BaseURL = "https://api.interlynk.io" // default URL
 	}
 
 	return &InterlynkAdapter{
-		projectID: projectID,
-		baseURL:   baseURL,
-		apiKey:    apiKey,
+		projectID: config.ProjectID,
+		baseURL:   config.BaseURL,
+		apiKey:    config.APIKey,
 		client:    &http.Client{},
-		options:   opts,
+		options:   config.InputOptions,
 	}
 }
 

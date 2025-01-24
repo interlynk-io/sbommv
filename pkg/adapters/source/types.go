@@ -58,3 +58,28 @@ type InputOptions struct {
 	// ExcludeFormats specifies which SBOM formats to exclude
 	ExcludeFormats []SBOMFormat
 }
+
+// AdapterConfig holds configuration for all adapter types.
+// Fields are optional depending on the adapter type being created.
+type AdapterConfig struct {
+	// Common options
+	Path         string
+	InputOptions InputOptions
+	Recursive    bool // For folder adapter
+
+	// GitHub specific
+	URL string
+	// Owner  string
+	// Repo   string
+	// Token  string
+	Method GitHubMethod
+
+	// S3 specific
+	Bucket string
+	Prefix string
+
+	// Interlynk specific
+	ProjectID string
+	BaseURL   string
+	APIKey    string
+}

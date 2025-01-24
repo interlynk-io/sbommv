@@ -30,24 +30,24 @@ type FolderAdapter struct {
 }
 
 // NewFolderAdapter creates a new folder-based adapter with concurrent processing
-func NewFolderAdapter(root string, recursive bool, opts InputOptions) (*FolderAdapter, error) {
-	info, err := os.Stat(root)
+func NewFolderAdapter(config AdapterConfig) (*FolderAdapter, error) {
+	info, err := os.Stat(config.Path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to stat folder: %w", err)
 	}
 	if !info.IsDir() {
-		return nil, fmt.Errorf("path %s is not a directory", root)
+		return nil, fmt.Errorf("path %s is not a directory", config.Path)
 	}
 
 	// Set reasonable default for concurrent operations
-	if opts.MaxConcurrent <= 0 {
-		opts.MaxConcurrent = 5
+	if config.InputOptions.MaxConcurrent <= 0 {
+		config.InputOptions.MaxConcurrent = 5
 	}
 
 	return &FolderAdapter{
-		root:      root,
-		options:   opts,
-		recursive: recursive,
+		root:      config.Path,
+		options:   config.InputOptions,
+		recursive: config.Recursive,
 	}, nil
 }
 

@@ -45,13 +45,13 @@ const (
 )
 
 // NewGitHubAdapter creates a new GitHub adapter
-func NewGitHubAdapter(URL string, method GitHubMethod, opts InputOptions) *GitHubAdapter {
+func NewGitHubAdapter(config AdapterConfig) *GitHubAdapter {
 	return &GitHubAdapter{
-		URL: URL,
+		URL: config.URL,
 		// token:   token,
-		method:  method,
+		method:  config.Method,
 		client:  &http.Client{},
-		options: opts,
+		options: config.InputOptions,
 	}
 }
 
