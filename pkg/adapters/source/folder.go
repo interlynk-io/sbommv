@@ -52,7 +52,7 @@ func NewFolderAdapter(root string, recursive bool, opts InputOptions) (*FolderAd
 }
 
 // GetSBOMs implements InputAdapter for FolderAdapter
-func (a *FolderAdapter) GetSBOMs(ctx context.Context) ([]SBOM, error) {
+func (a *FolderAdapter) GetSBOMs(ctx context.Context) ([]string, error) {
 	// TODO: Implement Interlynk API integration
 	return nil, fmt.Errorf("not implemented")
 }

@@ -46,7 +46,7 @@ func NewInterlynkAdapter(projectID, baseURL, apiKey string, opts InputOptions) *
 }
 
 // GetSBOMs implements InputAdapter
-func (a *InterlynkAdapter) GetSBOMs(ctx context.Context) ([]SBOM, error) {
+func (a *InterlynkAdapter) GetSBOMs(ctx context.Context) ([]string, error) {
 	// TODO: Implement Interlynk API integration
 	return nil, fmt.Errorf("not implemented")
 }

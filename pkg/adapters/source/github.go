@@ -19,36 +19,36 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+
+	"github.com/interlynk-io/sbommv/pkg/logger"
+	"github.com/interlynk-io/sbommv/pkg/source/github"
 )
 
 // GitHubAdapter implements InputAdapter for GitHub repositories
 type GitHubAdapter struct {
-	owner   string
-	repo    string
-	token   string
+	URL string
+	// repo    string
+	// token   string
 	method  GitHubMethod
 	client  *http.Client
 	options InputOptions
 }
 
 // GitHubMethod specifies how to retrieve/generate SBOMs from GitHub
-type GitHubMethod int
+type GitHubMethod string
 
 const (
 	// MethodReleases searches for SBOMs in GitHub releases
-	MethodReleases GitHubMethod = iota
-	// MethodAPI uses GitHub's SBOM API
-	MethodAPI
-	// MethodGenerate clones the repo and generates SBOMs
-	MethodGenerate
+	MethodReleases GitHubMethod = "release"
+	// MethodGenerate clones the repo and generates SBOMs using external Tools
+	MethodGenerate GitHubMethod = "generate"
 )
 
 // NewGitHubAdapter creates a new GitHub adapter
-func NewGitHubAdapter(owner, repo, token string, method GitHubMethod, opts InputOptions) *GitHubAdapter {
+func NewGitHubAdapter(URL string, method GitHubMethod, opts InputOptions) *GitHubAdapter {
 	return &GitHubAdapter{
-		owner:   owner,
-		repo:    repo,
-		token:   token,
+		URL: URL,
+		// token:   token,
 		method:  method,
 		client:  &http.Client{},
 		options: opts,
@@ -56,30 +56,29 @@ func NewGitHubAdapter(owner, repo, token string, method GitHubMethod, opts Input
 }
 
 // GetSBOMs implements InputAdapter
-func (a *GitHubAdapter) GetSBOMs(ctx context.Context) ([]SBOM, error) {
+func (a *GitHubAdapter) GetSBOMs(ctx context.Context) ([]string, error) {
 	switch a.method {
 	case MethodReleases:
+		logger.LogInfo(ctx, "Get SBOMs from Release Page", "method", MethodReleases)
 		return a.getSBOMsFromReleases(ctx)
-	case MethodAPI:
-		return a.getSBOMsFromAPI(ctx)
 	case MethodGenerate:
+		logger.LogInfo(ctx, "Get SBOMs from tools", "method", MethodGenerate)
 		return a.generateSBOMs(ctx)
 	default:
 		return nil, fmt.Errorf("unsupported GitHub method: %v", a.method)
 	}
 }
 
-func (a *GitHubAdapter) getSBOMsFromReleases(ctx context.Context) ([]SBOM, error) {
-	// TODO: Implement searching releases for SBOM files
-	return nil, fmt.Errorf("not implemented")
+func (a *GitHubAdapter) getSBOMsFromReleases(ctx context.Context) ([]string, error) {
+	sboms, err := github.GetSBOMs(ctx, a.URL, "sboms")
+	if err != nil {
+		return nil, err
+	}
+
+	return sboms, nil
 }
 
-func (a *GitHubAdapter) getSBOMsFromAPI(ctx context.Context) ([]SBOM, error) {
-	// TODO: Implement GitHub API SBOM retrieval
-	return nil, fmt.Errorf("not implemented")
-}
-
-func (a *GitHubAdapter) generateSBOMs(ctx context.Context) ([]SBOM, error) {
+func (a *GitHubAdapter) generateSBOMs(ctx context.Context) ([]string, error) {
 	// TODO: Implement SBOM generation using tools like cdxgen
 	return nil, fmt.Errorf("not implemented")
 }

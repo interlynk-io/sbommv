@@ -35,20 +35,18 @@ const (
 type InputSource string
 
 const (
-	SourceGithub    InputSource = "github"
-	SourceFolder    InputSource = "folder"
-	SourceFile      InputSource = "file"
-	SourceS3        InputSource = "s3"
-	SourceInterlynk InputSource = "interlynk"
+	SourceGithub          InputSource = "github"
+	SourceFolder          InputSource = "folder"
+	SourceFile            InputSource = "file"
+	SourceS3              InputSource = "s3"
+	SourceInterlynk       InputSource = "interlynk"
+	SourceDependencyTrack InputSource = "dTrack"
 )
 
 // Input Adapter defines the interface that all SBOM input adapters must implement
 type InputAdapter interface {
 	// GetSBOMs retrieves all SBOMs from the source
-	GetSBOMs(ctx context.Context) ([]SBOM, error)
-
-	// Name returns the adapter's name/type
-	// Name() string
+	GetSBOMs(ctx context.Context) ([]string, error)
 }
 
 // InputOptions contains common configuration options for input adapters

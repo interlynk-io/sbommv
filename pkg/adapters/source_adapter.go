@@ -30,9 +30,10 @@ type AdapterConfig struct {
 	Recursive    bool // For folder adapter
 
 	// GitHub specific
-	Owner  string
-	Repo   string
-	Token  string
+	URL string
+	// Owner  string
+	// Repo   string
+	// Token  string
 	Method source.GitHubMethod
 
 	// S3 specific
@@ -57,13 +58,11 @@ func NewAdapter(sourceType string, config AdapterConfig) (source.InputAdapter, e
 		return source.NewFolderAdapter(config.Path, config.Recursive, config.InputOptions)
 
 	case string(source.SourceGithub):
-		if config.Owner == "" || config.Repo == "" {
-			return nil, fmt.Errorf("GitHub adapter requires owner and repo")
+		if config.URL == "" {
+			return nil, fmt.Errorf("GitHub adapter requires URL of repo")
 		}
 		return source.NewGitHubAdapter(
-			config.Owner,
-			config.Repo,
-			config.Token,
+			config.URL,
 			config.Method,
 			config.InputOptions,
 		), nil

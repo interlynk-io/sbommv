@@ -3,7 +3,7 @@
 ## Why sbommv need Adapters ?
 
 - In the sbommv project, we aim to design and implement a robust system of input adapters to handle the retrieval or generation of SBOMs from diverse sources. These sources are:
-  - GitHub (by scanning releases, utilizing GitHub APIs, or generating SBOMs using tools like cdxgen), 
+  - GitHub (by scanning releases, utilizing GitHub APIs, or generating SBOMs using tools like cdxgen),
   - local folders containing SBOM files,
   - individual SBOM files,
   - AWS S3 buckets,
@@ -40,7 +40,6 @@ type InputAdapter interface {
  GetSBOMs(ctx context.Context) ([]SBOM, error)
 }
 ```
-
 
 ## Examples of Input Adapters
 
