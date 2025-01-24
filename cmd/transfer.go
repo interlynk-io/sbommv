@@ -22,6 +22,9 @@ import (
 	"strings"
 	"time"
 
+	adapter "github.com/interlynk-io/sbommv/pkg/adapters"
+	source "github.com/interlynk-io/sbommv/pkg/adapters/source"
+
 	"github.com/interlynk-io/sbommv/pkg/logger"
 	"github.com/interlynk-io/sbommv/pkg/source/github"
 	"github.com/interlynk-io/sbommv/pkg/target/interlynk"
@@ -37,6 +40,7 @@ type TransferCmd struct {
 	SbomTool  string
 	Debug     bool
 	Token     string
+	Adapter   bool
 }
 
 var transferCmd = &cobra.Command{
@@ -66,6 +70,7 @@ func init() {
 
 	// Optional
 	transferCmd.Flags().StringP("gen-sbom-using", "s", "", "Tool for generating SBOM (e.g., cdxgen)")
+	transferCmd.Flags().BoolP("adapter", "a", false, "adapter method")
 
 	transferCmd.Flags().BoolP("debug", "D", false, "Enable debug logging")
 }
@@ -88,6 +93,11 @@ func transferSBOM(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("invalid configuration: %w", err)
 	}
 
+	adpCfg, err := parseAdapterConfig(cfg)
+	if err != nil {
+		logger.LogError(ctx, nil, "Failed to construct adapter config")
+	}
+
 	if cfg == nil {
 		logger.LogError(ctx, nil, "Failed to construct TransferCmd")
 		os.Exit(1)
@@ -103,13 +113,40 @@ func transferSBOM(cmd *cobra.Command, args []string) error {
 
 	outPutDir := "allSboms"
 	jsonDir := "allSboms/json"
+	var allSBOMs []string
+	if cfg.Adapter {
 
-	// Download the SBOM
-	allSBOMs, err := github.DownloadSBOM(ctx, cfg.FromURL, outPutDir)
-	if err != nil {
-		logger.LogError(ctx, err, "Failed to fetch SBOM")
-		return err
+		logger.LogInfo(ctx, "adapter mode", "value", cfg.Adapter)
+
+		sourceType, err := utils.DetectSourceType(adpCfg.URL)
+		if err != nil {
+			return fmt.Errorf("input URL is invalid source type")
+		}
+
+		logger.LogInfo(ctx, "input adapter", "source", sourceType)
+
+		sourceAdapter, err := adapter.NewSourceAdapter(sourceType, adpCfg)
+		if err != nil {
+			return fmt.Errorf("Failed to get an Adapter")
+		}
+
+		allSBOMs, err = sourceAdapter.GetSBOMs(ctx)
+		if err != nil {
+			return fmt.Errorf("Failed to get SBOMs...")
+		}
+
+	} else {
+
+		logger.LogInfo(ctx, "adapter mode", "value", cfg.Adapter)
+
+		// Download the SBOM
+		allSBOMs, err = github.GetSBOMs(ctx, cfg.FromURL, outPutDir)
+		if err != nil {
+			logger.LogError(ctx, err, "Failed to fetch SBOM")
+			return err
+		}
 	}
+	logger.LogInfo(ctx, "All retieved SBOMs from source", "sboms", allSBOMs)
 
 	// Convert all SBOMs to JSON format
 	var jsonSBOMs []string
@@ -153,7 +190,6 @@ func transferSBOM(cmd *cobra.Command, args []string) error {
 		logger.LogError(ctx, err, "Failed to delete the directory")
 		return fmt.Errorf("failed to delete directory %s: %w", outPutDir, err)
 	}
-
 	logger.LogInfo(ctx, "Successfully deleted the directory", "directory", outPutDir)
 
 	return nil
@@ -172,6 +208,18 @@ func validateToken(token string) error {
 	return nil
 }
 
+func parseAdapterConfig(cfg *TransferCmd) (source.AdapterConfig, error) {
+	adpCfg := source.AdapterConfig{}
+	adpCfg.URL = cfg.FromURL
+	adpCfg.APIKey = cfg.Token
+	if cfg.SbomTool == "" {
+		adpCfg.Method = source.MethodReleases
+	} else {
+		adpCfg.Method = source.MethodGenerate
+	}
+	return adpCfg, nil
+}
+
 func parseTransferConfig(ctx context.Context, cmd *cobra.Command) (*TransferCmd, error) {
 	cfg := &TransferCmd{}
 
@@ -179,6 +227,8 @@ func parseTransferConfig(ctx context.Context, cmd *cobra.Command) (*TransferCmd,
 	fromURL, _ := cmd.Flags().GetString("from-url")
 	toURL, _ := cmd.Flags().GetString("to-url")
 	projectID, _ := cmd.Flags().GetString("interlynk-project-id")
+
+	adapter, _ := cmd.Flags().GetBool("adapter")
 
 	// Validate URLs
 	if err := validateURLs(fromURL, toURL); err != nil {
@@ -189,6 +239,8 @@ func parseTransferConfig(ctx context.Context, cmd *cobra.Command) (*TransferCmd,
 	cfg.FromURL = fromURL
 	cfg.ToURL = toURL
 	cfg.ProjectID = projectID
+	cfg.Adapter = adapter
+	fmt.Println("cfg.Adapter: ", cfg.Adapter)
 
 	// Parse optional flags
 	cfg.SbomTool, _ = cmd.Flags().GetString("gen-sbom-using")

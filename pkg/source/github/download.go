@@ -23,8 +23,14 @@ import (
 	"sync"
 )
 
+// Create a worker pool for concurrent downloads
+type downloadWork struct {
+	sbom   SBOMAsset
+	output string
+}
+
 // DownloadSBOM downloads and saves all SBOM files found in the repository
-func DownloadSBOM(ctx context.Context, url, outputDir string) ([]string, error) {
+func GetSBOMs(ctx context.Context, url, outputDir string) ([]string, error) {
 	scanner := NewScanner()
 
 	// Find SBOMs in releases
@@ -44,12 +50,6 @@ func DownloadSBOM(ctx context.Context, url, outputDir string) ([]string, error) 
 		if err := os.MkdirAll(outputDir, 0o755); err != nil {
 			return nil, fmt.Errorf("creating output directory: %w", err)
 		}
-	}
-
-	// Create a worker pool for concurrent downloads
-	type downloadWork struct {
-		sbom   SBOMAsset
-		output string
 	}
 
 	numWorkers := 3 // Configure number of concurrent downloads
