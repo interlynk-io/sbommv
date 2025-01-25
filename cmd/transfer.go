@@ -17,7 +17,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -49,8 +48,15 @@ var transferCmd = &cobra.Command{
 	Long: `Transfer SBOMs from a source system (e.g., GitHub) to a target system (e.g., Interlynk).
 	
 Example usage:
-	sbommv transfer --from-url=<source-url> --to-url=<target-url> --interlynk-project-id=<project-id>
+	# transfer SBOMs from github to interlynk
 	sbommv transfer --from-url=github.com/org/repo --to-url=https://api.interlynk.io --interlynk-project-id=1234 --gen-sbom-using=cdxgen
+	
+	# transfer SBOMs from local folder to interlynk
+	sbommv transfer --from-url=/sboms-dir --to-url=https://api.interlynk.io --interlynk-project-id=1234
+
+	# transfer single SBOM file from local to interlynk
+	sbommv transfer --from-url=sboms.json --to-url=https://api.interlynk.io --interlynk-project-id=1234
+
 	`,
 	Args: cobra.NoArgs,
 	RunE: transferSBOM,
@@ -112,7 +118,6 @@ func transferSBOM(cmd *cobra.Command, args []string) error {
 	logger.LogDebug(ctx, "Transfer command constructed successfully", "command", cfg)
 
 	outPutDir := "allSboms"
-	jsonDir := "allSboms/json"
 	var allSBOMs []string
 	if cfg.Adapter {
 
@@ -148,18 +153,6 @@ func transferSBOM(cmd *cobra.Command, args []string) error {
 	}
 	logger.LogInfo(ctx, "All retieved SBOMs from source", "sboms", allSBOMs)
 
-	// Convert all SBOMs to JSON format
-	var jsonSBOMs []string
-	for _, sbomPath := range allSBOMs {
-		jsonPath, err := utils.ConvertToJSON(sbomPath, jsonDir)
-		if err != nil {
-			logger.LogError(ctx, err, "Failed to convert SBOM to JSON")
-			continue
-		}
-		jsonSBOMs = append(jsonSBOMs, jsonPath)
-		logger.LogInfo(ctx, "Converted SBOM to JSON", "original", sbomPath, "json", jsonPath)
-	}
-
 	// Initialize Interlynk client
 	client := interlynk.NewClient(interlynk.Config{
 		Token:     cfg.Token,
@@ -174,16 +167,19 @@ func transferSBOM(cmd *cobra.Command, args []string) error {
 	})
 
 	// Upload SBOMs
-	results := uploadService.UploadSBOMs(ctx, jsonSBOMs)
+	results := uploadService.UploadSBOMs(ctx, allSBOMs)
 
-	// Log results
+	noOfSuccessfullyUploadedFile := 0
 	for _, result := range results {
 		if result.Error != nil {
-			logger.LogError(ctx, result.Error, "Failed to upload SBOM")
+			logger.LogInfo(ctx, "Failed to upload SBOM", "path", result.Path)
+			continue
 		} else {
+			noOfSuccessfullyUploadedFile++
 			logger.LogInfo(ctx, "SBOM uploaded successfully", "file", result.Path)
 		}
 	}
+	logger.LogInfo(ctx, "SBOM uploaded successfully", "total", noOfSuccessfullyUploadedFile)
 
 	// Delete the "allSBOMs" folder
 	if err := os.RemoveAll(outPutDir); err != nil {
@@ -211,7 +207,13 @@ func validateToken(token string) error {
 func parseAdapterConfig(cfg *TransferCmd) (source.AdapterConfig, error) {
 	adpCfg := source.AdapterConfig{}
 	adpCfg.URL = cfg.FromURL
+
+	// in case of file or folder, the source URL could be path
+	adpCfg.Path = cfg.FromURL
 	adpCfg.APIKey = cfg.Token
+
+	// by default recurssive is false
+	adpCfg.Recursive = false
 	if cfg.SbomTool == "" {
 		adpCfg.Method = source.MethodReleases
 	} else {
@@ -231,7 +233,7 @@ func parseTransferConfig(ctx context.Context, cmd *cobra.Command) (*TransferCmd,
 	adapter, _ := cmd.Flags().GetBool("adapter")
 
 	// Validate URLs
-	if err := validateURLs(fromURL, toURL); err != nil {
+	if err := utils.ValidateURLs(fromURL, toURL); err != nil {
 		logger.LogError(ctx, err, "Error validating URLs")
 		return nil, err
 	}
@@ -240,7 +242,6 @@ func parseTransferConfig(ctx context.Context, cmd *cobra.Command) (*TransferCmd,
 	cfg.ToURL = toURL
 	cfg.ProjectID = projectID
 	cfg.Adapter = adapter
-	fmt.Println("cfg.Adapter: ", cfg.Adapter)
 
 	// Parse optional flags
 	cfg.SbomTool, _ = cmd.Flags().GetString("gen-sbom-using")
@@ -252,19 +253,4 @@ func parseTransferConfig(ctx context.Context, cmd *cobra.Command) (*TransferCmd,
 	logger.LogDebug(ctx, "Parsed TransferCmd successfully", "from-url", cfg.FromURL, "to-url", cfg.ToURL, "project-id", cfg.ProjectID)
 
 	return cfg, nil
-}
-
-func validateURLs(fromURL, toURL string) error {
-	// Validate source URL
-	if _, err := url.Parse(fromURL); err != nil {
-		return fmt.Errorf("invalid source URL: %w", err)
-	}
-
-	// Validate target URL
-	_, err := url.Parse(toURL)
-	if err != nil {
-		return fmt.Errorf("invalid target URL: %w", err)
-	}
-
-	return nil
 }
