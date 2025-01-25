@@ -16,33 +16,42 @@ package utils
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 )
 
-// convertToJSON converts SBOM content to JSON format and saves with .json extension
+// ConvertToJSON converts SBOM content to JSON format if needed and saves with .json extension.
+// It only converts SPDX files and removes the original file after conversion.
+// For JSON and YAML files, it preserves them as-is.
 func ConvertToJSON(inputPath, outputDir string) (string, error) {
-	// Read input file
-	content, err := os.ReadFile(inputPath)
-	if err != nil {
-		return "", fmt.Errorf("reading file: %w", err)
+	// Check file extension
+	ext := strings.ToLower(filepath.Ext(inputPath))
+
+	// Skip JSON and YAML files
+	if ext == ".json" || ext == ".yaml" || ext == ".yml" {
+		// For these formats, just copy the file to output directory
+		return inputPath, nil
 	}
 
-	// Unmarshal to ensure valid JSON or convert to JSON
-	var data interface{}
-	if err := json.Unmarshal(content, &data); err != nil {
-		// If not valid JSON, use jq for conversion
-		output, err := executeJQConversion(inputPath)
-		if err != nil {
-			return "", fmt.Errorf("converting to JSON using jq: %w", err)
-		}
-		data = output
+	// Only convert SPDX files
+	if ext != ".spdx" {
+		// For non-SPDX files, just copy to output directory
+		return copyFile(inputPath, outputDir)
+	}
+
+	// Try to convert using jq
+	output, err := executeJQConversion(inputPath)
+	if err != nil {
+		return "", fmt.Errorf("converting to JSON using jq: %w", err)
 	}
 
 	// Create output filename with .json extension
-	outputPath := filepath.Join(outputDir, filepath.Base(inputPath)+".json")
+	baseName := strings.TrimSuffix(filepath.Base(inputPath), ext)
+	outputPath := filepath.Join(outputDir, baseName+".spdx.json")
 
 	// Create output directory if it doesn't exist
 	if err := os.MkdirAll(outputDir, 0o755); err != nil {
@@ -50,7 +59,7 @@ func ConvertToJSON(inputPath, outputDir string) (string, error) {
 	}
 
 	// Marshal to JSON with indentation
-	jsonBytes, err := json.MarshalIndent(data, "", "  ")
+	jsonBytes, err := json.MarshalIndent(output, "", "  ")
 	if err != nil {
 		return "", fmt.Errorf("marshaling to JSON: %w", err)
 	}
@@ -58,6 +67,11 @@ func ConvertToJSON(inputPath, outputDir string) (string, error) {
 	// Write to file
 	if err := os.WriteFile(outputPath, jsonBytes, 0o644); err != nil {
 		return "", fmt.Errorf("writing output file: %w", err)
+	}
+
+	// Remove the original file after successful conversion
+	if err := os.Remove(inputPath); err != nil {
+		return "", fmt.Errorf("removing original file: %w", err)
 	}
 
 	return outputPath, nil
@@ -68,7 +82,11 @@ func executeJQConversion(inputPath string) (interface{}, error) {
 	cmd := exec.Command("jq", ".", inputPath)
 	output, err := cmd.Output()
 	if err != nil {
-		return nil, err
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			return nil, fmt.Errorf("jq conversion failed: %s", exitErr.Stderr)
+		}
+		return nil, fmt.Errorf("running jq: %w", err)
 	}
 
 	var data interface{}
@@ -77,4 +95,28 @@ func executeJQConversion(inputPath string) (interface{}, error) {
 	}
 
 	return data, nil
+}
+
+// copyFile copies a file to the output directory preserving its extension
+func copyFile(inputPath, outputDir string) (string, error) {
+	// Read input file
+	content, err := os.ReadFile(inputPath)
+	if err != nil {
+		return "", fmt.Errorf("reading file: %w", err)
+	}
+
+	// Create output path preserving original filename
+	outputPath := filepath.Join(outputDir, filepath.Base(inputPath))
+
+	// Create output directory if it doesn't exist
+	if err := os.MkdirAll(outputDir, 0o755); err != nil {
+		return "", fmt.Errorf("creating output directory: %w", err)
+	}
+
+	// Write to output file
+	if err := os.WriteFile(outputPath, content, 0o644); err != nil {
+		return "", fmt.Errorf("writing output file: %w", err)
+	}
+
+	return outputPath, nil
 }

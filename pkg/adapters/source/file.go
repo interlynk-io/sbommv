@@ -45,17 +45,29 @@ func NewFileAdapter(config AdapterConfig) (*FileAdapter, error) {
 
 // GetSBOMs implements InputAdapter
 func (a *FileAdapter) GetSBOMs(ctx context.Context) ([]string, error) {
-	// TODO: Implement Interlynk API integration
-	return nil, fmt.Errorf("not implemented")
+	if !a.isDir {
+		// For single file, just read and return it
+		_, err := os.ReadFile(a.path)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read file: %w", err)
+		}
+
+		return []string{a.path}, nil
+	}
+
+	return nil, fmt.Errorf("FileAdapter cannot process directories, use FolderAdapter instead")
+}
+
+func (a *FileAdapter) readSBOMFile(path string) (string, error) {
+	_, err := os.ReadFile(path)
+	if err != nil {
+		return "", fmt.Errorf("failed to read file: %w", err)
+	}
+	return path, nil
 }
 
 func isSBOMFile(name string) bool {
 	// TODO: Implement better SBOM file detection
 	ext := filepath.Ext(name)
 	return ext == ".json" || ext == ".xml" || ext == ".spdx" || ext == ".cdx"
-}
-
-func detectSBOMFormat(content []byte) SBOMFormat {
-	// TODO: Implement format detection based on content
-	return FormatUnknown
 }

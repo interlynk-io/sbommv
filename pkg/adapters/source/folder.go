@@ -19,6 +19,8 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
+	"sync"
 )
 
 // FolderAdapter implements InputAdapter specifically for directory sources
@@ -51,8 +53,76 @@ func NewFolderAdapter(config AdapterConfig) (*FolderAdapter, error) {
 	}, nil
 }
 
-// GetSBOMs implements InputAdapter for FolderAdapter
+// FolderAdapter implements GetSBOMs. Therefore  FolderAdapter implements for InputAdapter
 func (a *FolderAdapter) GetSBOMs(ctx context.Context) ([]string, error) {
-	// TODO: Implement Interlynk API integration
-	return nil, fmt.Errorf("not implemented")
+	// Channel for sending file paths
+	found := make(chan string)
+
+	// Channel for errors during walking
+	walkErrs := make(chan error, 1)
+
+	// Final results slice
+	var paths []string
+
+	// Mutex for thread-safe appending to paths
+	var mu sync.Mutex
+
+	// Start file discovery in a separate goroutine
+	go func() {
+		defer close(found)
+		defer close(walkErrs)
+
+		walkFn := func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			default:
+				if info.IsDir() {
+					if !a.recursive && path != a.root {
+						return filepath.SkipDir
+					}
+					return nil
+				}
+
+				if isSBOMFile(info.Name()) {
+					select {
+					case found <- path:
+					case <-ctx.Done():
+						return ctx.Err()
+					}
+				}
+				return nil
+			}
+		}
+
+		if err := filepath.Walk(a.root, walkFn); err != nil {
+			walkErrs <- err
+		}
+	}()
+
+	// Collect results
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+
+		case err := <-walkErrs:
+			if err != nil {
+				return nil, fmt.Errorf("error walking directory: %w", err)
+			}
+
+		case path, ok := <-found:
+			if !ok {
+				// Channel closed, all paths collected
+				return paths, nil
+			}
+			mu.Lock()
+			paths = append(paths, path)
+			mu.Unlock()
+		}
+	}
 }
