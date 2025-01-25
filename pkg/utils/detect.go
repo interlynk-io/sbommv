@@ -28,7 +28,6 @@ func DetectSourceType(urlStr string) (source.InputSource, error) {
 	// Check if it's a valid URL
 	u, err := url.Parse(urlStr)
 	if err != nil || u.Scheme == "" {
-		// If not a URL, check if it's a local file or directory
 		return DetectLocalSourceType(urlStr), nil
 	}
 
@@ -39,7 +38,7 @@ func DetectSourceType(urlStr string) (source.InputSource, error) {
 	case strings.Contains(host, "github.com"):
 		return source.SourceGithub, nil
 
-	case strings.Contains(host, "interlynk.io") || strings.Contains(urlStr, "lynapi"):
+	case strings.Contains(host, "interlynk.io") || strings.Contains(urlStr, "lynkapi"):
 		return source.SourceInterlynk, nil
 
 	case strings.Contains(host, "dependencytrack.com"):
