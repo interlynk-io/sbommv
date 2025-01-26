@@ -55,7 +55,7 @@ func NewGitHubAdapter(config AdapterConfig) *GitHubAdapter {
 	}
 }
 
-// GetSBOMs implements InputAdapter
+// GitHubAdapter implements GetSBOMs. Therefore implements InputAdapter
 func (a *GitHubAdapter) GetSBOMs(ctx context.Context) ([]string, error) {
 	switch a.method {
 	case MethodReleases:

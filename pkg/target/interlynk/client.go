@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+// -------------------------------------------------------------------------
 
 package interlynk
 
@@ -90,6 +91,10 @@ func NewClient(config Config) *Client {
 
 // UploadSBOM uploads a single SBOM file to Interlynk
 func (c *Client) UploadSBOM(ctx context.Context, filePath string) error {
+	// create new client
+	// initiate upload service
+	// and then upload SBOMs
+
 	// Validate file existence and size
 	fileInfo, err := os.Stat(filePath)
 	if err != nil {
