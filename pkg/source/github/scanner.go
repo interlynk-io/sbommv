@@ -49,7 +49,7 @@ func (s *SBOMScanner) FindSBOMs(ctx context.Context, url, version string) ([]SBO
 		return nil, fmt.Errorf("parsing GitHub URL: %w", err)
 	}
 
-	logger.LogInfo(ctx, "Parsed github URL values", "url", url, "owner ", owner, "repo", repo)
+	logger.LogDebug(ctx, "Parsed github URL values", "url", url, "owner ", owner, "repo", repo)
 
 	releases, err := s.client.GetReleases(ctx, owner, repo)
 	if err != nil {

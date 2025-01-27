@@ -73,9 +73,9 @@ func (a *InterlynkAdapter) UploadSBOMs(ctx context.Context, sboms []string) erro
 	// Log results
 	for _, result := range results {
 		if result.Error != nil {
-			logger.LogInfo(ctx, "Failed to upload SBOMs", "response", result.Error)
+			logger.LogDebug(ctx, "Failed to upload SBOMs", "response", result.Error)
 		} else {
-			logger.LogInfo(ctx, "SBOM uploaded successfully", "file", result.Path)
+			logger.LogDebug(ctx, "SBOM uploaded successfully", "file", result.Path)
 		}
 	}
 	return nil

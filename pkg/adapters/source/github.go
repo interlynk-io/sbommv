@@ -65,10 +65,10 @@ func NewGitHubAdapter(config mvtypes.Config) *GitHubAdapter {
 func (a *GitHubAdapter) GetSBOMs(ctx context.Context) ([]string, error) {
 	switch a.method {
 	case MethodReleases:
-		logger.LogInfo(ctx, "Get SBOMs from Release Page", "method", MethodReleases)
+		logger.LogDebug(ctx, "Get SBOMs from Release Page", "method", MethodReleases)
 		return a.getSBOMsFromReleases(ctx)
 	case MethodGenerate:
-		logger.LogInfo(ctx, "Get SBOMs from tools", "method", MethodGenerate)
+		logger.LogDebug(ctx, "Get SBOMs from tools", "method", MethodGenerate)
 		return a.generateSBOMs(ctx)
 	default:
 		return nil, fmt.Errorf("unsupported GitHub method: %v", a.method)

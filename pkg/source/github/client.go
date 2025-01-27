@@ -56,7 +56,7 @@ func NewClient() *Client {
 func (c *Client) GetReleases(ctx context.Context, owner, repo string) ([]Release, error) {
 	// url := fmt.Sprintf("https://github.com/%s/%s/releases", owner, repo)
 	url := fmt.Sprintf("%s/repos/%s/%s/releases", c.baseURL, owner, repo)
-	logger.LogInfo(ctx, "Fetching GitHub Releases", "url", url)
+	logger.LogDebug(ctx, "Fetching GitHub Releases", "url", url)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
@@ -70,7 +70,7 @@ func (c *Client) GetReleases(ctx context.Context, owner, repo string) ([]Release
 		return nil, fmt.Errorf("executing request: %w", err)
 	}
 	defer resp.Body.Close()
-	logger.LogInfo(ctx, "Response ", "body", resp.Body)
+	logger.LogDebug(ctx, "Response ", "body", resp.Body)
 
 	// Read response body for error reporting
 	body, err := io.ReadAll(resp.Body)

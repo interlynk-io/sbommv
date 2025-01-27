@@ -21,6 +21,8 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+
+	"github.com/interlynk-io/sbommv/pkg/logger"
 )
 
 // Create a worker pool for concurrent downloads
@@ -43,7 +45,7 @@ func GetSBOMs(ctx context.Context, url, version, outputDir string) ([]string, er
 		return nil, fmt.Errorf("no SBOMs found in repository")
 	}
 
-	fmt.Printf("Found %d SBOM(s) in latest release %s\n", len(sboms), sboms[0].Release)
+	logger.LogDebug(ctx, "Total SBOMs found in the release", "version", version, "total sboms", len(sboms))
 
 	// Create output directory if specified and doesn't exist
 	if outputDir != "" {
@@ -99,7 +101,8 @@ func GetSBOMs(ctx context.Context, url, version, outputDir string) ([]string, er
 				reader.Close()
 
 				if work.output != "" {
-					fmt.Printf("Downloaded %s to %s\n", work.sbom.Name, work.output)
+					logger.LogDebug(ctx, "SBOM file", "name", work.sbom.Name, "saved to ", work.output)
+					// fmt.Printf("Downloaded %s to %s\n", work.sbom.Name, work.output)
 				}
 			}
 		}()

@@ -16,8 +16,18 @@
 package mvtypes
 
 type Config struct {
-	SourceType         string
-	DestinationType    string
-	SourceConfigs      map[string]interface{}
+	// source adapter type
+	SourceType string
+
+	// destination adapter type
+	DestinationType string
+
+	// source adapter related all parameters
+	SourceConfigs map[string]interface{}
+
+	// destination adapter related all parameters
 	DestinationConfigs map[string]interface{}
+
+	// dry run mode
+	DryRun bool
 }

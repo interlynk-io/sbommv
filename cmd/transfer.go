@@ -30,18 +30,6 @@ import (
 	"github.com/spf13/viper"
 )
 
-type TransferCmd struct {
-	FromURL   string
-	ToURL     string
-	ProjectID string
-	SbomTool  string
-	Debug     bool
-	Token     string
-
-	InputAdapter   string
-	OutputAdataper string
-}
-
 var transferCmd = &cobra.Command{
 	Use:   "transfer",
 	Short: "Transfer SBOMs between systems",
@@ -72,6 +60,8 @@ func init() {
 	transferCmd.Flags().String("output-adapter", "", "Output adapter type (interlynk, dtrack)")
 	transferCmd.MarkFlagRequired("output-adapter")
 
+	transferCmd.Flags().BoolP("dry-run", "", false, "enable dry run mode")
+
 	transferCmd.Flags().BoolP("debug", "D", false, "Enable debug logging")
 }
 
@@ -93,6 +83,8 @@ func transferSBOM(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("invalid configuration: %w", err)
 	}
 
+	logger.LogDebug(ctx, "dry run mode", "value", config.DryRun)
+
 	if config.DestinationConfigs == nil || config.SourceConfigs == nil {
 		logger.LogError(ctx, nil, "Failed to construct config")
 		os.Exit(1)
@@ -109,7 +101,7 @@ func transferSBOM(cmd *cobra.Command, args []string) error {
 		logger.LogError(ctx, err, "Failed to delete the directory")
 		return fmt.Errorf("failed to delete directory %s: %w", "sboms", err)
 	}
-	logger.LogInfo(ctx, "Successfully deleted the directory", "directory", "sboms")
+	logger.LogDebug(ctx, "Successfully deleted the directory", "directory", "sboms")
 
 	return nil
 }
@@ -117,12 +109,14 @@ func transferSBOM(cmd *cobra.Command, args []string) error {
 func parseAdaptersConfig(cmd *cobra.Command) (mvtypes.Config, error) {
 	inputType, _ := cmd.Flags().GetString("input-adapter")
 	outputType, _ := cmd.Flags().GetString("output-adapter")
+	dr, _ := cmd.Flags().GetBool("dry-run")
 
 	config := mvtypes.Config{
 		SourceType:         inputType,
 		DestinationType:    outputType,
 		SourceConfigs:      map[string]interface{}{},
 		DestinationConfigs: map[string]interface{}{},
+		DryRun:             dr,
 	}
 
 	// Parse input adapter configuration
