@@ -19,6 +19,8 @@ import (
 	"context"
 	"fmt"
 	"os"
+
+	"github.com/interlynk-io/sbommv/pkg/mvtypes"
 )
 
 // FolderAdapter implements InputAdapter specifically for directory sources
@@ -30,24 +32,25 @@ type FolderAdapter struct {
 }
 
 // NewFolderAdapter creates a new folder-based adapter with concurrent processing
-func NewFolderAdapter(config AdapterConfig) (*FolderAdapter, error) {
-	info, err := os.Stat(config.Path)
+func NewFolderAdapter(config mvtypes.Config) (*FolderAdapter, error) {
+	path := config.SourceConfigs["url"].(string)
+	info, err := os.Stat(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to stat folder: %w", err)
 	}
 	if !info.IsDir() {
-		return nil, fmt.Errorf("path %s is not a directory", config.Path)
+		return nil, fmt.Errorf("path %s is not a directory", path)
 	}
 
-	// Set reasonable default for concurrent operations
-	if config.InputOptions.MaxConcurrent <= 0 {
-		config.InputOptions.MaxConcurrent = 5
-	}
+	// // Set reasonable default for concurrent operations
+	// if config.InputOptions.MaxConcurrent <= 0 {
+	// 	config.InputOptions.MaxConcurrent = 5
+	// }
 
 	return &FolderAdapter{
-		root:      config.Path,
-		options:   config.InputOptions,
-		recursive: config.Recursive,
+		root: path,
+		// options:   config.InputOptions,
+		recursive: false,
 	}, nil
 }
 

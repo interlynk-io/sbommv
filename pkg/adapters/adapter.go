@@ -20,13 +20,14 @@ import (
 
 	"github.com/interlynk-io/sbommv/pkg/adapters/dest"
 	"github.com/interlynk-io/sbommv/pkg/adapters/source"
+	"github.com/interlynk-io/sbommv/pkg/mvtypes"
 )
 
 // NewSourceAdapter creates an appropriate adapter for the given source type.
 // It returns an error if the source type is not supported or if required
 // configuration is missing.
-func NewSourceAdapter(sourceType source.InputSource, config source.AdapterConfig) (source.InputAdapter, error) {
-	switch sourceType {
+func NewSourceAdapter(config mvtypes.Config) (source.InputAdapter, error) {
+	switch source.InputType(config.SourceType) {
 
 	case source.SourceFile:
 		return source.NewFileAdapter(config)
@@ -44,15 +45,15 @@ func NewSourceAdapter(sourceType source.InputSource, config source.AdapterConfig
 		return source.NewInterlynkAdapter(config), nil
 
 	default:
-		return nil, fmt.Errorf("unsupported input source type: %s", sourceType)
+		return nil, fmt.Errorf("unsupported input source type: %s", string(config.SourceType))
 	}
 }
 
 // TODO: func NewDestAdapter()
 
 // NewOutputAdapter creates an appropriate output adapter for the given type
-func NewDestAdapter(outputType dest.OutputType, config dest.AdapterConfig) (dest.OutputAdapter, error) {
-	switch outputType {
+func NewDestAdapter(config mvtypes.Config) (dest.OutputAdapter, error) {
+	switch dest.OutputType(config.DestinationType) {
 	case dest.DestInterlynk:
 		return dest.NewInterlynkAdapter(config), nil
 		// if config.ProjectID == "" {
@@ -71,6 +72,6 @@ func NewDestAdapter(outputType dest.OutputType, config dest.AdapterConfig) (dest
 	// 	), nil
 
 	default:
-		return nil, fmt.Errorf("unsupported output type: %s", outputType)
+		return nil, fmt.Errorf("unsupported output type: %s", string(config.DestinationType))
 	}
 }

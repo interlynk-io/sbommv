@@ -25,7 +25,7 @@ import (
 )
 
 // DetectSourceType determines the InputSource type based on the provided URL or path.
-func DetectSourceType(urlStr string) (source.InputSource, error) {
+func DetectSourceType(urlStr string) (source.InputType, error) {
 	// Check if it's a valid URL
 	u, err := url.Parse(urlStr)
 	if err != nil || u.Scheme == "" {
@@ -54,7 +54,7 @@ func DetectSourceType(urlStr string) (source.InputSource, error) {
 }
 
 // DetectLocalSourceType determines if a local path is a file or directory
-func DetectLocalSourceType(path string) source.InputSource {
+func DetectLocalSourceType(path string) source.InputType {
 	info, err := os.Stat(path)
 	if err != nil {
 		return ""

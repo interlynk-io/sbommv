@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/interlynk-io/sbommv/pkg/logger"
+	"github.com/interlynk-io/sbommv/pkg/mvtypes"
 	"github.com/interlynk-io/sbommv/pkg/target/interlynk"
 )
 
@@ -34,17 +35,20 @@ type InterlynkAdapter struct {
 }
 
 // NewInterlynkAdapter creates a new Interlynk adapter
-func NewInterlynkAdapter(config AdapterConfig) *InterlynkAdapter {
-	if config.BaseURL == "" {
-		config.BaseURL = "https://api.interlynk.io" // default URL
-	}
+func NewInterlynkAdapter(config mvtypes.Config) *InterlynkAdapter {
+	url := config.DestinationConfigs["url"].(string)
+	projectID := config.DestinationConfigs["projectID"].(string)
+	token := config.DestinationConfigs["token"].(string)
+	// if config.BaseURL == "" {
+	// 	config.BaseURL = "https://api.interlynk.io" // default URL
+	// }
 
 	return &InterlynkAdapter{
-		projectID: config.ProjectID,
-		baseURL:   config.BaseURL,
-		apiKey:    config.APIKey,
+		projectID: projectID,
+		baseURL:   url,
+		apiKey:    token,
 		client:    &http.Client{},
-		options:   config.OutputOptions,
+		// options:   config.OutputOptions,
 	}
 }
 
