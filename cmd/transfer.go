@@ -47,8 +47,9 @@ var transferCmd = &cobra.Command{
 	Long: `Transfer SBOMs from a source system (e.g., GitHub) to a target system (e.g., Interlynk).
 	
 Example usage:
-	sbommv transfer --from-url=<source-url> --to-url=<target-url> --interlynk-project-id=<project-id>
-	sbommv transfer --from-url=github.com/org/repo --to-url=https://api.interlynk.io --interlynk-project-id=1234 --gen-sbom-using=cdxgen
+	
+	# transfer all SBOMs from cosign release page to interlynk platform to a provided project ID
+	sbommv transfer -D  --input-adapter=github  --in-github-url="https://github.com/sigstore/cosign" --output-adapter=interlynk  --out-dtrack-url="https://localhost:3000/lynkapi" --out-interlynk-project-id=014eda95-5ac6-4bd8-a24d-014217f0b873
 	`,
 	Args: cobra.NoArgs,
 	RunE: transferSBOM,
