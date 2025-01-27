@@ -21,6 +21,7 @@ import (
 	"net/http"
 
 	"github.com/interlynk-io/sbommv/pkg/logger"
+	"github.com/interlynk-io/sbommv/pkg/mvtypes"
 	"github.com/interlynk-io/sbommv/pkg/source/github"
 )
 
@@ -45,13 +46,16 @@ const (
 )
 
 // NewGitHubAdapter creates a new GitHub adapter
-func NewGitHubAdapter(config AdapterConfig) *GitHubAdapter {
+func NewGitHubAdapter(config mvtypes.Config) *GitHubAdapter {
+	url := config.SourceConfigs["url"].(string)
+	method := config.SourceConfigs["method"].(string)
+
 	return &GitHubAdapter{
-		URL: config.URL,
+		URL: url,
 		// token:   token,
-		method:  config.Method,
-		client:  &http.Client{},
-		options: config.InputOptions,
+		method: GitHubMethod(method),
+		client: &http.Client{},
+		// options: config.InputOptions,
 	}
 }
 

@@ -19,8 +19,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/interlynk-io/sbommv/pkg/mvtypes"
 )
 
 // S3Adapter implements InputAdapter for AWS S3 buckets
@@ -32,17 +32,20 @@ type S3Adapter struct {
 }
 
 // NewS3Adapter creates a new S3 adapter
-func NewS3Adapter(adpConfig AdapterConfig) (*S3Adapter, error) {
-	cfg, err := config.LoadDefaultConfig(context.Background())
-	if err != nil {
-		return nil, fmt.Errorf("failed to load AWS config: %w", err)
-	}
+func NewS3Adapter(config mvtypes.Config) (*S3Adapter, error) {
+	// cfg, err := config.LoadDefaultConfig(context.Background())
+	// if err != nil {
+	// 	return nil, fmt.Errorf("failed to load AWS config: %w", err)
+	// }
+
+	bucket := config.SourceConfigs["bucket"].(string)
+	prefix := config.SourceConfigs["bucket"].(string)
 
 	return &S3Adapter{
-		bucket:  adpConfig.Bucket,
-		prefix:  adpConfig.Prefix,
-		client:  s3.NewFromConfig(cfg),
-		options: adpConfig.InputOptions,
+		bucket: bucket,
+		prefix: prefix,
+		// client:  s3.NewFromConfig(cfg),
+		// options: adpConfig.InputOptions,
 	}, nil
 }
 

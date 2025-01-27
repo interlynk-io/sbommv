@@ -17,13 +17,12 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"net/url"
 	"os"
-	"strings"
 
 	"github.com/interlynk-io/sbommv/pkg/adapters/dest"
 	source "github.com/interlynk-io/sbommv/pkg/adapters/source"
 	"github.com/interlynk-io/sbommv/pkg/engine"
+	"github.com/interlynk-io/sbommv/pkg/mvtypes"
 
 	"github.com/interlynk-io/sbommv/pkg/logger"
 	"github.com/spf13/cobra"
@@ -37,6 +36,9 @@ type TransferCmd struct {
 	SbomTool  string
 	Debug     bool
 	Token     string
+
+	InputAdapter   string
+	OutputAdataper string
 }
 
 var transferCmd = &cobra.Command{
@@ -54,18 +56,16 @@ Example usage:
 
 func init() {
 	rootCmd.AddCommand(transferCmd)
+	setInputAdapterDynamicFlags(transferCmd)
+	setOutputAdapterDynamicFlags(transferCmd)
 
-	transferCmd.Flags().StringP("from-url", "f", "", "Source URL (e.g., GitHub repo or org)")
-	transferCmd.MarkFlagRequired("from-url")
+	// Input adapter flags
+	transferCmd.Flags().String("input-adapter", "", "Input adapter type (github, s3, file, folder, interlynk)")
+	transferCmd.MarkFlagRequired("input-adapter")
 
-	transferCmd.Flags().StringP("to-url", "t", "", "Target URL (e.g., Interlynk API endpoint)")
-	transferCmd.MarkFlagRequired("to-url")
-
-	transferCmd.Flags().StringP("interlynk-project-id", "p", "", "Project ID in Interlynk")
-	transferCmd.MarkFlagRequired("interlynk-project-id")
-
-	// Optional
-	transferCmd.Flags().StringP("gen-sbom-using", "s", "", "Tool for generating SBOM (e.g., cdxgen)")
+	// Output adapter flags
+	transferCmd.Flags().String("output-adapter", "", "Output adapter type (interlynk, dtrack)")
+	transferCmd.MarkFlagRequired("output-adapter")
 
 	transferCmd.Flags().BoolP("debug", "D", false, "Enable debug logging")
 }
@@ -83,30 +83,18 @@ func transferSBOM(cmd *cobra.Command, args []string) error {
 
 	viper.AutomaticEnv()
 
-	cfg, err := parseTransferConfig(ctx, cmd)
+	config, err := parseAdaptersConfig(cmd)
 	if err != nil {
 		return fmt.Errorf("invalid configuration: %w", err)
 	}
 
-	sourceAdpCfg, destAdpCfg, err := parseAdapterConfig(cfg)
-	if err != nil {
-		logger.LogError(ctx, nil, "Failed to construct adapter config")
-	}
-
-	if cfg == nil {
-		logger.LogError(ctx, nil, "Failed to construct TransferCmd")
+	if config.DestinationConfigs == nil || config.SourceConfigs == nil {
+		logger.LogError(ctx, nil, "Failed to construct config")
 		os.Exit(1)
 	}
 
-	// Validate authentication token
-	if err := validateToken(cfg.Token); err != nil {
-		logger.LogError(ctx, nil, "Missing or invalid token. Please set the INTERLYNK_API_TOKEN variable")
-		return fmt.Errorf(" missing or invalid: %w", err)
-	}
-	logger.LogDebug(ctx, "Transfer command constructed successfully", "command", cfg)
-
 	// execute core engine operation
-	err = engine.TransferRun(ctx, sourceAdpCfg, destAdpCfg)
+	err = engine.TransferRun(ctx, config)
 	if err != nil {
 		return fmt.Errorf("Failed to process engine for transfer cmd %v", err)
 	}
@@ -121,79 +109,153 @@ func transferSBOM(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func validateToken(token string) error {
-	if token == "" {
-		return fmt.Errorf("INTERLYNK_API_TOKEN environment variable is not set")
+func parseAdaptersConfig(cmd *cobra.Command) (mvtypes.Config, error) {
+	inputType, _ := cmd.Flags().GetString("input-adapter")
+	outputType, _ := cmd.Flags().GetString("output-adapter")
+
+	config := mvtypes.Config{
+		SourceType:         inputType,
+		DestinationType:    outputType,
+		SourceConfigs:      map[string]interface{}{},
+		DestinationConfigs: map[string]interface{}{},
 	}
-	if !strings.HasPrefix(token, "lynk_") {
-		return fmt.Errorf("invalid token format - must start with 'lynk_'")
+
+	// Parse input adapter configuration
+	switch source.InputType(inputType) {
+
+	case source.SourceGithub:
+		url, err := cmd.Flags().GetString("in-github-url")
+		if err != nil || url == "" {
+			return config, fmt.Errorf("missing or invalid flag: : in-github-url")
+		}
+		config.SourceConfigs["url"] = url
+
+		// in-github-method
+		method, err := cmd.Flags().GetString("in-github-method")
+		if err != nil || url == "" {
+			return config, fmt.Errorf("missing or invalid flag: in-github-method")
+		}
+		config.SourceConfigs["method"] = method
+
+	case source.SourceDependencyTrack:
+		url, err := cmd.Flags().GetString("in-dtrack-url")
+		if err != nil || url == "" {
+			return config, fmt.Errorf("missing or invalid flag: in-dtrack-url")
+		}
+
+		projectID, err := cmd.Flags().GetString("in-dtrack-project-id")
+		if err != nil || projectID == "" {
+			return config, fmt.Errorf("missing or invalid flag: in-dtrack-project-id")
+		}
+
+		// Get token from environment
+		token := viper.GetString("DTRACK_API_TOKEN")
+
+		config.SourceConfigs["url"] = url
+		config.SourceConfigs["token"] = token
+		config.SourceConfigs["projectID"] = projectID
+
+	default:
+		return config, fmt.Errorf("unsupported input adapter: %s", inputType)
 	}
-	if len(token) < 32 {
-		return fmt.Errorf("token is too short - must be at least 32 characters")
+
+	// Parse output adapter configuration
+	switch dest.OutputType(outputType) {
+
+	case dest.DestInterlynk:
+		url, err := cmd.Flags().GetString("out-interlynk-url")
+		if err != nil || url == "" {
+			return config, fmt.Errorf("missing or invalid flag: out-interlynk-url")
+		}
+
+		projectID, err := cmd.Flags().GetString("out-interlynk-project-id")
+		if err != nil || projectID == "" {
+			return config, fmt.Errorf("missing or invalid flag: out-interlynk-project-id")
+		}
+		// Get token from environment
+		token := viper.GetString("INTERLYNK_API_TOKEN")
+
+		config.DestinationConfigs["url"] = url
+		config.DestinationConfigs["token"] = token
+		config.DestinationConfigs["projectID"] = projectID
+
+	case dest.DestDependencyTrack:
+		url, err := cmd.Flags().GetString("out-dtrack-url")
+		if err != nil || url == "" {
+			return config, fmt.Errorf("missing or invalid flag: out-dtrack-url")
+		}
+
+		projectID, err := cmd.Flags().GetString("out-dtrack-project-id")
+		if err != nil || projectID == "" {
+			return config, fmt.Errorf("missing or invalid flag: out-dtrack-project-id")
+		}
+
+		// Get token from environment
+		token := viper.GetString("DTRACK_API_TOKEN")
+
+		config.DestinationConfigs["url"] = url
+		config.DestinationConfigs["token"] = token
+		config.DestinationConfigs["projectID"] = projectID
+
+	default:
+		return config, fmt.Errorf("unsupported output adapter: %s", outputType)
 	}
-	return nil
+
+	return config, nil
 }
 
-func parseAdapterConfig(cfg *TransferCmd) (source.AdapterConfig, dest.AdapterConfig, error) {
-	sourceAdpCfg := source.AdapterConfig{}
-	destAdpConfig := dest.AdapterConfig{}
-
-	sourceAdpCfg.URL = cfg.FromURL
-
-	destAdpConfig.BaseURL = cfg.ToURL
-	destAdpConfig.APIKey = cfg.Token
-	destAdpConfig.ProjectID = cfg.ProjectID
-
-	sourceAdpCfg.APIKey = cfg.Token
-	if cfg.SbomTool == "" {
-		sourceAdpCfg.Method = source.MethodReleases
-	} else {
-		sourceAdpCfg.Method = source.MethodGenerate
+func setInputAdapterDynamicFlags(transferCmd *cobra.Command) {
+	// Define input adapters and their flags with specific descriptions and default values
+	inputAdapters := map[source.InputType]map[string]struct {
+		Usage   string
+		Default string
+	}{
+		source.SourceGithub: {
+			"in-github-url":    {"URL for input adapter github", ""},
+			"in-github-method": {"Method for input adapter github", "release"},
+		},
+		source.SourceS3: {
+			"in-s3-bucket": {"Bucket name for input adapter s3", ""},
+			"in-s3-region": {"Region for input adapter s3", ""},
+		},
+		source.SourceDependencyTrack: {
+			"in-dtrack-url":        {"URL for input adapter dtrack", ""},
+			"in-dtrack-project-id": {"Project ID for input adapter dtrack", ""},
+		},
+		source.SourceInterlynk: {
+			"in-interlynk-url":        {"URL for input adapter interlynk", ""},
+			"in-interlynk-project-id": {"Project ID for input adapter interlynk", ""},
+		},
 	}
-	return sourceAdpCfg, destAdpConfig, nil
+
+	// Dynamically register input adapter flags with default values
+	for _, flags := range inputAdapters {
+		for flag, meta := range flags {
+			transferCmd.Flags().String(flag, meta.Default, meta.Usage)
+		}
+	}
 }
 
-func parseTransferConfig(ctx context.Context, cmd *cobra.Command) (*TransferCmd, error) {
-	cfg := &TransferCmd{}
-
-	// Parse required flags
-	fromURL, _ := cmd.Flags().GetString("from-url")
-	toURL, _ := cmd.Flags().GetString("to-url")
-	projectID, _ := cmd.Flags().GetString("interlynk-project-id")
-
-	// Validate URLs
-	if err := validateURLs(fromURL, toURL); err != nil {
-		logger.LogError(ctx, err, "Error validating URLs")
-		return nil, err
+func setOutputAdapterDynamicFlags(transferCmd *cobra.Command) {
+	// Define output adapters and their flags with specific descriptions and default values
+	outputAdapters := map[dest.OutputType]map[string]struct {
+		Usage   string
+		Default string
+	}{
+		dest.DestInterlynk: {
+			"out-interlynk-url":        {"URL for output adapter interlynk", "https://api.interlynk.io/lynkapi"},
+			"out-interlynk-project-id": {"Project ID for output adapter interlynk", ""},
+		},
+		dest.DestDependencyTrack: {
+			"out-dtrack-url":        {"URL for output adapter dtrack", ""},
+			"out-dtrack-project-id": {"Project ID for output adapter dtrack", ""},
+		},
 	}
 
-	cfg.FromURL = fromURL
-	cfg.ToURL = toURL
-	cfg.ProjectID = projectID
-
-	// Parse optional flags
-	cfg.SbomTool, _ = cmd.Flags().GetString("gen-sbom-using")
-	cfg.Debug, _ = cmd.Flags().GetBool("debug")
-
-	// Get token from environment
-	cfg.Token = viper.GetString("INTERLYNK_API_TOKEN")
-
-	logger.LogDebug(ctx, "Parsed TransferCmd successfully", "from-url", cfg.FromURL, "to-url", cfg.ToURL, "project-id", cfg.ProjectID)
-
-	return cfg, nil
-}
-
-func validateURLs(fromURL, toURL string) error {
-	// Validate source URL
-	if _, err := url.Parse(fromURL); err != nil {
-		return fmt.Errorf("invalid source URL: %w", err)
+	// Dynamically register output adapter flags with default values
+	for _, flags := range outputAdapters {
+		for flag, meta := range flags {
+			transferCmd.Flags().String(flag, meta.Default, meta.Usage)
+		}
 	}
-
-	// Validate target URL
-	_, err := url.Parse(toURL)
-	if err != nil {
-		return fmt.Errorf("invalid target URL: %w", err)
-	}
-
-	return nil
 }

@@ -21,7 +21,7 @@ type SBOM struct {
 	Content    []byte
 	Format     SBOMFormat
 	Source     string
-	SourceType InputSource
+	SourceType InputType
 }
 
 type SBOMFormat string
@@ -32,15 +32,15 @@ const (
 	FormatUnknown   SBOMFormat = "unknown"
 )
 
-type InputSource string
+type InputType string
 
 const (
-	SourceGithub          InputSource = "github"
-	SourceFolder          InputSource = "folder"
-	SourceFile            InputSource = "file"
-	SourceS3              InputSource = "s3"
-	SourceInterlynk       InputSource = "interlynk"
-	SourceDependencyTrack InputSource = "dTrack"
+	SourceGithub          InputType = "github"
+	SourceFolder          InputType = "folder"
+	SourceFile            InputType = "file"
+	SourceS3              InputType = "s3"
+	SourceInterlynk       InputType = "interlynk"
+	SourceDependencyTrack InputType = "dTrack"
 )
 
 // Input Adapter defines the interface that all SBOM input adapters must implement
