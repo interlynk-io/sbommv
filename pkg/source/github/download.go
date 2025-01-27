@@ -30,11 +30,11 @@ type downloadWork struct {
 }
 
 // DownloadSBOM downloads and saves all SBOM files found in the repository
-func GetSBOMs(ctx context.Context, url, outputDir string) ([]string, error) {
+func GetSBOMs(ctx context.Context, url, version, outputDir string) ([]string, error) {
 	scanner := NewScanner()
 
 	// Find SBOMs in releases
-	sboms, err := scanner.FindSBOMs(ctx, url)
+	sboms, err := scanner.FindSBOMs(ctx, url, version)
 	if err != nil {
 		return nil, fmt.Errorf("finding SBOMs: %w", err)
 	}
