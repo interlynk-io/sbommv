@@ -27,7 +27,8 @@ import (
 
 // GitHubAdapter implements InputAdapter for GitHub repositories
 type GitHubAdapter struct {
-	URL string
+	URL     string
+	Version string
 	// repo    string
 	// token   string
 	method  GitHubMethod
@@ -48,13 +49,14 @@ const (
 // NewGitHubAdapter creates a new GitHub adapter
 func NewGitHubAdapter(config mvtypes.Config) *GitHubAdapter {
 	url := config.SourceConfigs["url"].(string)
+	version := config.SourceConfigs["version"].(string)
 	method := config.SourceConfigs["method"].(string)
 
 	return &GitHubAdapter{
-		URL: url,
-		// token:   token,
-		method: GitHubMethod(method),
-		client: &http.Client{},
+		URL:     url,
+		Version: version,
+		method:  GitHubMethod(method),
+		client:  &http.Client{},
 		// options: config.InputOptions,
 	}
 }
@@ -63,10 +65,10 @@ func NewGitHubAdapter(config mvtypes.Config) *GitHubAdapter {
 func (a *GitHubAdapter) GetSBOMs(ctx context.Context) ([]string, error) {
 	switch a.method {
 	case MethodReleases:
-		logger.LogInfo(ctx, "Get SBOMs from Release Page", "method", MethodReleases)
+		logger.LogDebug(ctx, "Get SBOMs from Release Page", "method", MethodReleases)
 		return a.getSBOMsFromReleases(ctx)
 	case MethodGenerate:
-		logger.LogInfo(ctx, "Get SBOMs from tools", "method", MethodGenerate)
+		logger.LogDebug(ctx, "Get SBOMs from tools", "method", MethodGenerate)
 		return a.generateSBOMs(ctx)
 	default:
 		return nil, fmt.Errorf("unsupported GitHub method: %v", a.method)
@@ -74,7 +76,7 @@ func (a *GitHubAdapter) GetSBOMs(ctx context.Context) ([]string, error) {
 }
 
 func (a *GitHubAdapter) getSBOMsFromReleases(ctx context.Context) ([]string, error) {
-	sboms, err := github.GetSBOMs(ctx, a.URL, "sboms")
+	sboms, err := github.GetSBOMs(ctx, a.URL, a.Version, "sboms")
 	if err != nil {
 		return nil, err
 	}

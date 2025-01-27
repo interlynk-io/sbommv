@@ -43,13 +43,13 @@ func NewScanner() *SBOMScanner {
 }
 
 // FindSBOMs scans a repository's releases for SBOM files
-func (s *SBOMScanner) FindSBOMs(ctx context.Context, url string) ([]SBOMAsset, error) {
+func (s *SBOMScanner) FindSBOMs(ctx context.Context, url, version string) ([]SBOMAsset, error) {
 	owner, repo, err := ParseGitHubURL(url)
 	if err != nil {
 		return nil, fmt.Errorf("parsing GitHub URL: %w", err)
 	}
 
-	logger.LogInfo(ctx, "Parsed github URL values", "url", url, "owner ", owner, "repo", repo)
+	logger.LogDebug(ctx, "Parsed github URL values", "url", url, "owner ", owner, "repo", repo)
 
 	releases, err := s.client.GetReleases(ctx, owner, repo)
 	if err != nil {
@@ -61,14 +61,32 @@ func (s *SBOMScanner) FindSBOMs(ctx context.Context, url string) ([]SBOMAsset, e
 	}
 
 	// Get latest release (first in the list as GitHub returns them in descending order)
-	latestRelease := releases[0]
+	// latestRelease := releases[0]
+
+	var targetRelease *Release
+	if version != "" {
+		// Find the release with the specified version
+		for _, release := range releases {
+			if release.TagName == version {
+				targetRelease = &release
+				break
+			}
+		}
+		if targetRelease == nil {
+			return nil, fmt.Errorf("release with version %s not found", version)
+		}
+	} else {
+		// Default to the latest release
+		targetRelease = &releases[0]
+	}
+
 	var sboms []SBOMAsset
 
 	// Find all SBOM files in the latest release
-	for _, asset := range latestRelease.Assets {
+	for _, asset := range targetRelease.Assets {
 		if isSBOMFile(asset.Name) {
 			sboms = append(sboms, SBOMAsset{
-				Release:     latestRelease.TagName,
+				Release:     targetRelease.TagName,
 				Name:        asset.Name,
 				DownloadURL: asset.DownloadURL,
 				Size:        asset.Size,
@@ -89,7 +107,7 @@ func isSBOMFile(name string) bool {
 	// Common SBOM file patterns
 	patterns := []string{
 		".spdx.",
-		"sbom.",
+		".sbom",
 		"bom.",
 		"cyclonedx",
 		"spdx",
@@ -98,7 +116,7 @@ func isSBOMFile(name string) bool {
 
 	// Common SBOM file extensions
 	extensions := []string{
-		"sbom",
+		".sbom",
 		".json",
 		".xml",
 		".yaml",
