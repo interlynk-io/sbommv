@@ -46,7 +46,13 @@ var transferCmd = &cobra.Command{
 	
 Example usage:
 	sbommv transfer --from-url=<source-url> --to-url=<target-url> --interlynk-project-id=<project-id>
-	sbommv transfer --from-url=github.com/org/repo --to-url=https://api.interlynk.io --interlynk-project-id=1234 --gen-sbom-using=cdxgen
+
+	# Fetch sbom from cosign and transfer to interlynk production to a specific project ID
+	sbommv transfer --from-url="https://github.com/sigstore/cosign" --to-url="https://api.interlynk.io/lynkapi" --interlynk-project-id=85c9d898-00ac-44c2-b5df-de035b263104
+
+	# Fetch sbom from cosign and transfer to interlynk localhost to a specific project ID in Debug Mode
+	sbommv transfer  -D --from-url="https://github.com/sigstore/cosign" --to-url="http://localhost:3000/lynkapi" --interlynk-project-id=85c9d898-00ac-44c2-b5df-de035b26310
+	
 	`,
 	Args: cobra.NoArgs,
 	RunE: transferSBOM,

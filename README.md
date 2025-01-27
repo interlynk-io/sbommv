@@ -12,15 +12,21 @@ sbommv is designed to allow transfer sboms across systems. The tool can be run a
 
 In server mode the expectation is to have a server running that can periodically check for new SBOM's and transfer them to the target system based on cron style configurations. 
 
-
 ## Usage
 
 Security tokens for all systems would need to be provided via ENV variables.
 
 ### Create/Move SBOM from github repo to a specified project in interlynk free tier
 
-sbommv from-url=<repo-url> to-url=<interlynk-url> interlynk-project-id=<project-id> 
-e.g. sbommv from-url=github.com/interlynk-io/sbomqs to-url=https://api.interlynk.io/lynkapi --interlynk-project-id=1234 
+`sbommv transfer from-url=[repo-url] to-url=[interlynk-url] interlynk-project-id=[project-id]`
+
+Example:
+
+```bash
+    $ export INTERLYNK_API_TOKEN="wodkoeoefkfjdkjdkldkldkldkflfklkll"
+
+    $ sbommv transfer --from-url="https://github.com/sigstore/cosign"  --to-url="http://localhost:3000/lynkapi" --interlynk-project-id=85c9d898-00ac-44c2-b5df-de035b263104
+```
 
 ### Create/Move sboms from all github repos in the organization to Interlynk, auto create outgoing projects on interlynk
 
