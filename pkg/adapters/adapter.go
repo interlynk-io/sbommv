@@ -18,6 +18,7 @@ package adapter
 import (
 	"fmt"
 
+	"github.com/interlynk-io/sbommv/pkg/adapters/dest"
 	"github.com/interlynk-io/sbommv/pkg/adapters/source"
 )
 
@@ -48,3 +49,28 @@ func NewSourceAdapter(sourceType source.InputSource, config source.AdapterConfig
 }
 
 // TODO: func NewDestAdapter()
+
+// NewOutputAdapter creates an appropriate output adapter for the given type
+func NewDestAdapter(outputType dest.OutputType, config dest.AdapterConfig) (dest.OutputAdapter, error) {
+	switch outputType {
+	case dest.DestInterlynk:
+		return dest.NewInterlynkAdapter(config), nil
+		// if config.ProjectID == "" {
+		// 	return nil, fmt.Errorf("Interlynk adapter requires project ID")
+		// }
+
+	// case dest.DestDependencyTrack:
+	// 	if config.ProjectID == "" {
+	// 		return nil, fmt.Errorf("DependencyTrack adapter requires project ID")
+	// 	}
+	// 	return NewDependencyTrackAdapter(
+	// 		config.BaseURL,
+	// 		config.ProjectID,
+	// 		config.APIKey,
+	// 		config.InputOptions,
+	// 	), nil
+
+	default:
+		return nil, fmt.Errorf("unsupported output type: %s", outputType)
+	}
+}

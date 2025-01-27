@@ -31,13 +31,3 @@ e.g. sbommv from-url=github.com/interlynk-io to-url=https://api.interlynk.io/lyn
 
 sbommv from-url=<repo-url> to-url=<interlynk-url> interlynk-project-id=<project-id> 
 e.g. sbommv from-url=github.com/interlynk-io/sbomqs to-url=https://api.interlynk.io/lynkapi --interlynk-project-id=1234  --gen-sbom-using=cdxgen
-
-## NOTE
-
-- For now added a `adapter` flag, which is only for testing purpose. later on will remove it.
-- Earlier implemented github directly, but currently it is implemented via adapter.
-- So, in order to differentiate both of them, added `adapter` flag, which signifies that it is using adapted method instead of direct implementation.
-
-```bash
-go run main.go transfer -D --adapter=true  --from-url="https://github.com/sigstore/cosign/" --to-url="http://localhost:3000/lynkapi" --interlynk-project-id=047137b4-3027-437f-832f-e3b6651cf8c7
-```

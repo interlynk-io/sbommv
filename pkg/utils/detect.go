@@ -20,6 +20,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/interlynk-io/sbommv/pkg/adapters/dest"
 	"github.com/interlynk-io/sbommv/pkg/adapters/source"
 )
 
@@ -63,4 +64,23 @@ func DetectLocalSourceType(path string) source.InputSource {
 		return source.SourceFolder
 	}
 	return source.SourceFile
+}
+
+// DetectSourceType determines the InputSource type based on the provided URL or path.
+func DetectDestinationType(urlStr string) (dest.OutputType, error) {
+	// Check if it's a valid URL
+	u, err := url.Parse(urlStr)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse URL")
+	}
+
+	// Check for specific URL patterns
+	host := strings.ToLower(u.Host)
+
+	switch {
+	case strings.Contains(host, "interlynk.io") || strings.Contains(urlStr, "lynkapi"):
+		return dest.DestInterlynk, nil
+	}
+
+	return "", fmt.Errorf("unknown source type for URL: %s", urlStr)
 }
