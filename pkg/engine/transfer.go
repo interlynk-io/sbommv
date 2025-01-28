@@ -54,10 +54,10 @@ func TransferRun(ctx context.Context, config mvtypes.Config) error {
 	}
 	fmt.Println("destAdapter: ", destAdapter)
 
-	// err = destAdapter.UploadSBOMs(ctx, allSBOMs)
-	// if err != nil {
-	// 	return fmt.Errorf("Failed to upload SBOMs %v", err)
-	// }
+	err = destAdapter.UploadSBOMs(ctx, allSBOMs)
+	if err != nil {
+		return fmt.Errorf("Failed to upload SBOMs %v", err)
+	}
 	return nil
 }
 

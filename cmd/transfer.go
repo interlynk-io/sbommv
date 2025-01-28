@@ -199,17 +199,22 @@ func parseAdaptersConfig(cmd *cobra.Command) (mvtypes.Config, error) {
 		if err != nil || url == "" {
 			return config, fmt.Errorf("missing or invalid flag: out-interlynk-url")
 		}
+		fmt.Println("DEST URL: ", url)
 
+		// push all sbom version
+		pushAllVersion, _ := cmd.Flags().GetBool("in-github-all-versions")
 		projectID, err := cmd.Flags().GetString("out-interlynk-project-id")
-		if err != nil || projectID == "" {
+		if err != nil || (projectID == "" && !pushAllVersion) {
 			return config, fmt.Errorf("missing or invalid flag: out-interlynk-project-id")
 		}
+
 		// Get token from environment
 		token := viper.GetString("INTERLYNK_API_TOKEN")
 
 		config.DestinationConfigs["url"] = url
 		config.DestinationConfigs["token"] = token
 		config.DestinationConfigs["projectID"] = projectID
+		config.DestinationConfigs["pushAllVersion"] = pushAllVersion
 
 	case dest.DestDependencyTrack:
 		url, err := cmd.Flags().GetString("out-dtrack-url")
