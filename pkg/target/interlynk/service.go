@@ -38,21 +38,21 @@ type UploadOptions struct {
 
 // NewUploadService creates a new upload service
 func NewUploadService(client *Client, opts UploadOptions) *UploadService {
-	if opts.MaxAttempts == 0 {
-		opts.MaxAttempts = 3
-	}
-	if opts.MaxConcurrent == 0 {
-		opts.MaxConcurrent = 2
-	}
-	if opts.RetryDelay == 0 {
-		opts.RetryDelay = time.Second
-	}
+	// if opts.MaxAttempts == 0 {
+	// 	opts.MaxAttempts = 3
+	// }
+	// if opts.MaxConcurrent == 0 {
+	// 	opts.MaxConcurrent = 2
+	// }
+	// if opts.RetryDelay == 0 {
+	// 	opts.RetryDelay = time.Second
+	// }
 
 	return &UploadService{
-		client:        client,
-		maxAttempts:   opts.MaxAttempts,
-		maxConcurrent: opts.MaxConcurrent,
-		retryDelay:    opts.RetryDelay,
+		client: client,
+		// maxAttempts:   opts.MaxAttempts,
+		// maxConcurrent: opts.MaxConcurrent,
+		// retryDelay:    opts.RetryDelay,
 	}
 }
 

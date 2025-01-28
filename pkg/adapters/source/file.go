@@ -48,7 +48,7 @@ func NewFileAdapter(config mvtypes.Config) (*FileAdapter, error) {
 }
 
 // GetSBOMs implements InputAdapter
-func (a *FileAdapter) GetSBOMs(ctx context.Context) ([]string, error) {
+func (a *FileAdapter) GetSBOMs(ctx context.Context) (map[string][]string, error) {
 	// TODO: Implement Interlynk API integration
 	return nil, fmt.Errorf("not implemented")
 }

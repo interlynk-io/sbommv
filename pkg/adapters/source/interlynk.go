@@ -52,7 +52,7 @@ func NewInterlynkAdapter(config mvtypes.Config) *InterlynkAdapter {
 }
 
 // GetSBOMs implements InputAdapter
-func (a *InterlynkAdapter) GetSBOMs(ctx context.Context) ([]string, error) {
+func (a *InterlynkAdapter) GetSBOMs(ctx context.Context) (map[string][]string, error) {
 	// TODO: Implement Interlynk API integration
 	return nil, fmt.Errorf("not implemented")
 }

@@ -27,6 +27,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/interlynk-io/sbommv/pkg/logger"
 )
 
 const uploadMutation = `
@@ -87,6 +89,11 @@ func NewClient(config Config) *Client {
 			Timeout: config.Timeout,
 		},
 	}
+}
+
+// SetProjectID updates the project ID for the client
+func (c *Client) SetProjectID(projectID string) {
+	c.projectID = projectID
 }
 
 // UploadSBOM uploads a single SBOM file to Interlynk
@@ -252,4 +259,163 @@ func (c *Client) executeUploadRequest(ctx context.Context, req *http.Request) er
 	}
 
 	return nil
+}
+
+// CreateProjectGroup creates a new project group and returns the default project's ID
+func (c *Client) CreateProjectGroup(ctx context.Context, name, description string, enabled bool) (string, error) {
+	const createProjectGroupMutation = `
+        mutation CreateProjectGroup($name: String!, $desc: String, $enabled: Boolean) {
+            projectGroupCreate(
+                input: {name: $name, description: $desc, enabled: $enabled}
+            ) {
+                projectGroup {
+                    id
+                    name
+                    description
+                    enabled
+                    projects {
+                        id
+                        name
+                    }
+                }
+                errors
+            }
+        }
+    `
+
+	request := graphQLRequest{
+		Query: createProjectGroupMutation,
+		Variables: map[string]interface{}{
+			"name":    name,
+			"desc":    description,
+			"enabled": enabled,
+		},
+	}
+
+	body, err := json.Marshal(request)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal GraphQL request: %w", err)
+	}
+
+	if c.apiURL == "" {
+		c.apiURL = "http://localhost:3000/lynkapi"
+	}
+	req, err := http.NewRequestWithContext(ctx, "POST", c.apiURL, bytes.NewReader(body))
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.token))
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	logger.LogDebug(ctx, "Raw message body", "response", string(respBody))
+
+	var response struct {
+		Data struct {
+			ProjectGroupCreate struct {
+				ProjectGroup struct {
+					Projects []struct {
+						ID   string `json:"id"`
+						Name string `json:"name"`
+					} `json:"projects"`
+				} `json:"projectGroup"`
+				Errors []string `json:"errors"`
+			} `json:"projectGroupCreate"`
+		} `json:"data"`
+	}
+
+	if err := json.Unmarshal(respBody, &response); err != nil {
+		return "", fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	if len(response.Data.ProjectGroupCreate.Errors) > 0 {
+		return "", fmt.Errorf("failed to create project group: %s", response.Data.ProjectGroupCreate.Errors[0])
+	}
+
+	// Retrieve the first (default) project's ID
+	if len(response.Data.ProjectGroupCreate.ProjectGroup.Projects) == 0 {
+		return "", fmt.Errorf("no projects found in the created project group")
+	}
+
+	return response.Data.ProjectGroupCreate.ProjectGroup.Projects[0].ID, nil
+}
+
+// CreateProject creates a new project in Interlynk
+func (c *Client) CreateProject(ctx context.Context, name, description string) (string, error) {
+	const createProjectMutation = `
+        mutation CreateProject($name: String!, $desc: String) {
+            projectCreate(input: { name: $name, description: $desc }) {
+                project {
+                    id
+                    name
+                    description
+                }
+                errors
+            }
+        }
+    `
+
+	request := graphQLRequest{
+		Query: createProjectMutation,
+		Variables: map[string]interface{}{
+			"name": name,
+			"desc": description,
+		},
+	}
+
+	body, err := json.Marshal(request)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal GraphQL request: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "POST", c.apiURL, bytes.NewReader(body))
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.token))
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	var response struct {
+		Data struct {
+			ProjectCreate struct {
+				Project struct {
+					ID string `json:"id"`
+				} `json:"project"`
+				Errors []string `json:"errors"`
+			} `json:"projectCreate"`
+		} `json:"data"`
+	}
+
+	if err := json.Unmarshal(respBody, &response); err != nil {
+		return "", fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	if len(response.Data.ProjectCreate.Errors) > 0 {
+		return "", fmt.Errorf("failed to create project: %s", response.Data.ProjectCreate.Errors[0])
+	}
+
+	return response.Data.ProjectCreate.Project.ID, nil
 }

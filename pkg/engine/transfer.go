@@ -18,7 +18,6 @@ package engine
 import (
 	"context"
 	"fmt"
-	"log"
 
 	adapter "github.com/interlynk-io/sbommv/pkg/adapters"
 	"github.com/interlynk-io/sbommv/pkg/logger"
@@ -27,11 +26,6 @@ import (
 )
 
 func TransferRun(ctx context.Context, config mvtypes.Config) error {
-	// sourceType, err := utils.DetectSourceType(sourceAdpCfg.URL)
-	// if err != nil {
-	// 	return fmt.Errorf("input URL is invalid source type")
-	// }
-
 	logger.LogDebug(ctx, "input adapter", "source", config.SourceType)
 
 	sourceAdapter, err := adapter.NewSourceAdapter(config)
@@ -43,7 +37,7 @@ func TransferRun(ctx context.Context, config mvtypes.Config) error {
 	if err != nil {
 		return fmt.Errorf("Failed to get SBOMs %v", err)
 	}
-	logger.LogDebug(ctx, "List of retieved SBOMs from source", "sboms", allSBOMs)
+	logger.LogDebug(ctx, "List of retrieved SBOMs from source", "sboms", allSBOMs)
 
 	if config.DryRun {
 		err := dryMode(ctx, allSBOMs)
@@ -56,8 +50,9 @@ func TransferRun(ctx context.Context, config mvtypes.Config) error {
 
 	destAdapter, err := adapter.NewDestAdapter(config)
 	if err != nil {
-		return fmt.Errorf("Failed to get an Destination Adapter %v", err)
+		return fmt.Errorf("Failed to get a Destination Adapter %v", err)
 	}
+	fmt.Println("destAdapter: ", destAdapter)
 
 	err = destAdapter.UploadSBOMs(ctx, allSBOMs)
 	if err != nil {
@@ -66,29 +61,30 @@ func TransferRun(ctx context.Context, config mvtypes.Config) error {
 	return nil
 }
 
-func dryMode(ctx context.Context, allSBOMs []string) error {
-	// Handle dry-run mode
-
+func dryMode(ctx context.Context, allSBOMs map[string][]string) error {
 	logger.LogDebug(ctx, "Dry-run mode enabled. Printing SBOM details:")
 
 	processor := sbom.NewSBOMProcessor("", false)
-	docs, err := processor.ProcessSBOMs(allSBOMs)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	fmt.Println("List of SBOM files fetched by Input Adapter")
 	number := 0
-	for _, doc := range docs {
-		number++
-		fmt.Printf("%v. %s  ", number, doc.Filename)
-		fmt.Printf("%s  ", doc.Format)
-		fmt.Printf("%s  \n", doc.SpecVersion)
 
-		// if err := sbom.PrettyPrintSBOM(os.Stdout, doc.Content); err != nil {
-		// 	log.Fatal(err)
-		// }
+	fmt.Println("List of SBOM files fetched by Input Adapter (Grouped by Version):")
+	for version, sboms := range allSBOMs {
+		fmt.Printf("\nVersion: %s\n", version)
+		for _, sbomPath := range sboms {
+			doc, err := processor.ProcessSBOM(sbomPath)
+			if err != nil {
+				logger.LogError(ctx, fmt.Errorf("Failed to process SBOM %v", err), sbomPath)
+				continue
+			}
+
+			number++
+			fmt.Printf("%v. %s  %s  %s\n", number, doc.Filename, doc.Format, doc.SpecVersion)
+
+			// Uncomment if you want to pretty print the SBOM content
+			// if err := sbom.PrettyPrintSBOM(os.Stdout, doc.Content); err != nil {
+			//     logger.LogError(ctx, err, "Failed to pretty-print SBOM content")
+			// }
+		}
 	}
-
 	return nil
 }

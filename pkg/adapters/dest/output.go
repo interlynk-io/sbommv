@@ -36,7 +36,7 @@ const (
 // OutputAdapter defines the interface that all SBOM output adapters must implement
 type OutputAdapter interface {
 	// UploadSBOMs uploads multiple SBOMs to the target system
-	UploadSBOMs(ctx context.Context, sboms []string) error
+	UploadSBOMs(ctx context.Context, sboms map[string][]string) error
 }
 
 // OutputOptions contains common configuration options for output adapters

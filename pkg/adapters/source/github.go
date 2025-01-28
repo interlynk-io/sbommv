@@ -62,7 +62,7 @@ func NewGitHubAdapter(config mvtypes.Config) *GitHubAdapter {
 }
 
 // GitHubAdapter implements GetSBOMs. Therefore implements InputAdapter
-func (a *GitHubAdapter) GetSBOMs(ctx context.Context) ([]string, error) {
+func (a *GitHubAdapter) GetSBOMs(ctx context.Context) (map[string][]string, error) {
 	switch a.method {
 	case MethodReleases:
 		logger.LogDebug(ctx, "Get SBOMs from Release Page", "method", MethodReleases)
@@ -75,7 +75,7 @@ func (a *GitHubAdapter) GetSBOMs(ctx context.Context) ([]string, error) {
 	}
 }
 
-func (a *GitHubAdapter) getSBOMsFromReleases(ctx context.Context) ([]string, error) {
+func (a *GitHubAdapter) getSBOMsFromReleases(ctx context.Context) (map[string][]string, error) {
 	sboms, err := github.GetSBOMs(ctx, a.URL, a.Version, "sboms")
 	if err != nil {
 		return nil, err
@@ -84,7 +84,7 @@ func (a *GitHubAdapter) getSBOMsFromReleases(ctx context.Context) ([]string, err
 	return sboms, nil
 }
 
-func (a *GitHubAdapter) generateSBOMs(ctx context.Context) ([]string, error) {
+func (a *GitHubAdapter) generateSBOMs(ctx context.Context) (map[string][]string, error) {
 	// TODO: Implement SBOM generation using tools like cdxgen
 	return nil, fmt.Errorf("not implemented")
 }

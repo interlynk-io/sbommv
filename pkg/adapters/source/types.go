@@ -46,7 +46,7 @@ const (
 // Input Adapter defines the interface that all SBOM input adapters must implement
 type InputAdapter interface {
 	// GetSBOMs retrieves all SBOMs from the source
-	GetSBOMs(ctx context.Context) ([]string, error)
+	GetSBOMs(ctx context.Context) (map[string][]string, error)
 }
 
 // InputOptions contains common configuration options for input adapters

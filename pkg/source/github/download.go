@@ -31,8 +31,10 @@ type downloadWork struct {
 	output string
 }
 
+type VersionedSBOMs map[string][]string
+
 // DownloadSBOM downloads and saves all SBOM files found in the repository
-func GetSBOMs(ctx context.Context, url, version, outputDir string) ([]string, error) {
+func GetSBOMs(ctx context.Context, url, version, outputDir string) (map[string][]string, error) {
 	scanner := NewScanner()
 
 	// Find SBOMs in releases
@@ -45,7 +47,7 @@ func GetSBOMs(ctx context.Context, url, version, outputDir string) ([]string, er
 		return nil, fmt.Errorf("no SBOMs found in repository")
 	}
 
-	logger.LogDebug(ctx, "Total SBOMs found in the release", "version", version, "total sboms", len(sboms))
+	logger.LogDebug(ctx, "Total SBOMs found in the repository", "version", version, "total sboms", len(sboms))
 
 	// Create output directory if specified and doesn't exist
 	if outputDir != "" {
@@ -58,6 +60,9 @@ func GetSBOMs(ctx context.Context, url, version, outputDir string) ([]string, er
 	workChan := make(chan downloadWork)
 	errChan := make(chan error)
 	var wg sync.WaitGroup
+
+	// Versioned SBOMs
+	versionedSBOMs := make(VersionedSBOMs)
 
 	// Start worker pool
 	for i := 0; i < numWorkers; i++ {
@@ -102,7 +107,8 @@ func GetSBOMs(ctx context.Context, url, version, outputDir string) ([]string, er
 
 				if work.output != "" {
 					logger.LogDebug(ctx, "SBOM file", "name", work.sbom.Name, "saved to ", work.output)
-					// fmt.Printf("Downloaded %s to %s\n", work.sbom.Name, work.output)
+					// Group SBOMs by release version
+					versionedSBOMs[work.sbom.Release] = append(versionedSBOMs[work.sbom.Release], work.output)
 				}
 			}
 		}()
@@ -118,14 +124,12 @@ func GetSBOMs(ctx context.Context, url, version, outputDir string) ([]string, er
 			errors = append(errors, err)
 		}
 	}()
-	var allSBOMs []string
 
 	// Submit work
 	for _, sbom := range sboms {
 		var outputPath string
 		if outputDir != "" {
 			outputPath = filepath.Join(outputDir, sbom.Name)
-			allSBOMs = append(allSBOMs, outputPath)
 		}
 		select {
 		case workChan <- downloadWork{sbom: sbom, output: outputPath}:
@@ -146,5 +150,5 @@ func GetSBOMs(ctx context.Context, url, version, outputDir string) ([]string, er
 		return nil, fmt.Errorf("encountered %d download errors: %v", len(errors), errors[0])
 	}
 
-	return allSBOMs, nil
+	return versionedSBOMs, nil
 }
