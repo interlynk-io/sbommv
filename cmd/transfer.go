@@ -60,6 +60,12 @@ type FlagMeta struct {
 
 func init() {
 	rootCmd.AddCommand(transferCmd)
+
+	// custom usage of command
+	transferCmd.SetUsageFunc(func(cmd *cobra.Command) error {
+		fmt.Print(customUsageFunc(cmd))
+		return nil
+	})
 	setInputAdapterDynamicFlags(transferCmd)
 	setOutputAdapterDynamicFlags(transferCmd)
 
@@ -376,4 +382,80 @@ func ParseRepoVersion(repoURL string) (string, string, error) {
 	}
 
 	return baseURL, version, nil
+}
+
+// Custom usage function for transferCmd
+func customUsageFunc(_ *cobra.Command) string {
+	builder := &strings.Builder{}
+
+	builder.WriteString("Usage:\n")
+	builder.WriteString("  transfer [flags]\n\n")
+	builder.WriteString("Flags:\n")
+
+	// Input Adapters
+	builder.WriteString("Input Adapters:\n")
+	inputAdapters := map[string][]struct {
+		Name  string
+		Usage string
+	}{
+		"github": {
+			{"--in-github-url", "URL for input adapter github (required)"},
+			{"--in-github-method", "Method for input adapter github (optional)"},
+			{"--in-github-all-versions", "Fetch all SBOMs for all versions (optional)"},
+		},
+		"dtrack": {
+			{"--in-dtrack-url", "URL for input adapter dtrack (required)"},
+			{"--in-dtrack-project-id", "Project ID for input adapter dtrack (required)"},
+		},
+		"interlynk": {
+			{"--in-interlynk-url", "URL for input adapter interlynk (required)"},
+			{"--in-interlynk-project-id", "Project ID for input adapter interlynk (required)"},
+		},
+		"s3": {
+			{"--in-s3-bucket", "Bucket name for input adapter s3 (required)"},
+			{"--in-s3-region", "Region for input adapter s3 (required)"},
+		},
+	}
+
+	for adapter, flags := range inputAdapters {
+		builder.WriteString(fmt.Sprintf("  %s:\n", adapter))
+		for _, flag := range flags {
+			builder.WriteString(fmt.Sprintf("    %s %s\n", flag.Name, flag.Usage))
+		}
+		builder.WriteString("\n")
+	}
+
+	// Output Adapters
+	builder.WriteString("Output Adapters:\n")
+	outputAdapters := map[string][]struct {
+		Name  string
+		Usage string
+	}{
+		"dtrack": {
+			{"--out-dtrack-url", "URL for output adapter dtrack (required)"},
+			{"--out-dtrack-project-id", "Project ID for output adapter dtrack (required)"},
+		},
+		"interlynk": {
+			{"--out-interlynk-url", "URL for output adapter interlynk (required)"},
+			{"--out-interlynk-project-id", "Project ID for output adapter interlynk (required)"},
+		},
+	}
+
+	for adapter, flags := range outputAdapters {
+		builder.WriteString(fmt.Sprintf("  %s:\n", adapter))
+		for _, flag := range flags {
+			builder.WriteString(fmt.Sprintf("    %s %s\n", flag.Name, flag.Usage))
+		}
+		builder.WriteString("\n")
+	}
+
+	// Other Flags
+	builder.WriteString("Other Flags:\n")
+	builder.WriteString("  -D, --debug Enable debug logging\n")
+	builder.WriteString("      --dry-run Enable dry run mode\n")
+	builder.WriteString("  -h, --help help for transfer\n")
+	builder.WriteString("      --input-adapter Input adapter type (github, s3, file, folder, interlynk) (required)\n")
+	builder.WriteString("      --output-adapter Output adapter type (interlynk, dtrack) (required)\n")
+
+	return builder.String()
 }
