@@ -63,36 +63,39 @@ func (s *SBOMScanner) FindSBOMs(ctx context.Context, url, version string) ([]SBO
 	// Get latest release (first in the list as GitHub returns them in descending order)
 	// latestRelease := releases[0]
 
-	var targetRelease *Release
+	var targetReleases []Release
 	if version != "" {
 		// Find the release with the specified version
 		for _, release := range releases {
 			if release.TagName == version {
-				targetRelease = &release
+				targetReleases = append(targetReleases, release)
 				break
 			}
 		}
-		if targetRelease == nil {
+		if len(targetReleases) == 0 {
 			return nil, fmt.Errorf("release with version %s not found", version)
 		}
 	} else {
-		// Default to the latest release
-		targetRelease = &releases[0]
+		// Use all releases
+		targetReleases = releases
 	}
 
 	var sboms []SBOMAsset
 
 	// Find all SBOM files in the latest release
-	for _, asset := range targetRelease.Assets {
-		if isSBOMFile(asset.Name) {
-			sboms = append(sboms, SBOMAsset{
-				Release:     targetRelease.TagName,
-				Name:        asset.Name,
-				DownloadURL: asset.DownloadURL,
-				Size:        asset.Size,
-			})
+	for _, release := range targetReleases {
+		for _, asset := range release.Assets {
+			if isSBOMFile(asset.Name) {
+				sboms = append(sboms, SBOMAsset{
+					Release:     release.TagName,
+					Name:        asset.Name,
+					DownloadURL: asset.DownloadURL,
+					Size:        asset.Size,
+				})
+			}
 		}
 	}
+
 	if len(sboms) == 0 {
 		return nil, fmt.Errorf("no SBOM files found in releases")
 	}

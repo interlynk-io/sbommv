@@ -50,7 +50,7 @@ func NewS3Adapter(config mvtypes.Config) (*S3Adapter, error) {
 }
 
 // GetSBOMs implements InputAdapter
-func (a *S3Adapter) GetSBOMs(ctx context.Context) ([]string, error) {
+func (a *S3Adapter) GetSBOMs(ctx context.Context) (map[string][]string, error) {
 	// TODO: Implement S3 API integration
 	return nil, fmt.Errorf("not implemented")
 }
