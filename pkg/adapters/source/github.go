@@ -61,27 +61,38 @@ func NewGitHubAdapter(config mvtypes.Config) *GitHubAdapter {
 	}
 }
 
-// GitHubAdapter implements GetSBOMs. Therefore implements InputAdapter
+// GitHubAdapter implements GetSBOMs. Therefore, it implements InputAdapter.
 func (a *GitHubAdapter) GetSBOMs(ctx context.Context) (map[string][]string, error) {
+	logger.LogDebug(ctx, "Executing GetSBOMs function", "method", a.method)
+
 	switch a.method {
 	case MethodReleases:
-		logger.LogDebug(ctx, "Get SBOMs from Release Page", "method", MethodReleases)
+		logger.LogDebug(ctx, "Fetching SBOMs from GitHub Release Page", "method", MethodReleases)
 		return a.getSBOMsFromReleases(ctx)
+
 	case MethodGenerate:
-		logger.LogDebug(ctx, "Get SBOMs from tools", "method", MethodGenerate)
+		logger.LogDebug(ctx, "Generating SBOMs using tools", "method", MethodGenerate)
 		return a.generateSBOMs(ctx)
+
 	default:
-		return nil, fmt.Errorf("unsupported GitHub method: %v", a.method)
+		err := fmt.Errorf("unsupported GitHub method: %v", a.method)
+		logger.LogError(ctx, err, "Invalid GitHub SBOM retrieval method", "method", a.method)
+		return nil, err
 	}
 }
 
 func (a *GitHubAdapter) getSBOMsFromReleases(ctx context.Context) (map[string][]string, error) {
-	sboms, err := github.GetSBOMs(ctx, a.URL, a.Version, "sboms")
+	logger.LogDebug(ctx, "Fetching SBOMs from GitHub releases", "url", a.URL, "version", a.Version)
+
+	client := github.NewClient()
+
+	sbomFiles, err := client.GetSBOMs(ctx, a.URL, a.Version, "sboms")
 	if err != nil {
-		return nil, err
+		logger.LogError(ctx, err, "Failed to retrieve SBOMs from GitHub releases", "url", a.URL, "version", a.Version)
+		return nil, fmt.Errorf("error retrieving SBOMs from releases: %w", err)
 	}
 
-	return sboms, nil
+	return sbomFiles, nil
 }
 
 func (a *GitHubAdapter) generateSBOMs(ctx context.Context) (map[string][]string, error) {

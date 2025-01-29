@@ -18,7 +18,6 @@ package source
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 
 	"github.com/interlynk-io/sbommv/pkg/mvtypes"
@@ -27,24 +26,17 @@ import (
 // FileAdapter implements InputAdapter for single file and folder sources
 type FileAdapter struct {
 	path    string
-	isDir   bool
 	options InputOptions
 }
 
 // NewFileAdapter creates a new file-based adapter
-func NewFileAdapter(config mvtypes.Config) (*FileAdapter, error) {
+func NewFileAdapter(config mvtypes.Config) *FileAdapter {
 	path := config.SourceConfigs["url"].(string)
 
-	info, err := os.Stat(path)
-	if err != nil {
-		return nil, fmt.Errorf("failed to stat path: %w", err)
-	}
-
 	return &FileAdapter{
-		path:  path,
-		isDir: info.IsDir(),
+		path: path,
 		// options: config.InputOptions,
-	}, nil
+	}
 }
 
 // GetSBOMs implements InputAdapter

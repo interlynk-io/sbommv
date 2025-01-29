@@ -32,7 +32,7 @@ type S3Adapter struct {
 }
 
 // NewS3Adapter creates a new S3 adapter
-func NewS3Adapter(config mvtypes.Config) (*S3Adapter, error) {
+func NewS3Adapter(config mvtypes.Config) *S3Adapter {
 	// cfg, err := config.LoadDefaultConfig(context.Background())
 	// if err != nil {
 	// 	return nil, fmt.Errorf("failed to load AWS config: %w", err)
@@ -46,7 +46,7 @@ func NewS3Adapter(config mvtypes.Config) (*S3Adapter, error) {
 		prefix: prefix,
 		// client:  s3.NewFromConfig(cfg),
 		// options: adpConfig.InputOptions,
-	}, nil
+	}
 }
 
 // GetSBOMs implements InputAdapter

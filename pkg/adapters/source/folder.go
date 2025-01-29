@@ -18,7 +18,6 @@ package source
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"github.com/interlynk-io/sbommv/pkg/mvtypes"
 )
@@ -32,15 +31,8 @@ type FolderAdapter struct {
 }
 
 // NewFolderAdapter creates a new folder-based adapter with concurrent processing
-func NewFolderAdapter(config mvtypes.Config) (*FolderAdapter, error) {
+func NewFolderAdapter(config mvtypes.Config) *FolderAdapter {
 	path := config.SourceConfigs["url"].(string)
-	info, err := os.Stat(path)
-	if err != nil {
-		return nil, fmt.Errorf("failed to stat folder: %w", err)
-	}
-	if !info.IsDir() {
-		return nil, fmt.Errorf("path %s is not a directory", path)
-	}
 
 	// // Set reasonable default for concurrent operations
 	// if config.InputOptions.MaxConcurrent <= 0 {
@@ -51,7 +43,7 @@ func NewFolderAdapter(config mvtypes.Config) (*FolderAdapter, error) {
 		root: path,
 		// options:   config.InputOptions,
 		recursive: false,
-	}, nil
+	}
 }
 
 // GetSBOMs implements InputAdapter for FolderAdapter

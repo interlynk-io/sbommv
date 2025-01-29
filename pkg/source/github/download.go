@@ -31,14 +31,10 @@ type downloadWork struct {
 	output string
 }
 
-type VersionedSBOMs map[string][]string
-
 // DownloadSBOM downloads and saves all SBOM files found in the repository
-func GetSBOMs(ctx context.Context, url, version, outputDir string) (map[string][]string, error) {
-	scanner := NewScanner()
-
+func (c *Client) GetSBOMs(ctx context.Context, url, version, outputDir string) (map[string][]string, error) {
 	// Find SBOMs in releases
-	sboms, err := scanner.FindSBOMs(ctx, url, version)
+	sboms, err := c.FindSBOMs(ctx, url, version)
 	if err != nil {
 		return nil, fmt.Errorf("finding SBOMs: %w", err)
 	}
@@ -71,7 +67,7 @@ func GetSBOMs(ctx context.Context, url, version, outputDir string) (map[string][
 			defer wg.Done()
 			for work := range workChan {
 				// Download the SBOM
-				reader, err := scanner.client.DownloadAsset(ctx, work.sbom.DownloadURL)
+				reader, err := c.DownloadAsset(ctx, work.sbom.DownloadURL)
 				if err != nil {
 					errChan <- fmt.Errorf("downloading SBOM %s: %w", work.sbom.Name, err)
 					continue

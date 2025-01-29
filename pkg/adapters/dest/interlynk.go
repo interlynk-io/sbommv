@@ -64,7 +64,7 @@ func (a *InterlynkAdapter) UploadSBOMs(ctx context.Context, allSBOMs map[string]
 	if a.pushAllVersions {
 		logger.LogDebug(ctx, "Fetching SBOMs for all versions. Creating new projects for each version.")
 		// Create a new project for the version
-		projectID, err := client.CreateProjectGroup(ctx, fmt.Sprintf("newbomctl"), fmt.Sprintf("Project for SBOM"), true)
+		projectID, err := client.CreateProjectGroup(ctx, fmt.Sprintf("testinggithubvivek"), fmt.Sprintf("Project for SBOM"), true)
 		if err != nil {
 			return fmt.Errorf("failed to create project: %w", err)
 		}
@@ -78,10 +78,7 @@ func (a *InterlynkAdapter) UploadSBOMs(ctx context.Context, allSBOMs map[string]
 			// Initialize upload service
 			uploadService := interlynk.NewUploadService(client, interlynk.UploadOptions{})
 
-			// Update project ID for the current version
-			// a.projectID = projectID
-			logger.LogDebug(ctx, "Updated Project ID", "value", a.projectID)
-			logger.LogDebug(ctx, "Current version", "value", version)
+			logger.LogDebug(ctx, "Current version uploading", "value", version)
 
 			// Upload SBOMs for the current version
 			results := uploadService.UploadSBOMs(ctx, sboms)
