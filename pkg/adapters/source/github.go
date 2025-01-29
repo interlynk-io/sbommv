@@ -90,7 +90,7 @@ func (a *GitHubAdapter) GetSBOMs(ctx context.Context) (map[string][]string, erro
 }
 
 func (a *GitHubAdapter) getSBOMsFromReleases(ctx context.Context) (map[string][]string, error) {
-	logger.LogDebug(ctx, "Fetching SBOMs from GitHub using %s", a.method, "url", a.URL, "version", a.Version)
+	logger.LogDebug(ctx, "Fetching SBOMs from GitHub using", a.method, "url", a.URL, "version", a.Version)
 
 	client := github.NewClient(a.URL, a.Version, string(a.method))
 
