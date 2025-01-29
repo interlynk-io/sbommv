@@ -83,9 +83,13 @@ func Sync() {
 	}
 }
 
-// Example helper function for structured logging
-func LogError(ctx context.Context, err error, msg string) {
-	FromContext(ctx).Errorw(msg, "error", err)
+// LogError logs an error message with optional key-value pairs for structured logging.
+func LogError(ctx context.Context, err error, msg string, keysAndValues ...interface{}) {
+	logger := FromContext(ctx)
+	if err != nil {
+		keysAndValues = append(keysAndValues, "error", err)
+	}
+	logger.Errorw(msg, keysAndValues...)
 }
 
 // LogDebug logs debug messages if debug mode is enabled.

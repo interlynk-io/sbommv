@@ -38,10 +38,6 @@ func NewInterlynkAdapter(config mvtypes.Config) *InterlynkAdapter {
 	projectID := config.SourceConfigs["projectID"].(string)
 	token := config.SourceConfigs["token"].(string)
 
-	// if config.BaseURL == "" {
-	// 	config.BaseURL = "https://api.interlynk.io" // default URL
-	// }
-
 	return &InterlynkAdapter{
 		projectID: projectID,
 		baseURL:   url,

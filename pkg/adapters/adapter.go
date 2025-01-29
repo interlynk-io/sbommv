@@ -16,62 +16,68 @@
 package adapter
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/interlynk-io/sbommv/pkg/adapters/dest"
 	"github.com/interlynk-io/sbommv/pkg/adapters/source"
+	"github.com/interlynk-io/sbommv/pkg/logger"
 	"github.com/interlynk-io/sbommv/pkg/mvtypes"
 )
 
-// NewSourceAdapter creates an appropriate adapter for the given source type.
+// NewSourceAdapter creates an appropriate adapter for the provided source type.
 // It returns an error if the source type is not supported or if required
 // configuration is missing.
-func NewSourceAdapter(config mvtypes.Config) (source.InputAdapter, error) {
-	switch source.InputType(config.SourceType) {
+func NewSourceAdapter(ctx context.Context, config mvtypes.Config) (source.InputAdapter, error) {
+	logger.LogInfo(ctx, "Initializing source adapter", "sourceType", config.SourceType)
 
+	var adapter source.InputAdapter
+	var err error
+
+	switch source.InputType(config.SourceType) {
 	case source.SourceFile:
-		return source.NewFileAdapter(config)
+		adapter = source.NewFileAdapter(config)
 
 	case source.SourceFolder:
-		return source.NewFolderAdapter(config)
+		adapter = source.NewFolderAdapter(config)
 
 	case source.SourceGithub:
-		return source.NewGitHubAdapter(config), nil
+		adapter = source.NewGitHubAdapter(config)
 
 	case source.SourceS3:
-		return source.NewS3Adapter(config)
+		adapter = source.NewS3Adapter(config)
 
 	case source.SourceInterlynk:
-		return source.NewInterlynkAdapter(config), nil
+		adapter = source.NewInterlynkAdapter(config)
 
 	default:
-		return nil, fmt.Errorf("unsupported input source type: %s", string(config.SourceType))
+		err = fmt.Errorf("unsupported input source type: %s", string(config.SourceType))
+		logger.LogError(ctx, err, "Invalid source adapter type provided")
+		return nil, err
 	}
+
+	logger.LogDebug(ctx, "Successfully initialized source adapter", "adapterType", config.SourceType)
+	return adapter, nil
 }
 
-// TODO: func NewDestAdapter()
-
 // NewOutputAdapter creates an appropriate output adapter for the given type
-func NewDestAdapter(config mvtypes.Config) (dest.OutputAdapter, error) {
-	switch dest.OutputType(config.DestinationType) {
-	case dest.DestInterlynk:
-		return dest.NewInterlynkAdapter(config), nil
-		// if config.ProjectID == "" {
-		// 	return nil, fmt.Errorf("Interlynk adapter requires project ID")
-		// }
+func NewDestAdapter(ctx context.Context, config mvtypes.Config) (dest.OutputAdapter, error) {
+	logger.LogInfo(ctx, "Initializing destination adapter", "destinationType", config.DestinationType)
 
-	// case dest.DestDependencyTrack:
-	// 	if config.ProjectID == "" {
-	// 		return nil, fmt.Errorf("DependencyTrack adapter requires project ID")
-	// 	}
-	// 	return NewDependencyTrackAdapter(
-	// 		config.BaseURL,
-	// 		config.ProjectID,
-	// 		config.APIKey,
-	// 		config.InputOptions,
-	// 	), nil
+	var adapter dest.OutputAdapter
+	var err error
+
+	switch dest.OutputType(config.DestinationType) {
+
+	case dest.DestInterlynk:
+		adapter = dest.NewInterlynkAdapter(config)
 
 	default:
-		return nil, fmt.Errorf("unsupported output type: %s", string(config.DestinationType))
+		err = fmt.Errorf("unsupported input destination type: %s", string(config.DestinationType))
+		logger.LogError(ctx, err, "Invalid destination adapter type provided")
+		return nil, err
 	}
+
+	logger.LogDebug(ctx, "Successfully initialized destination adapter", "adapterType", config.DestinationType)
+	return adapter, nil
 }

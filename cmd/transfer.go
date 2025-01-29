@@ -89,46 +89,50 @@ func transferSBOM(cmd *cobra.Command, args []string) error {
 	// Initialize logger based on debug flag
 	debug, _ := cmd.Flags().GetBool("debug")
 	logger.InitLogger(debug, false) // Using console format as default
-	defer logger.Sync()             // Ensure logs are flushed on exit
+	defer logger.Sync()             // Flush logs on exit
 
 	ctx := logger.WithLogger(context.Background())
-
 	viper.AutomaticEnv()
 
-	config, err := parseAdaptersConfig(cmd)
+	// Parse config
+	config, err := parseConfig(cmd)
 	if err != nil {
+		logger.LogError(ctx, err, "Invalid configuration")
 		return fmt.Errorf("invalid configuration: %w", err)
 	}
-	if config.SourceType == string(source.SourceGithub) {
-		if config.SourceConfigs["version"] == "" {
-			logger.LogDebug(ctx, "all SBOMs from all versions of the repository will be fetched")
+
+	// Ensure essential configs are not nil
+	if config.SourceConfigs == nil || config.DestinationConfigs == nil {
+		// TODO: validate config values
+		logger.LogError(ctx, nil, "Missing required adapter configurations")
+		return fmt.Errorf("failed to construct valid configuration: missing adapter settings")
+	}
+
+	// Source-specific debug log
+	if config.SourceType == string(source.SourceGithub) && config.SourceConfigs["version"] == "" {
+		logger.LogDebug(ctx, "Fetching all SBOMs from all versions of the repository")
+	}
+
+	// Execute engine operation
+	logger.LogDebug(ctx, "Executing SBOM transfer process")
+	if err := engine.TransferRun(ctx, config); err != nil {
+		logger.LogError(ctx, err, "Transfer operation failed")
+		return fmt.Errorf("failed to process engine for transfer cmd: %w", err)
+	}
+
+	// Clean up SBOMs folder if it exists
+	if _, err := os.Stat("sboms"); err == nil {
+		if err := os.RemoveAll("sboms"); err != nil {
+			logger.LogError(ctx, err, "Failed to delete SBOM directory")
+			return fmt.Errorf("failed to delete directory %s: %w", "sboms", err)
 		}
+		logger.LogDebug(ctx, "Successfully deleted SBOM directory", "directory", "sboms")
 	}
-
-	logger.LogDebug(ctx, "dry run mode", "value", config.DryRun)
-
-	if config.DestinationConfigs == nil || config.SourceConfigs == nil {
-		logger.LogError(ctx, nil, "Failed to construct config")
-		os.Exit(1)
-	}
-
-	// execute core engine operation
-	err = engine.TransferRun(ctx, config)
-	if err != nil {
-		return fmt.Errorf("Failed to process engine for transfer cmd %v", err)
-	}
-
-	// Delete the "sboms" folder
-	if err := os.RemoveAll("sboms"); err != nil {
-		logger.LogError(ctx, err, "Failed to delete the directory")
-		return fmt.Errorf("failed to delete directory %s: %w", "sboms", err)
-	}
-	logger.LogDebug(ctx, "Successfully deleted the directory", "directory", "sboms")
 
 	return nil
 }
 
-func parseAdaptersConfig(cmd *cobra.Command) (mvtypes.Config, error) {
+func parseConfig(cmd *cobra.Command) (mvtypes.Config, error) {
 	inputType, _ := cmd.Flags().GetString("input-adapter")
 	outputType, _ := cmd.Flags().GetString("output-adapter")
 	dr, _ := cmd.Flags().GetBool("dry-run")
@@ -205,12 +209,11 @@ func parseAdaptersConfig(cmd *cobra.Command) (mvtypes.Config, error) {
 		if err != nil || url == "" {
 			return config, fmt.Errorf("missing or invalid flag: out-interlynk-url")
 		}
-		fmt.Println("DEST URL: ", url)
 
 		// push all sbom version
 		pushAllVersion, _ := cmd.Flags().GetBool("in-github-all-versions")
 		projectID, err := cmd.Flags().GetString("out-interlynk-project-id")
-		if err != nil || (projectID == "" && !pushAllVersion) {
+		if err != nil {
 			return config, fmt.Errorf("missing or invalid flag: out-interlynk-project-id")
 		}
 

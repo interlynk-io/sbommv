@@ -20,31 +20,41 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 
 	"github.com/interlynk-io/sbommv/pkg/logger"
 )
 
-// Asset represents a release asset
+// Asset represents a GitHub release asset (e.g., SBOM files)
 type Asset struct {
 	Name        string `json:"name"`
 	DownloadURL string `json:"browser_download_url"`
 	Size        int    `json:"size"`
 }
 
-// Release represents a GitHub release
+// Release represents a GitHub release containing assets
 type Release struct {
 	TagName string  `json:"tag_name"`
 	Assets  []Asset `json:"assets"`
 }
 
-// Client handles GitHub API interactions
+// SBOMAsset represents an SBOM file found in a GitHub release
+type SBOMAsset struct {
+	Release     string
+	Name        string
+	DownloadURL string
+	Size        int
+}
+
+// VersionedSBOMs maps versions to their respective SBOMs in that version
+type VersionedSBOMs map[string][]string
+
+// Client interacts with the GitHub API
 type Client struct {
 	httpClient *http.Client
 	baseURL    string
 }
 
-// NewClient creates a new GitHub client
+// NewClient initializes a GitHub client
 func NewClient() *Client {
 	return &Client{
 		httpClient: &http.Client{},
@@ -52,11 +62,85 @@ func NewClient() *Client {
 	}
 }
 
+// FindSBOMs gets all releases assets from github release page
+// filter out the particular provided release asset and
+// extract SBOMs from that
+func (c *Client) FindSBOMs(ctx context.Context, url, version string) ([]SBOMAsset, error) {
+	owner, repo, err := ParseGitHubURL(url)
+	if err != nil {
+		return nil, fmt.Errorf("parsing GitHub URL: %w", err)
+	}
+
+	logger.LogDebug(ctx, "Fetching GitHub releases", "repo_url", url, "owner", owner, "repo", repo)
+
+	releases, err := c.GetReleases(ctx, owner, repo)
+	if err != nil {
+		return nil, fmt.Errorf("error retrieving releases: %w", err)
+	}
+
+	if len(releases) == 0 {
+		return nil, fmt.Errorf("no releases found for repository %s/%s", owner, repo)
+	}
+
+	// Select target releases (single version or all versions)
+	targetReleases := c.filterReleases(releases, version)
+	if len(targetReleases) == 0 {
+		return nil, fmt.Errorf("no matching release found for version: %s", version)
+	}
+
+	// Extract SBOM assets from target release
+	sboms := c.extractSBOMs(targetReleases)
+
+	if len(sboms) == 0 {
+		return nil, fmt.Errorf("no SBOM files found in releases for repository %s/%s", owner, repo)
+	}
+	logger.LogDebug(ctx, "Successfully retrieved SBOMs", "total_sboms", len(sboms), "repo_url", url)
+
+	return sboms, nil
+}
+
+// filterReleases filters releases based on version input
+func (c *Client) filterReleases(releases []Release, version string) []Release {
+	if version == "" {
+		// Return all releases
+		return releases
+	}
+	if version == "latest" {
+		// Return latest release
+		return []Release{releases[0]}
+	}
+
+	// Return the matching release version
+	for _, release := range releases {
+		if release.TagName == version {
+			return []Release{release}
+		}
+	}
+	return nil
+}
+
+// extractSBOMs extracts SBOM assets from releases
+func (c *Client) extractSBOMs(releases []Release) []SBOMAsset {
+	var sboms []SBOMAsset
+	for _, release := range releases {
+		for _, asset := range release.Assets {
+			if isSBOMFile(asset.Name) {
+				sboms = append(sboms, SBOMAsset{
+					Release:     release.TagName,
+					Name:        asset.Name,
+					DownloadURL: asset.DownloadURL,
+					Size:        asset.Size,
+				})
+			}
+		}
+	}
+	return sboms
+}
+
 // GetReleases fetches all releases for a repository
 func (c *Client) GetReleases(ctx context.Context, owner, repo string) ([]Release, error) {
-	// url := fmt.Sprintf("https://github.com/%s/%s/releases", owner, repo)
 	url := fmt.Sprintf("%s/repos/%s/%s/releases", c.baseURL, owner, repo)
-	logger.LogDebug(ctx, "Fetching GitHub Releases", "url", url)
+	// logger.LogDebug(ctx, "Fetching GitHub Releases", "url", url)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
@@ -70,31 +154,36 @@ func (c *Client) GetReleases(ctx context.Context, owner, repo string) ([]Release
 		return nil, fmt.Errorf("executing request: %w", err)
 	}
 	defer resp.Body.Close()
-	logger.LogDebug(ctx, "Response ", "body", resp.Body)
+	// logger.LogDebug(ctx, "Response ", "body", resp.Body)
 
 	// Read response body for error reporting
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("reading response body: %w", err)
+		return nil, fmt.Errorf("reading response body failed: %w", err)
 	}
 
 	// Handle different status codes with specific error messages
 	switch resp.StatusCode {
+
 	case http.StatusOK:
 		var releases []Release
 		if err := json.Unmarshal(body, &releases); err != nil {
 			return nil, fmt.Errorf("parsing response: %w", err)
 		}
 		return releases, nil
+
 	case http.StatusNotFound:
 		return nil, fmt.Errorf("repository %s/%s not found or no releases available", owner, repo)
+
 	case http.StatusUnauthorized:
 		return nil, fmt.Errorf("authentication required or invalid token for %s/%s", owner, repo)
+
 	case http.StatusForbidden:
 		if resp.Header.Get("X-RateLimit-Remaining") == "0" {
 			return nil, fmt.Errorf("GitHub API rate limit exceeded")
 		}
 		return nil, fmt.Errorf("access forbidden to %s/%s", owner, repo)
+
 	default:
 		// Try to parse GitHub error message
 		var ghErr struct {
@@ -107,16 +196,16 @@ func (c *Client) GetReleases(ctx context.Context, owner, repo string) ([]Release
 	}
 }
 
-// DownloadAsset downloads a release asset
+// DownloadAsset downloads a release asset from download url of SBOM
 func (c *Client) DownloadAsset(ctx context.Context, downloadURL string) (io.ReadCloser, error) {
 	req, err := http.NewRequestWithContext(ctx, "GET", downloadURL, nil)
 	if err != nil {
-		return nil, fmt.Errorf("creating request: %w", err)
+		return nil, fmt.Errorf("creating request failed: %w", err)
 	}
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("executing request: %w", err)
+		return nil, fmt.Errorf("request execution failed: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
@@ -125,20 +214,4 @@ func (c *Client) DownloadAsset(ctx context.Context, downloadURL string) (io.Read
 	}
 
 	return resp.Body, nil
-}
-
-// ParseGitHubURL parses a GitHub URL into owner and repository
-func ParseGitHubURL(url string) (owner, repo string, err error) {
-	// Remove protocol and domain
-	url = strings.TrimPrefix(url, "https://")
-	url = strings.TrimPrefix(url, "http://")
-	url = strings.TrimPrefix(url, "github.com/")
-
-	// Split remaining path
-	parts := strings.Split(url, "/")
-	if len(parts) < 2 {
-		return "", "", fmt.Errorf("invalid GitHub URL format: %s", url)
-	}
-
-	return parts[0], parts[1], nil
 }
