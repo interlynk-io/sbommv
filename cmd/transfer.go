@@ -41,10 +41,10 @@ Example usage:
 	sbommv transfer -D  --input-adapter=github  --in-github-url="https://github.com/sigstore/cosign" --output-adapter=interlynk  --out-interlynk-url="https://localhost:3000/lynkapi" --out-interlynk-project-id=014eda95-5ac6-4bd8-a24d-014217f0b873
 
 	# Transfer all SBOMs from the Cosign release page for version 2.4.0 to the Interlynk platform under the specified project ID
-	sbommv transfer -D  --input-adapter=github  --in-github-url="https://github.com/sigstore/cosign@v2.4.0" --output-adapter=interlynk  --out-interlynk-url="https://localhost:3000/lynkapi" --out-interlynk-project-id=07fb3477-1273-4996-bc14-fe0c2cc100d7
+	sbommv transfer -D  --input-adapter=github  --in-github-url="https://github.com/sigstore/cosign@v2.4.0" --output-adapter=interlynk  --out-interlynk-url="http://localhost:3000/lynkapi" --out-interlynk-project-id=07fb3477-1273-4996-bc14-fe0c2cc100d7
 
 	# Transfer SBOMs for all versions of sbomqs from github and uploads it to dtrack, create new project in dtrack for each sbomqs version
-	sbommv transfer --input-adapter=github --in-github-url=https://github.com/interlynk-io/sbomqs --in-github-all-versions=true --output-adapter=interlynk --out-interlynk-url=https://localhost:3000/lynkapi
+	sbommv transfer --input-adapter=github --in-github-url=https://github.com/interlynk-io/sbomqs --in-github-all-versions=true --output-adapter=interlynk --out-interlynk-url=http://localhost:3000/lynkapi
 
 	`,
 	Args: cobra.NoArgs,

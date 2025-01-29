@@ -22,7 +22,7 @@ Security tokens for all systems would need to be provided via ENV variables.
 export INTERLYNK_API_TOKEN="lynk_test_dlklklsdsldslksldskldskdsklsls"
 
 # transfer all SBOMs from cosign release page to interlynk platform to a provided project ID
-sbommv transfer -D  --input-adapter=github  --in-github-url="https://github.com/sigstore/cosign" --output-adapter=interlynk  --out-dtrack-url="https://localhost:3000/lynkapi" --out-interlynk-project-id=014eda95-5ac6-4bd8-a24d-014217f0b873
+sbommv transfer -D  --input-adapter=github  --in-github-url="http://github.com/sigstore/cosign" --output-adapter=interlynk  --out-interlynk-url="https://localhost:3000/lynkapi" --out-interlynk-project-id=014eda95-5ac6-4bd8-a24d-014217f0b873
 ```
 
 ### Create/Move sboms from all github repos in the organization to Interlynk, auto create outgoing projects on interlynk
