@@ -19,6 +19,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.12.10 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.18.10 // indirect
 	github.com/aws/smithy-go v1.22.2 // indirect
+	github.com/google/go-cmp v0.6.0 // indirect
 )
 
 require (

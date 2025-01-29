@@ -15,6 +15,7 @@
 package github
 
 import (
+	"encoding/base64"
 	"fmt"
 	"strings"
 )
@@ -78,4 +79,13 @@ func ParseGitHubURL(url string) (owner, repo string, err error) {
 	}
 
 	return parts[0], parts[1], nil
+}
+
+// decodeBase64 decodes base64 encoded SBOM data
+func decodeBase64(encoded string) (string, error) {
+	decodedBytes, err := base64.StdEncoding.DecodeString(strings.TrimSpace(encoded))
+	if err != nil {
+		return "", fmt.Errorf("failed to decode base64 SBOM: %w", err)
+	}
+	return string(decodedBytes), nil
 }

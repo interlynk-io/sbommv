@@ -32,9 +32,9 @@ type downloadWork struct {
 }
 
 // DownloadSBOM downloads and saves all SBOM files found in the repository
-func (c *Client) GetSBOMs(ctx context.Context, url, version, outputDir string) (map[string][]string, error) {
+func (c *Client) GetSBOMs(ctx context.Context, outputDir string) (map[string][]string, error) {
 	// Find SBOMs in releases
-	sboms, err := c.FindSBOMs(ctx, url, version)
+	sboms, err := c.FindSBOMs(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("finding SBOMs: %w", err)
 	}
@@ -43,7 +43,7 @@ func (c *Client) GetSBOMs(ctx context.Context, url, version, outputDir string) (
 		return nil, fmt.Errorf("no SBOMs found in repository")
 	}
 
-	logger.LogDebug(ctx, "Total SBOMs found in the repository", "version", version, "total sboms", len(sboms))
+	logger.LogDebug(ctx, "Total SBOMs found in the repository", "version", c.version, "total sboms", len(sboms))
 
 	// Create output directory if specified and doesn't exist
 	if outputDir != "" {
