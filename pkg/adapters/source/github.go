@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/exec"
+	"path/filepath"
 
 	"github.com/interlynk-io/sbommv/pkg/logger"
 	"github.com/interlynk-io/sbommv/pkg/mvtypes"
@@ -30,6 +32,8 @@ import (
 type GitHubAdapter struct {
 	URL     string
 	Version string
+	Tool    string
+	Binary  string
 	// repo    string
 	// token   string
 	method  GitHubMethod
@@ -48,7 +52,7 @@ const (
 	MethodAPI GitHubMethod = "api"
 
 	// MethodGenerate clones the repo and generates SBOMs using external Tools
-	MethodGenerate GitHubMethod = "generate"
+	MethodTool GitHubMethod = "tool"
 )
 
 // NewGitHubAdapter creates a new GitHub adapter
@@ -56,12 +60,25 @@ func NewGitHubAdapter(config mvtypes.Config) *GitHubAdapter {
 	url := config.SourceConfigs["url"].(string)
 	version := config.SourceConfigs["version"].(string)
 	method := config.SourceConfigs["method"].(string)
+	// tool := config.SourceConfigs["tool"].(string)
+
+	// var bm string
+	binary := config.SourceConfigs["binary"].(string)
+
+	// } else {
+	// 	bm = binary.(string)
+	// 	fmt.Println("BINARY IS  NOT NIL")
+	// 	fmt.Println("bm : ", bm)
+	// }
 
 	return &GitHubAdapter{
 		URL:     url,
 		Version: version,
 		method:  GitHubMethod(method),
 		client:  &http.Client{},
+		// Tool:    tool,
+		// Binary: "/home/linuzz/.sbommv/tools/bin/syft",
+		Binary: binary,
 		// options: config.InputOptions,
 	}
 }
@@ -78,9 +95,9 @@ func (a *GitHubAdapter) GetSBOMs(ctx context.Context) (map[string][]string, erro
 	case MethodAPI:
 		return a.getSBOMsFromAPI(ctx)
 
-	case MethodGenerate:
-		logger.LogDebug(ctx, "Generating SBOMs using tools", "method", MethodGenerate)
-		return a.generateSBOMs(ctx)
+	case MethodTool:
+		logger.LogDebug(ctx, "Generating SBOMs using tools", "method", MethodTool)
+		return a.getSBOMsFromTool(ctx)
 
 	default:
 		err := fmt.Errorf("unsupported GitHub method: %v", a.method)
@@ -90,7 +107,7 @@ func (a *GitHubAdapter) GetSBOMs(ctx context.Context) (map[string][]string, erro
 }
 
 func (a *GitHubAdapter) getSBOMsFromReleases(ctx context.Context) (map[string][]string, error) {
-	logger.LogDebug(ctx, "Fetching SBOMs from GitHub using", a.method, "url", a.URL, "version", a.Version)
+	logger.LogDebug(ctx, "Fetching SBOMs from GitHub using", "url", a.URL)
 
 	client := github.NewClient(a.URL, a.Version, string(a.method))
 
@@ -134,7 +151,52 @@ func (a *GitHubAdapter) getSBOMsFromAPI(ctx context.Context) (map[string][]strin
 	return map[string][]string{"main": {sbomFilePath}}, nil
 }
 
-func (a *GitHubAdapter) generateSBOMs(ctx context.Context) (map[string][]string, error) {
-	// TODO: Implement SBOM generation using tools like cdxgen
-	return nil, fmt.Errorf("not implemented")
+func (a *GitHubAdapter) getSBOMsFromTool(ctx context.Context) (map[string][]string, error) {
+	logger.LogDebug(ctx, "Generating SBOM using tool", "repository", a.URL)
+
+	// Clone the target repository
+	repoDir := filepath.Join(os.TempDir(), "sbommv")
+
+	if err := CloneRepoWithGit(ctx, a.URL, repoDir); err != nil {
+		fmt.Println("❌ Error cloning repository using Git:", err)
+	}
+
+	sbomFile, err := github.GenerateSBOM(ctx, repoDir, a.Binary)
+	if err != nil {
+		fmt.Println("Error: ", err)
+	}
+
+	// Read generated SBOM
+	sbom, err := os.ReadFile(sbomFile)
+	if err != nil {
+		fmt.Errorf("failed to read SBOM file: %w", err)
+	}
+
+	fmt.Printf("SBOM: %s", string(sbom))
+	os.Exit(0)
+
+	// // Return the generated SBOM file
+	return map[string][]string{"main": {sbomFile}}, nil
+}
+
+// CloneRepoWithGit clones a GitHub repository using the Git command-line tool.
+func CloneRepoWithGit(ctx context.Context, repoURL, targetDir string) error {
+	// Ensure Git is installed
+	if _, err := exec.LookPath("git"); err != nil {
+		return fmt.Errorf("git is not installed, install Git or use --method=api")
+	}
+
+	fmt.Println("🚀 Cloning repository using Git:", repoURL)
+
+	// Run `git clone --depth=1` for faster shallow cloning
+	cmd := exec.CommandContext(ctx, "git", "clone", "--depth=1", repoURL, targetDir)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("git clone failed: %w", err)
+	}
+
+	fmt.Println("✅ Repository successfully cloned using Git.")
+	return nil
 }

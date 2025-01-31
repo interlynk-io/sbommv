@@ -16,9 +16,9 @@ package interlynk
 
 import (
 	"context"
-	"fmt"
-	"path/filepath"
 	"time"
+
+	"github.com/interlynk-io/sbommv/pkg/logger"
 )
 
 // UploadService handles batch uploads of SBOMs to Interlynk
@@ -65,6 +65,7 @@ type UploadResult struct {
 // UploadSBOMs uploads multiple SBOM files sequentially
 func (s *UploadService) UploadSBOMs(ctx context.Context, files []string) []UploadResult {
 	results := make([]UploadResult, len(files))
+	logger.LogDebug(ctx, "Initializing SBOM upload Process", "count files", len(files))
 
 	for i, file := range files {
 		select {
@@ -84,26 +85,4 @@ func (s *UploadService) UploadSBOMs(ctx context.Context, files []string) []Uploa
 	}
 
 	return results
-}
-
-// ProcessDirectory uploads all SBOM files from a directory
-func (s *UploadService) ProcessDirectory(ctx context.Context, dir string, patterns []string) ([]UploadResult, error) {
-	if len(patterns) == 0 {
-		patterns = []string{"*.json", "*.xml", "*.yaml", "*.yml", "*.spdx"}
-	}
-
-	var files []string
-	for _, pattern := range patterns {
-		matches, err := filepath.Glob(filepath.Join(dir, pattern))
-		if err != nil {
-			return nil, fmt.Errorf("glob pattern %s: %w", pattern, err)
-		}
-		files = append(files, matches...)
-	}
-
-	if len(files) == 0 {
-		return nil, fmt.Errorf("no SBOM files found in %s", dir)
-	}
-
-	return s.UploadSBOMs(ctx, files), nil
 }

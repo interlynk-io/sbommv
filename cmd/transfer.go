@@ -24,6 +24,7 @@ import (
 	source "github.com/interlynk-io/sbommv/pkg/adapters/source"
 	"github.com/interlynk-io/sbommv/pkg/engine"
 	"github.com/interlynk-io/sbommv/pkg/mvtypes"
+	"github.com/interlynk-io/sbommv/pkg/utils"
 
 	"github.com/interlynk-io/sbommv/pkg/logger"
 	"github.com/spf13/cobra"
@@ -191,6 +192,15 @@ func parseConfig(cmd *cobra.Command) (mvtypes.Config, error) {
 		method, err := cmd.Flags().GetString("in-github-method")
 		if err != nil || url == "" {
 			return config, fmt.Errorf("missing or invalid flag: in-github-method")
+		}
+
+		if method == "tool" {
+			binaryPath, err := utils.GetBinaryPath()
+			if err != nil {
+				return config, fmt.Errorf("failed to get Syft binary: %w", err)
+			}
+			fmt.Println("Binary Path: ", binaryPath)
+			config.SourceConfigs["binary"] = binaryPath
 		}
 		config.SourceConfigs["method"] = method
 
