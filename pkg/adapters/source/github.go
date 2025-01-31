@@ -22,6 +22,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"time"
 
 	"github.com/interlynk-io/sbommv/pkg/logger"
 	"github.com/interlynk-io/sbommv/pkg/mvtypes"
@@ -154,29 +155,50 @@ func (a *GitHubAdapter) getSBOMsFromAPI(ctx context.Context) (map[string][]strin
 func (a *GitHubAdapter) getSBOMsFromTool(ctx context.Context) (map[string][]string, error) {
 	logger.LogDebug(ctx, "Generating SBOM using tool", "repository", a.URL)
 
-	// Clone the target repository
-	repoDir := filepath.Join(os.TempDir(), "sbommv")
+	// Clone the repository for which SBOM has to be generated
+	repoDir := filepath.Join(os.TempDir(), fmt.Sprintf("sbommv_%d", time.Now().UnixNano()))
+	defer os.RemoveAll(repoDir) // Cleanup cloned repo after execution
 
 	if err := CloneRepoWithGit(ctx, a.URL, repoDir); err != nil {
-		fmt.Println("❌ Error cloning repository using Git:", err)
+		logger.LogError(ctx, err, "Failed to clone repository", "repository", a.URL)
+		return nil, fmt.Errorf("failed to clone repository: %w", err)
 	}
 
+	logger.LogDebug(ctx, "Repository cloned successfully", "path", repoDir)
+
+	// Generate SBOM using Syft or another tool
 	sbomFile, err := github.GenerateSBOM(ctx, repoDir, a.Binary)
 	if err != nil {
-		fmt.Println("Error: ", err)
+		logger.LogError(ctx, err, "Failed to generate SBOM", "repository", a.URL)
+		return nil, fmt.Errorf("failed to generate SBOM: %w", err)
 	}
 
-	// Read generated SBOM
-	sbom, err := os.ReadFile(sbomFile)
-	if err != nil {
-		fmt.Errorf("failed to read SBOM file: %w", err)
+	// Ensure SBOM output directory exists before renaming
+	outputDir := "sboms"
+	if err := os.MkdirAll(outputDir, 0o755); err != nil {
+		logger.LogError(ctx, err, "Failed to create SBOM output directory", "directory", outputDir)
+		return nil, fmt.Errorf("failed to create SBOM output directory: %w", err)
 	}
 
-	fmt.Printf("SBOM: %s", string(sbom))
-	os.Exit(0)
+	// Define S	// Define final SBOM file path BOM file path
+	sbomFilePath := filepath.Join(outputDir, fmt.Sprintf("github_tool_sbom_%s.json", sanitizeRepoName(a.URL)))
 
-	// // Return the generated SBOM file
-	return map[string][]string{"main": {sbomFile}}, nil
+	// Move SBOM file to final location
+	if err := os.Rename(sbomFile, sbomFilePath); err != nil {
+		logger.LogError(ctx, err, "Failed to move SBOM file", "source", sbomFile, "destination", sbomFilePath)
+		return nil, fmt.Errorf("failed to move SBOM file: %w", err)
+	}
+
+	// Ensure the directory exists
+	if err := os.MkdirAll("sboms", 0o755); err != nil {
+		logger.LogError(ctx, err, "Failed to create SBOM output directory")
+		return nil, fmt.Errorf("error creating SBOM output directory: %w", err)
+	}
+
+	logger.LogDebug(ctx, "SBOM successfully written to file", "file", sbomFilePath)
+
+	// Return the generated SBOM file
+	return map[string][]string{"main": {sbomFilePath}}, nil
 }
 
 // CloneRepoWithGit clones a GitHub repository using the Git command-line tool.

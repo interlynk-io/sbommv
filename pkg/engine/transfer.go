@@ -18,7 +18,6 @@ package engine
 import (
 	"context"
 	"fmt"
-	"os"
 
 	adapter "github.com/interlynk-io/sbommv/pkg/adapters"
 	"github.com/interlynk-io/sbommv/pkg/logger"
@@ -42,7 +41,6 @@ func TransferRun(ctx context.Context, config mvtypes.Config) error {
 		return fmt.Errorf("failed to get SBOMs: %w", err)
 	}
 	logger.LogInfo(ctx, "Successfully fetched all SBOMs")
-	os.Exit(0)
 
 	if config.DryRun {
 		logger.LogInfo(ctx, "Dry-run mode enabled: Displaying SBOMs which are retrieved", "values", config.DryRun)
