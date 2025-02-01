@@ -40,6 +40,7 @@ func TransferRun(ctx context.Context, config mvtypes.Config) error {
 		logger.LogError(ctx, err, "Failed to retrieve SBOMs")
 		return fmt.Errorf("failed to get SBOMs: %w", err)
 	}
+	logger.LogInfo(ctx, "Successfully fetched all SBOMs")
 
 	if config.DryRun {
 		logger.LogInfo(ctx, "Dry-run mode enabled: Displaying SBOMs which are retrieved", "values", config.DryRun)

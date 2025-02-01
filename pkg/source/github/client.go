@@ -52,26 +52,33 @@ type VersionedSBOMs map[string][]string
 type Client struct {
 	httpClient *http.Client
 	baseURL    string
+	repoURL    string
+	version    string
+	method     string
+	token      string
 }
 
 // NewClient initializes a GitHub client
-func NewClient() *Client {
+func NewClient(repoURL, version, method string) *Client {
 	return &Client{
 		httpClient: &http.Client{},
 		baseURL:    "https://api.github.com",
+		repoURL:    repoURL,
+		version:    version,
+		method:     method,
 	}
 }
 
 // FindSBOMs gets all releases assets from github release page
 // filter out the particular provided release asset and
 // extract SBOMs from that
-func (c *Client) FindSBOMs(ctx context.Context, url, version string) ([]SBOMAsset, error) {
-	owner, repo, err := ParseGitHubURL(url)
+func (c *Client) FindSBOMs(ctx context.Context) ([]SBOMAsset, error) {
+	owner, repo, err := ParseGitHubURL(c.repoURL)
 	if err != nil {
 		return nil, fmt.Errorf("parsing GitHub URL: %w", err)
 	}
 
-	logger.LogDebug(ctx, "Fetching GitHub releases", "repo_url", url, "owner", owner, "repo", repo)
+	logger.LogDebug(ctx, "Fetching GitHub releases", "repo_url", c.repoURL, "owner", owner, "repo", repo)
 
 	releases, err := c.GetReleases(ctx, owner, repo)
 	if err != nil {
@@ -83,9 +90,9 @@ func (c *Client) FindSBOMs(ctx context.Context, url, version string) ([]SBOMAsse
 	}
 
 	// Select target releases (single version or all versions)
-	targetReleases := c.filterReleases(releases, version)
+	targetReleases := c.filterReleases(releases, c.version)
 	if len(targetReleases) == 0 {
-		return nil, fmt.Errorf("no matching release found for version: %s", version)
+		return nil, fmt.Errorf("no matching release found for version: %s", c.version)
 	}
 
 	// Extract SBOM assets from target release
@@ -94,7 +101,7 @@ func (c *Client) FindSBOMs(ctx context.Context, url, version string) ([]SBOMAsse
 	if len(sboms) == 0 {
 		return nil, fmt.Errorf("no SBOM files found in releases for repository %s/%s", owner, repo)
 	}
-	logger.LogDebug(ctx, "Successfully retrieved SBOMs", "total_sboms", len(sboms), "repo_url", url)
+	logger.LogDebug(ctx, "Successfully retrieved SBOMs", "total_sboms", len(sboms), "repo_url", c.repoURL)
 
 	return sboms, nil
 }

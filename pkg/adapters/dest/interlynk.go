@@ -33,21 +33,25 @@ type InterlynkAdapter struct {
 	client          *http.Client
 	options         OutputOptions
 	pushAllVersions bool
+	URL             string
 }
 
 // NewInterlynkAdapter creates a new Interlynk adapter
 func NewInterlynkAdapter(config mvtypes.Config) *InterlynkAdapter {
-	url := config.DestinationConfigs["url"].(string)
+	url := config.SourceConfigs["url"].(string)
+
+	baseurl := config.DestinationConfigs["url"].(string)
 	projectID := config.DestinationConfigs["projectID"].(string)
 	token := config.DestinationConfigs["token"].(string)
 	pushAllVersion := config.DestinationConfigs["pushAllVersion"]
 
 	return &InterlynkAdapter{
 		projectID:       projectID,
-		baseURL:         url,
+		baseURL:         baseurl,
 		apiKey:          token,
 		client:          &http.Client{},
 		pushAllVersions: pushAllVersion.(bool),
+		URL:             url,
 		// options:   config.OutputOptions,
 	}
 }
@@ -64,11 +68,13 @@ func (a *InterlynkAdapter) UploadSBOMs(ctx context.Context, allSBOMs map[string]
 	if a.pushAllVersions {
 		logger.LogDebug(ctx, "Fetching SBOMs for all versions. Creating new projects for each version.")
 		// Create a new project for the version
-		projectID, err := client.CreateProjectGroup(ctx, fmt.Sprintf("testinggithubvivek"), fmt.Sprintf("Project for SBOM"), true)
+		projectName := fmt.Sprintf("%s", sanitizeRepoName(a.URL))
+
+		projectID, err := client.CreateProjectGroup(ctx, projectName, fmt.Sprintf("Project for SBOM"), true)
 		if err != nil {
 			return fmt.Errorf("failed to create project: %w", err)
 		}
-		logger.LogDebug(ctx, "Created project", "projectID", projectID)
+		logger.LogDebug(ctx, "Created project", "projectID", projectID, "project Name", projectName)
 
 		client.SetProjectID(projectID)
 

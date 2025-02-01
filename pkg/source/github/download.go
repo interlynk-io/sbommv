@@ -31,120 +31,113 @@ type downloadWork struct {
 	output string
 }
 
-// DownloadSBOM downloads and saves all SBOM files found in the repository
-func (c *Client) GetSBOMs(ctx context.Context, url, version, outputDir string) (map[string][]string, error) {
+// GetSBOMs downloads and saves all SBOM files found in the repository
+func (c *Client) GetSBOMs(ctx context.Context, outputDir string) (VersionedSBOMs, error) {
 	// Find SBOMs in releases
-	sboms, err := c.FindSBOMs(ctx, url, version)
+	sboms, err := c.FindSBOMs(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("finding SBOMs: %w", err)
 	}
-
 	if len(sboms) == 0 {
 		return nil, fmt.Errorf("no SBOMs found in repository")
 	}
 
-	logger.LogDebug(ctx, "Total SBOMs found in the repository", "version", version, "total sboms", len(sboms))
+	logger.LogDebug(ctx, "Total SBOMs found in the repository", "version", c.version, "total sboms", len(sboms))
 
-	// Create output directory if specified and doesn't exist
+	// Create output directory if needed
 	if outputDir != "" {
 		if err := os.MkdirAll(outputDir, 0o755); err != nil {
 			return nil, fmt.Errorf("creating output directory: %w", err)
 		}
 	}
 
-	numWorkers := 3 // Configure number of concurrent downloads
-	workChan := make(chan downloadWork)
-	errChan := make(chan error)
-	var wg sync.WaitGroup
+	return c.downloadSBOMs(ctx, sboms, outputDir)
+}
 
-	// Versioned SBOMs
-	versionedSBOMs := make(VersionedSBOMs)
+// downloadSBOMs handles the concurrent downloading of multiple SBOM files
+func (c *Client) downloadSBOMs(ctx context.Context, sboms []SBOMAsset, outputDir string) (VersionedSBOMs, error) {
+	var (
+		wg             sync.WaitGroup                        // Coordinates all goroutines
+		mu             sync.Mutex                            // Protects shared resources
+		versionedSBOMs = make(VersionedSBOMs)                // Stores results
+		errors         []error                               // Collects errors
+		maxConcurrency = 3                                   // Maximum parallel downloads
+		semaphore      = make(chan struct{}, maxConcurrency) // Controls concurrency
+	)
 
-	// Start worker pool
-	for i := 0; i < numWorkers; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for work := range workChan {
-				// Download the SBOM
-				reader, err := c.DownloadAsset(ctx, work.sbom.DownloadURL)
-				if err != nil {
-					errChan <- fmt.Errorf("downloading SBOM %s: %w", work.sbom.Name, err)
-					continue
-				}
-
-				// Handle output based on whether we're writing to file or stdout
-				var output io.Writer
-				var file *os.File
-
-				if work.output == "" {
-					// Write to stdout with header
-					fmt.Printf("\n=== SBOM: %s ===\n", work.sbom.Name)
-					output = os.Stdout
-				} else {
-					// Create output file
-					file, err = os.Create(work.output)
-					if err != nil {
-						reader.Close()
-						errChan <- fmt.Errorf("creating output file %s: %w", work.sbom.Name, err)
-						continue
-					}
-					output = file
-					defer file.Close()
-				}
-
-				// Copy content
-				if _, err := io.Copy(output, reader); err != nil {
-					reader.Close()
-					errChan <- fmt.Errorf("writing SBOM %s: %w", work.sbom.Name, err)
-					continue
-				}
-				reader.Close()
-
-				if work.output != "" {
-					logger.LogDebug(ctx, "SBOM file", "name", work.sbom.Name, "saved to ", work.output)
-					// Group SBOMs by release version
-					versionedSBOMs[work.sbom.Release] = append(versionedSBOMs[work.sbom.Release], work.output)
-				}
-			}
-		}()
-	}
-
-	// Error collector goroutine
-	var errors []error
-	var errWg sync.WaitGroup
-	errWg.Add(1)
-	go func() {
-		defer errWg.Done()
-		for err := range errChan {
-			errors = append(errors, err)
-		}
-	}()
-
-	// Submit work
+	// Process each SBOM
 	for _, sbom := range sboms {
-		var outputPath string
-		if outputDir != "" {
-			outputPath = filepath.Join(outputDir, sbom.Name)
-		}
+		// Context cancellation check
 		select {
-		case workChan <- downloadWork{sbom: sbom, output: outputPath}:
 		case <-ctx.Done():
-			close(workChan)
 			return nil, ctx.Err()
+		default:
 		}
+
+		wg.Add(1)
+		go func(sbom SBOMAsset) {
+			defer wg.Done()
+			semaphore <- struct{}{}        // Acquire semaphore
+			defer func() { <-semaphore }() // Release semaphore
+
+			// Download and save the SBOM
+			outputPath := ""
+			if outputDir != "" {
+				outputPath = filepath.Join(outputDir, sbom.Name)
+			}
+
+			err := c.downloadSingleSBOM(ctx, sbom, outputPath)
+			if err != nil {
+				mu.Lock()
+				errors = append(errors, fmt.Errorf("downloading %s: %w", sbom.Name, err))
+				mu.Unlock()
+				return
+			}
+
+			if outputPath != "" {
+				mu.Lock()
+				versionedSBOMs[sbom.Release] = append(versionedSBOMs[sbom.Release], outputPath)
+				mu.Unlock()
+				logger.LogDebug(ctx, "SBOM file", "name", sbom.Name, "saved to", outputPath)
+			}
+		}(sbom)
 	}
 
-	// Close channels and wait
-	close(workChan)
 	wg.Wait()
-	close(errChan)
-	errWg.Wait()
 
-	// Check for errors
 	if len(errors) > 0 {
 		return nil, fmt.Errorf("encountered %d download errors: %v", len(errors), errors[0])
 	}
 
 	return versionedSBOMs, nil
+}
+
+// downloadSingleSBOM downloads and saves a single SBOM file
+func (c *Client) downloadSingleSBOM(ctx context.Context, sbom SBOMAsset, outputPath string) error {
+	reader, err := c.DownloadAsset(ctx, sbom.DownloadURL)
+	if err != nil {
+		return fmt.Errorf("downloading asset: %w", err)
+	}
+	defer reader.Close()
+
+	var output io.Writer
+	if outputPath == "" {
+		// Write to stdout with header
+		fmt.Printf("\n=== SBOM: %s ===\n", sbom.Name)
+		output = os.Stdout
+	} else {
+		// Create and write to file
+		file, err := os.Create(outputPath)
+		if err != nil {
+			return fmt.Errorf("creating output file: %w", err)
+		}
+		defer file.Close()
+		output = file
+	}
+
+	if _, err := io.Copy(output, reader); err != nil {
+		return fmt.Errorf("writing SBOM: %w", err)
+	}
+
+	return nil
 }

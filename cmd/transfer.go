@@ -24,6 +24,7 @@ import (
 	source "github.com/interlynk-io/sbommv/pkg/adapters/source"
 	"github.com/interlynk-io/sbommv/pkg/engine"
 	"github.com/interlynk-io/sbommv/pkg/mvtypes"
+	"github.com/interlynk-io/sbommv/pkg/utils"
 
 	"github.com/interlynk-io/sbommv/pkg/logger"
 	"github.com/spf13/cobra"
@@ -36,15 +37,28 @@ var transferCmd = &cobra.Command{
 	Long: `Transfer SBOMs from a source system (e.g., GitHub) to a target system (e.g., Interlynk).
 	
 Example usage:
-	
-	# Transfer all SBOMs from cosign release page to interlynk platform to a provided project ID
-	sbommv transfer -D  --input-adapter=github  --in-github-url="https://github.com/sigstore/cosign" --output-adapter=interlynk  --out-interlynk-url="https://localhost:3000/lynkapi" --out-interlynk-project-id=014eda95-5ac6-4bd8-a24d-014217f0b873
+		# Fetch SBOMs using the GitHub adapter via the release method for the latest repository version 
+	# and transfer them to the Interlynk adapter under the specified project ID
+	sbommv transfer -D --input-adapter=github --in-github-url="https://github.com/sigstore/cosign" \
+	--output-adapter=interlynk --out-interlynk-url="http://localhost:3000/lynkapi" \
+	--out-interlynk-project-id=014eda95-5ac6-4bd8-a24d-014217f0b873
 
-	# Transfer all SBOMs from the Cosign release page for version 2.4.0 to the Interlynk platform under the specified project ID
-	sbommv transfer -D  --input-adapter=github  --in-github-url="https://github.com/sigstore/cosign@v2.4.0" --output-adapter=interlynk  --out-interlynk-url="http://localhost:3000/lynkapi" --out-interlynk-project-id=07fb3477-1273-4996-bc14-fe0c2cc100d7
+	# Fetch SBOMs using the GitHub adapter via the release method for a specific repository version (v2.4.0) 
+	# and transfer them to the Interlynk adapter under the specified project ID
+	sbommv transfer -D --input-adapter=github --in-github-url="https://github.com/sigstore/cosign@v2.4.0" \
+	--output-adapter=interlynk --out-interlynk-url="http://localhost:3000/lynkapi" \
+	--out-interlynk-project-id=07fb3477-1273-4996-bc14-fe0c2cc100d7
 
-	# Transfer SBOMs for all versions of sbomqs from github and uploads it to dtrack, create new project in dtrack for each sbomqs version
-	sbommv transfer --input-adapter=github --in-github-url=https://github.com/interlynk-io/sbomqs --in-github-all-versions=true --output-adapter=interlynk --out-interlynk-url=http://localhost:3000/lynkapi
+	# Fetch SBOMs using the GitHub adapter via the release method for all repository versions 
+	# and transfer them to the Interlynk adapter, creating a new project
+	sbommv transfer --input-adapter=github --in-github-url="https://github.com/interlynk-io/sbomqs" \
+	--in-github-all-versions=true --output-adapter=interlynk --out-interlynk-url="http://localhost:3000/lynkapi"
+
+	# Fetch SBOMs using the GitHub adapter via the api method for the latest repository version
+	# and transfer them to the Interlynk adapter under the specified project ID
+	sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigstore/cosign" --in-github-method=api  \
+	--output-adapter=interlynk --out-interlynk-url="http://localhost:3000/lynkapi" \
+	--out-interlynk-project-id="ac7a9539-eb07-4f3e-b353-f71cd6b794e2"
 
 	`,
 	Args: cobra.NoArgs,
@@ -107,6 +121,8 @@ func transferSBOM(cmd *cobra.Command, args []string) error {
 		logger.LogError(ctx, nil, "Missing required adapter configurations")
 		return fmt.Errorf("failed to construct valid configuration: missing adapter settings")
 	}
+
+	logger.LogDebug(ctx, "configuration", "value", config)
 
 	// Source-specific debug log
 	if config.SourceType == string(source.SourceGithub) && config.SourceConfigs["version"] == "" {
@@ -176,6 +192,15 @@ func parseConfig(cmd *cobra.Command) (mvtypes.Config, error) {
 		method, err := cmd.Flags().GetString("in-github-method")
 		if err != nil || url == "" {
 			return config, fmt.Errorf("missing or invalid flag: in-github-method")
+		}
+
+		if method == "tool" {
+			binaryPath, err := utils.GetBinaryPath()
+			if err != nil {
+				return config, fmt.Errorf("failed to get Syft binary: %w", err)
+			}
+			fmt.Println("Binary Path: ", binaryPath)
+			config.SourceConfigs["binary"] = binaryPath
 		}
 		config.SourceConfigs["method"] = method
 
