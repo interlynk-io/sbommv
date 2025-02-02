@@ -58,29 +58,17 @@ const (
 
 // NewGitHubAdapter creates a new GitHub adapter
 func NewGitHubAdapter(config mvtypes.Config) *GitHubAdapter {
-	url := config.SourceConfigs["url"].(string)
-	version := config.SourceConfigs["version"].(string)
-	method := config.SourceConfigs["method"].(string)
-	// tool := config.SourceConfigs["tool"].(string)
-
-	// var bm string
-	binary := config.SourceConfigs["binary"].(string)
-
-	// } else {
-	// 	bm = binary.(string)
-	// 	fmt.Println("BINARY IS  NOT NIL")
-	// 	fmt.Println("bm : ", bm)
-	// }
+	url, _ := config.SourceConfigs["url"].(string)
+	version, _ := config.SourceConfigs["version"].(string)
+	method, _ := config.SourceConfigs["method"].(string)
+	binary, _ := config.SourceConfigs["binary"].(string)
 
 	return &GitHubAdapter{
 		URL:     url,
 		Version: version,
 		method:  GitHubMethod(method),
 		client:  &http.Client{},
-		// Tool:    tool,
-		// Binary: "/home/linuzz/.sbommv/tools/bin/syft",
-		Binary: binary,
-		// options: config.InputOptions,
+		Binary:  binary,
 	}
 }
 
