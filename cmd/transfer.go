@@ -113,6 +113,16 @@ func transferSBOM(cmd *cobra.Command, args []string) error {
 		logger.LogDebug(ctx, "Fetching all SBOMs from all versions of the repository")
 	}
 
+	// validate output adapter i.e Interlynk is up and running
+	if config.DestinationType == "interlynk" {
+		url := config.DestinationConfigs["url"].(string)
+		token := config.DestinationConfigs["token"].(string)
+
+		if err := engine.ValidateInterlynkConnection(ctx, url, token); err != nil {
+			return fmt.Errorf("Interlynk validation failed: %w", err)
+		}
+	}
+
 	// Execute engine operation
 	logger.LogDebug(ctx, "Executing SBOM transfer process")
 	if err := engine.TransferRun(ctx, config); err != nil {
@@ -208,7 +218,7 @@ func parseConfig(cmd *cobra.Command) (mvtypes.Config, error) {
 		}
 
 		// Get token from environment
-		token := viper.GetString("INTERLYNK_API_TOKEN")
+		token := viper.GetString("INTERLYNK_SECURITY_TOKEN")
 
 		config.DestinationConfigs["url"] = url
 		config.DestinationConfigs["token"] = token

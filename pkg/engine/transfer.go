@@ -18,6 +18,7 @@ package engine
 import (
 	"context"
 	"fmt"
+	"net/http"
 
 	adapter "github.com/interlynk-io/sbommv/pkg/adapters"
 	"github.com/interlynk-io/sbommv/pkg/logger"
@@ -101,5 +102,36 @@ func dryMode(ctx context.Context, allSBOMs map[string][]string) error {
 	}
 
 	logger.LogDebug(ctx, "Dry-run mode completed", "total_sboms_processed", sbomCount)
+	return nil
+}
+
+// ValidateInterlynkConnection chesks whether Interlynk ssytem is up and running
+func ValidateInterlynkConnection(ctx context.Context, url, token string) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return fmt.Errorf("falied to create request for Interlynk: %w", err)
+	}
+
+	// INTERLYNK_SECURITY_TOKEN is required here
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to reach Interlynk at %s: %w", url, err)
+	}
+	defer resp.Body.Close()
+
+	// provided token is invalid
+	if resp.StatusCode == http.StatusUnauthorized {
+		return fmt.Errorf("invalid API token: authentication failed")
+	}
+
+	// interlynk looks to down
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("Interlynk API returned unexpected status: %d", resp.StatusCode)
+	}
+
 	return nil
 }
