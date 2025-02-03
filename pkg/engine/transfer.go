@@ -19,6 +19,8 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
+	"strings"
 
 	adapter "github.com/interlynk-io/sbommv/pkg/adapters"
 	"github.com/interlynk-io/sbommv/pkg/logger"
@@ -107,7 +109,13 @@ func dryMode(ctx context.Context, allSBOMs map[string][]string) error {
 
 // ValidateInterlynkConnection chesks whether Interlynk ssytem is up and running
 func ValidateInterlynkConnection(ctx context.Context, url, token string) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	baseURL, err := extractBaseURL(url)
+	if err != nil {
+		return fmt.Errorf("invalid URL format: %w", err)
+	}
+	logger.LogDebug(ctx, "Validating Interlynk running status for", "url", baseURL)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL, nil)
 	if err != nil {
 		return fmt.Errorf("falied to create request for Interlynk: %w", err)
 	}
@@ -119,7 +127,7 @@ func ValidateInterlynkConnection(ctx context.Context, url, token string) error {
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("failed to reach Interlynk at %s: %w", url, err)
+		return fmt.Errorf("failed to reach Interlynk at %s: %w", baseURL, err)
 	}
 	defer resp.Body.Close()
 
@@ -134,4 +142,17 @@ func ValidateInterlynkConnection(ctx context.Context, url, token string) error {
 	}
 
 	return nil
+}
+
+func extractBaseURL(rawURL string) (string, error) {
+	parsedURL, err := url.Parse(rawURL)
+	if err != nil {
+		return "", err
+	}
+
+	// construct base URL (protocol + host)
+	baseURL := fmt.Sprintf("%s://%s", parsedURL.Scheme, parsedURL.Host)
+
+	// ensure it always ends with a single "/"
+	return strings.TrimRight(baseURL, "/") + "/", nil
 }
