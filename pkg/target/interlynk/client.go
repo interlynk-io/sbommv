@@ -57,10 +57,10 @@ const (
 
 // Client handles interactions with the Interlynk API
 type Client struct {
-	apiURL    string
+	ApiURL    string
 	token     string
 	client    *http.Client
-	projectID string
+	ProjectID string
 }
 
 // Config holds the configuration for the Interlynk client
@@ -82,9 +82,9 @@ func NewClient(config Config) *Client {
 	}
 
 	return &Client{
-		apiURL:    config.APIURL,
+		ApiURL:    config.APIURL,
 		token:     config.Token,
-		projectID: config.ProjectID,
+		ProjectID: config.ProjectID,
 		client: &http.Client{
 			Timeout: config.Timeout,
 		},
@@ -93,7 +93,7 @@ func NewClient(config Config) *Client {
 
 // SetProjectID updates the project ID for the client
 func (c *Client) SetProjectID(projectID string) {
-	c.projectID = projectID
+	c.ProjectID = projectID
 }
 
 // UploadSBOM uploads a single SBOM file to Interlynk
@@ -138,7 +138,7 @@ func (c *Client) createUploadRequest(ctx context.Context, filePath string) (*htt
 	}
 
 	// Create request with context
-	req, err := http.NewRequestWithContext(ctx, "POST", c.apiURL, body)
+	req, err := http.NewRequestWithContext(ctx, "POST", c.ApiURL, body)
 	if err != nil {
 		return nil, fmt.Errorf("creating request: %w", err)
 	}
@@ -160,7 +160,7 @@ func (c *Client) prepareMultipartForm(filePath, query string) (*bytes.Buffer, *m
 	operations := map[string]interface{}{
 		"query": strings.TrimSpace(strings.ReplaceAll(query, "\n", " ")),
 		"variables": map[string]interface{}{
-			"projectId": c.projectID,
+			"projectId": c.ProjectID,
 			"doc":       nil,
 		},
 	}
@@ -297,10 +297,10 @@ func (c *Client) CreateProjectGroup(ctx context.Context, name, description strin
 		return "", fmt.Errorf("failed to marshal GraphQL request: %w", err)
 	}
 
-	if c.apiURL == "" {
-		c.apiURL = "http://localhost:3000/lynkapi"
+	if c.ApiURL == "" {
+		c.ApiURL = "http://localhost:3000/lynkapi"
 	}
-	req, err := http.NewRequestWithContext(ctx, "POST", c.apiURL, bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, "POST", c.ApiURL, bytes.NewReader(body))
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %w", err)
 	}
