@@ -7,18 +7,15 @@ require (
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/viper v1.19.0
 	go.uber.org/zap v1.27.0
-	golang.org/x/oauth2 v0.18.0
+	golang.org/x/oauth2 v0.25.0
 )
 
 require (
 	github.com/ProtonMail/go-crypto v0.0.0-20230217124315-7d5c6f04bbb8 // indirect
 	github.com/cloudflare/circl v1.1.0 // indirect
-	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
 	golang.org/x/crypto v0.21.0 // indirect
-	google.golang.org/appengine v1.6.8 // indirect
-	google.golang.org/protobuf v1.33.0 // indirect
 )
 
 require (
