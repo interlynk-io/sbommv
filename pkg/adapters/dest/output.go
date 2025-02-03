@@ -29,8 +29,7 @@ type AdapterConfig struct {
 type OutputType string
 
 const (
-	DestInterlynk       OutputType = "interlynk"
-	DestDependencyTrack OutputType = "dTrack"
+	DestInterlynk OutputType = "interlynk"
 )
 
 // OutputAdapter defines the interface that all SBOM output adapters must implement
