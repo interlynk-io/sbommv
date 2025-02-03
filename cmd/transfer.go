@@ -35,31 +35,15 @@ var transferCmd = &cobra.Command{
 	Use:   "transfer",
 	Short: "Transfer SBOMs between systems",
 	Long: `Transfer SBOMs from a source system (e.g., GitHub) to a target system (e.g., Interlynk).
-	
+
 Example usage:
-		# Fetch SBOMs using the GitHub adapter via the release method for the latest repository version 
-	# and transfer them to the Interlynk adapter under the specified project ID
-	sbommv transfer -D --input-adapter=github --in-github-url="https://github.com/sigstore/cosign" \
-	--output-adapter=interlynk --out-interlynk-url="http://localhost:3000/lynkapi" \
-	--out-interlynk-project-id=014eda95-5ac6-4bd8-a24d-014217f0b873
+# Fetch SBOM for sbomqs latest github release and upload to interlynk platform
+sbommv transfer -D --input-adapter=github --in-github-url="https://github.com/interlynk-io/sbomqs" \
+--output-adapter=interlynk --out-interlynk-url="http://localhost:3000/lynkapi"
 
-	# Fetch SBOMs using the GitHub adapter via the release method for a specific repository version (v2.4.0) 
-	# and transfer them to the Interlynk adapter under the specified project ID
-	sbommv transfer -D --input-adapter=github --in-github-url="https://github.com/sigstore/cosign@v2.4.0" \
-	--output-adapter=interlynk --out-interlynk-url="http://localhost:3000/lynkapi" \
-	--out-interlynk-project-id=07fb3477-1273-4996-bc14-fe0c2cc100d7
-
-	# Fetch SBOMs using the GitHub adapter via the release method for all repository versions 
-	# and transfer them to the Interlynk adapter, creating a new project
-	sbommv transfer --input-adapter=github --in-github-url="https://github.com/interlynk-io/sbomqs" \
-	--in-github-all-versions=true --output-adapter=interlynk --out-interlynk-url="http://localhost:3000/lynkapi"
-
-	# Fetch SBOMs using the GitHub adapter via the api method for the latest repository version
-	# and transfer them to the Interlynk adapter under the specified project ID
-	sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigstore/cosign" --in-github-method=api  \
-	--output-adapter=interlynk --out-interlynk-url="http://localhost:3000/lynkapi" \
-	--out-interlynk-project-id="ac7a9539-eb07-4f3e-b353-f71cd6b794e2"
-
+# Fetch SBOMs using the GitHub adapter via the api method for the latest repository version
+sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigstore/cosign" --in-github-method=api  \
+--output-adapter=interlynk --out-interlynk-url="http://localhost:3000/lynkapi"
 	`,
 	Args: cobra.NoArgs,
 	RunE: transferSBOM,
@@ -84,16 +68,16 @@ func init() {
 	setOutputAdapterDynamicFlags(transferCmd)
 
 	// Input adapter flags
-	transferCmd.Flags().String("input-adapter", "", "Input adapter type (github, s3, file, folder, interlynk)")
+	transferCmd.Flags().String("input-adapter", "", "input adapter type (github)")
 	transferCmd.MarkFlagRequired("input-adapter")
 
 	// Output adapter flags
-	transferCmd.Flags().String("output-adapter", "", "Output adapter type (interlynk, dtrack)")
+	transferCmd.Flags().String("output-adapter", "", "output adapter type (interlynk)")
 	transferCmd.MarkFlagRequired("output-adapter")
 
 	transferCmd.Flags().BoolP("dry-run", "", false, "enable dry run mode")
 
-	transferCmd.Flags().BoolP("debug", "D", false, "Enable debug logging")
+	transferCmd.Flags().BoolP("debug", "D", false, "enable debug logging")
 }
 
 func transferSBOM(cmd *cobra.Command, args []string) error {
@@ -203,25 +187,6 @@ func parseConfig(cmd *cobra.Command) (mvtypes.Config, error) {
 			config.SourceConfigs["binary"] = binaryPath
 		}
 		config.SourceConfigs["method"] = method
-
-	case source.SourceDependencyTrack:
-		url, err := cmd.Flags().GetString("in-dtrack-url")
-		if err != nil || url == "" {
-			return config, fmt.Errorf("missing or invalid flag: in-dtrack-url")
-		}
-
-		projectID, err := cmd.Flags().GetString("in-dtrack-project-id")
-		if err != nil || projectID == "" {
-			return config, fmt.Errorf("missing or invalid flag: in-dtrack-project-id")
-		}
-
-		// Get token from environment
-		token := viper.GetString("DTRACK_API_TOKEN")
-
-		config.SourceConfigs["url"] = url
-		config.SourceConfigs["token"] = token
-		config.SourceConfigs["projectID"] = projectID
-
 	default:
 		return config, fmt.Errorf("unsupported input adapter: %s", inputType)
 	}
@@ -250,24 +215,6 @@ func parseConfig(cmd *cobra.Command) (mvtypes.Config, error) {
 		config.DestinationConfigs["projectID"] = projectID
 		config.DestinationConfigs["pushAllVersion"] = pushAllVersion
 
-	case dest.DestDependencyTrack:
-		url, err := cmd.Flags().GetString("out-dtrack-url")
-		if err != nil || url == "" {
-			return config, fmt.Errorf("missing or invalid flag: out-dtrack-url")
-		}
-
-		projectID, err := cmd.Flags().GetString("out-dtrack-project-id")
-		if err != nil || projectID == "" {
-			return config, fmt.Errorf("missing or invalid flag: out-dtrack-project-id")
-		}
-
-		// Get token from environment
-		token := viper.GetString("DTRACK_API_TOKEN")
-
-		config.DestinationConfigs["url"] = url
-		config.DestinationConfigs["token"] = token
-		config.DestinationConfigs["projectID"] = projectID
-
 	default:
 		return config, fmt.Errorf("unsupported output adapter: %s", outputType)
 	}
@@ -282,18 +229,6 @@ func setInputAdapterDynamicFlags(transferCmd *cobra.Command) {
 			"in-github-url":          {Usage: "URL for input adapter github", Default: "", Type: "string"},
 			"in-github-method":       {Usage: "Method for input adapter github", Default: "release", Type: "string"},
 			"in-github-all-versions": {Usage: "Fetch all SBOMs for all versions", Default: false, Type: "bool"},
-		},
-		source.SourceS3: {
-			"in-s3-bucket": {Usage: "Bucket name for input adapter s3", Default: "", Type: "string"},
-			"in-s3-region": {Usage: "Region for input adapter s3", Default: "", Type: "string"},
-		},
-		source.SourceDependencyTrack: {
-			"in-dtrack-url":        {Usage: "URL for input adapter dtrack", Default: "", Type: "string"},
-			"in-dtrack-project-id": {Usage: "Project ID for input adapter dtrack", Default: "", Type: "string"},
-		},
-		source.SourceInterlynk: {
-			"in-interlynk-url":        {Usage: "URL for input adapter interlynk", Default: "", Type: "string"},
-			"in-interlynk-project-id": {Usage: "Project ID for input adapter interlynk", Default: "", Type: "string"},
 		},
 	}
 
@@ -332,10 +267,6 @@ func setOutputAdapterDynamicFlags(transferCmd *cobra.Command) {
 		dest.DestInterlynk: {
 			"out-interlynk-url":        {Usage: "URL for output adapter interlynk", Default: "https://api.interlynk.io/lynkapi", Type: "string"},
 			"out-interlynk-project-id": {Usage: "Project ID for output adapter interlynk", Default: "", Type: "string"},
-		},
-		dest.DestDependencyTrack: {
-			"out-dtrack-url":        {Usage: "URL for output adapter dtrack", Default: "", Type: "string"},
-			"out-dtrack-project-id": {Usage: "Project ID for output adapter dtrack", Default: "", Type: "string"},
 		},
 	}
 
@@ -431,18 +362,6 @@ func customUsageFunc(_ *cobra.Command) string {
 			{"--in-github-method", "Method for input adapter github (optional)"},
 			{"--in-github-all-versions", "Fetch all SBOMs for all versions (optional)"},
 		},
-		"dtrack": {
-			{"--in-dtrack-url", "URL for input adapter dtrack (required)"},
-			{"--in-dtrack-project-id", "Project ID for input adapter dtrack (required)"},
-		},
-		"interlynk": {
-			{"--in-interlynk-url", "URL for input adapter interlynk (required)"},
-			{"--in-interlynk-project-id", "Project ID for input adapter interlynk (required)"},
-		},
-		"s3": {
-			{"--in-s3-bucket", "Bucket name for input adapter s3 (required)"},
-			{"--in-s3-region", "Region for input adapter s3 (required)"},
-		},
 	}
 
 	for adapter, flags := range inputAdapters {
@@ -459,10 +378,6 @@ func customUsageFunc(_ *cobra.Command) string {
 		Name  string
 		Usage string
 	}{
-		"dtrack": {
-			{"--out-dtrack-url", "URL for output adapter dtrack (required)"},
-			{"--out-dtrack-project-id", "Project ID for output adapter dtrack (required)"},
-		},
 		"interlynk": {
 			{"--out-interlynk-url", "URL for output adapter interlynk (required)"},
 			{"--out-interlynk-project-id", "Project ID for output adapter interlynk (required)"},
@@ -482,8 +397,8 @@ func customUsageFunc(_ *cobra.Command) string {
 	builder.WriteString("  -D, --debug Enable debug logging\n")
 	builder.WriteString("      --dry-run Enable dry run mode\n")
 	builder.WriteString("  -h, --help help for transfer\n")
-	builder.WriteString("      --input-adapter Input adapter type (github, s3, file, folder, interlynk) (required)\n")
-	builder.WriteString("      --output-adapter Output adapter type (interlynk, dtrack) (required)\n")
+	builder.WriteString("      --input-adapter Input adapter type (github) (required)\n")
+	builder.WriteString("      --output-adapter Output adapter type (interlynk) (required)\n")
 
 	return builder.String()
 }

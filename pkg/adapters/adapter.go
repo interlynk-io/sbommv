@@ -35,20 +35,9 @@ func NewSourceAdapter(ctx context.Context, config mvtypes.Config) (source.InputA
 	var err error
 
 	switch source.InputType(config.SourceType) {
-	case source.SourceFile:
-		adapter = source.NewFileAdapter(config)
-
-	case source.SourceFolder:
-		adapter = source.NewFolderAdapter(config)
 
 	case source.SourceGithub:
 		adapter = source.NewGitHubAdapter(config)
-
-	case source.SourceS3:
-		adapter = source.NewS3Adapter(config)
-
-	case source.SourceInterlynk:
-		adapter = source.NewInterlynkAdapter(config)
 
 	default:
 		err = fmt.Errorf("unsupported input source type: %s", string(config.SourceType))

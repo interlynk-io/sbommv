@@ -35,12 +35,7 @@ const (
 type InputType string
 
 const (
-	SourceGithub          InputType = "github"
-	SourceFolder          InputType = "folder"
-	SourceFile            InputType = "file"
-	SourceS3              InputType = "s3"
-	SourceInterlynk       InputType = "interlynk"
-	SourceDependencyTrack InputType = "dTrack"
+	SourceGithub InputType = "github"
 )
 
 // Input Adapter defines the interface that all SBOM input adapters must implement
