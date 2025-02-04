@@ -38,6 +38,19 @@ type GitHubAdapter struct {
 	client     *http.Client
 }
 
+type GitHubMethod string
+
+const (
+	// MethodReleases searches for SBOMs in GitHub releases
+	MethodReleases GitHubMethod = "release"
+
+	// // MethodReleases searches for SBOMs in GitHub releases
+	MethodAPI GitHubMethod = "api"
+
+	// MethodGenerate clones the repo and generates SBOMs using external Tools
+	MethodTool GitHubMethod = "tool"
+)
+
 // AddCommandParams adds GitHub-specific CLI flags
 func (g *GitHubAdapter) AddCommandParams(cmd *cobra.Command) {
 	cmd.Flags().String("in-github-url", "", "GitHub repository URL")
@@ -82,11 +95,17 @@ func (g *GitHubAdapter) FetchSBOMs(ctx context.Context) (iterator.SBOMIterator, 
 	var sbomIterator iterator.SBOMIterator
 	var err error
 
-	switch g.Method {
-	case "release":
+	switch GitHubMethod(g.Method) {
+
+	case MethodReleases:
 		sbomIterator, err = iterator.NewGitHubReleaseIterator(ctx, client)
-	case "api":
+
+	case MethodAPI:
 		sbomIterator, err = iterator.NewGitHubAPIIterator(ctx, client)
+
+	case MethodTool:
+		// TODO
+
 	default:
 		return nil, fmt.Errorf("unsupported GitHub method: %s", g.Method)
 	}

@@ -81,6 +81,8 @@ func registerAdapterFlags(cmd *cobra.Command) {
 	// Register Interlynk Adapter Flags
 	interlynkAdapter := &adapter.InterlynkAdapter{}
 	interlynkAdapter.AddCommandParams(cmd)
+
+	// similarly for all other Adapters
 }
 
 func transferSBOM(cmd *cobra.Command, args []string) error {

@@ -70,51 +70,64 @@ func (i *InterlynkAdapter) FetchSBOMs(ctx context.Context) (iterator.SBOMIterato
 }
 
 func (a *InterlynkAdapter) UploadSBOMs(ctx context.Context, iterator iterator.SBOMIterator) error {
-	mode := "djdwkdj"
+	mode := "sequential"
 	logger.LogDebug(ctx, "Starting SBOM upload", "mode", mode)
 
 	if mode != "sequential" {
 		return fmt.Errorf("unsupported processing mode: %s", mode) // Future-proofed for parallel & batch
 	}
 
-	// Sequential Processing: Fetch SBOM → Upload → Repeat
-	for {
-		sbom, err := iterator.Next(ctx)
-		if err == io.EOF {
-			logger.LogDebug(ctx, "All SBOMs processed")
-			break
-		}
-		if err != nil {
-			logger.LogError(ctx, err, "Failed to fetch SBOM")
-			continue
-		}
+	switch mode {
 
-		// Initialize Interlynk client
-		client := interlynk.NewClient(interlynk.Config{
-			Token:     a.apiKey,
-			APIURL:    a.baseURL,
-			ProjectID: a.projectID,
-		})
+	case "parallel":
+		// TODO: cuncurrent upload: As soon as we get the SBOM, upload it
 
-		if client.ProjectID == "" {
-			// Create a new project
-			projectName := fmt.Sprintf("%s-%s", sanitizeRepoName(a.URL), a.Version)
+	case "batch":
+		// TODO: hybrid of sequential + parallel
+		// As soon as we get the batch size sbom, upload it.
 
-			projectID, err := client.CreateProjectGroup(ctx, projectName, fmt.Sprintf("Project for SBOM"), true)
-			if err != nil {
-				return fmt.Errorf("failed to create project: %w", err)
+	case "sequential":
+		// Sequential Processing: Fetch SBOM → Upload → Repeat
+		for {
+			sbom, err := iterator.Next(ctx)
+			if err == io.EOF {
+				logger.LogDebug(ctx, "All SBOMs processed")
+				break
 			}
-			logger.LogDebug(ctx, "Created project", "projectID", projectID, "project Name", projectName)
-			client.SetProjectID(projectID)
-		}
+			if err != nil {
+				logger.LogError(ctx, err, "Failed to fetch SBOM")
+				continue
+			}
 
-		// Upload the SBOM file
-		err = client.UploadSBOM(ctx, sbom.Path)
-		if err != nil {
-			logger.LogError(ctx, err, "Failed to upload SBOM", "path", sbom.Path)
-			return fmt.Errorf("failed to upload SBOM: %w", err)
+			// Initialize Interlynk client
+			client := interlynk.NewClient(interlynk.Config{
+				Token:     a.apiKey,
+				APIURL:    a.baseURL,
+				ProjectID: a.projectID,
+			})
+
+			if client.ProjectID == "" {
+				// Create a new project
+				projectName := fmt.Sprintf("%s-%s", sanitizeRepoName(a.URL), a.Version)
+
+				projectID, err := client.CreateProjectGroup(ctx, projectName, fmt.Sprintf("Project for SBOM"), true)
+				if err != nil {
+					return fmt.Errorf("failed to create project: %w", err)
+				}
+				logger.LogDebug(ctx, "Created project", "projectID", projectID, "project Name", projectName)
+				client.SetProjectID(projectID)
+			}
+
+			// Upload the SBOM file
+			err = client.UploadSBOM(ctx, sbom.Path)
+			if err != nil {
+				logger.LogError(ctx, err, "Failed to upload SBOM", "path", sbom.Path)
+				return fmt.Errorf("failed to upload SBOM: %w", err)
+			}
+			logger.LogDebug(ctx, "SBOM uploaded successfully", "path", sbom.Path)
 		}
-		logger.LogDebug(ctx, "SBOM uploaded successfully", "path", sbom.Path)
+	default:
+		//
 	}
 
 	return nil

@@ -45,10 +45,10 @@ func NewGitHubAPIIterator(ctx context.Context, client *github.Client) (*GitHubAP
 		return nil, err
 	}
 
-	logger.LogDebug(ctx, "Successfully retrieved SBOM from GitHub API", "repository", "sbommv")
+	logger.LogDebug(ctx, "Successfully retrieved SBOM from GitHub API", "repository", client.RepoURL)
 
 	// Define SBOM file path
-	sbomFilePath := fmt.Sprintf("sboms/github_api_sbom_%s.json", sanitizeRepoName("SBOMMV"))
+	sbomFilePath := fmt.Sprintf("sboms/github_api_sbom_%s.json", sanitizeRepoName(client.RepoURL))
 
 	// Ensure the directory exists
 	if err := os.MkdirAll("sboms", 0o755); err != nil {
