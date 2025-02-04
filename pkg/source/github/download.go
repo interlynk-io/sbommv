@@ -42,7 +42,7 @@ func (c *Client) GetSBOMs(ctx context.Context, outputDir string) (VersionedSBOMs
 		return nil, fmt.Errorf("no SBOMs found in repository")
 	}
 
-	logger.LogDebug(ctx, "Total SBOMs found in the repository", "version", c.version, "total sboms", len(sboms))
+	logger.LogDebug(ctx, "Total SBOMs found in the repository", "version", c.Version, "total sboms", len(sboms))
 
 	// Create output directory if needed
 	if outputDir != "" {

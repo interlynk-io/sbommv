@@ -51,10 +51,10 @@ type VersionedSBOMs map[string][]string
 // Client interacts with the GitHub API
 type Client struct {
 	httpClient *http.Client
-	baseURL    string
-	repoURL    string
-	version    string
-	method     string
+	BaseURL    string
+	RepoURL    string
+	Version    string
+	Method     string
 	token      string
 }
 
@@ -62,10 +62,10 @@ type Client struct {
 func NewClient(repoURL, version, method string) *Client {
 	return &Client{
 		httpClient: &http.Client{},
-		baseURL:    "https://api.github.com",
-		repoURL:    repoURL,
-		version:    version,
-		method:     method,
+		BaseURL:    "https://api.github.com",
+		RepoURL:    repoURL,
+		Version:    version,
+		Method:     method,
 	}
 }
 
@@ -73,12 +73,12 @@ func NewClient(repoURL, version, method string) *Client {
 // filter out the particular provided release asset and
 // extract SBOMs from that
 func (c *Client) FindSBOMs(ctx context.Context) ([]SBOMAsset, error) {
-	owner, repo, err := ParseGitHubURL(c.repoURL)
+	owner, repo, err := ParseGitHubURL(c.RepoURL)
 	if err != nil {
 		return nil, fmt.Errorf("parsing GitHub URL: %w", err)
 	}
 
-	logger.LogDebug(ctx, "Fetching GitHub releases", "repo_url", c.repoURL, "owner", owner, "repo", repo)
+	logger.LogDebug(ctx, "Fetching GitHub releases", "repo_url", c.RepoURL, "owner", owner, "repo", repo)
 
 	releases, err := c.GetReleases(ctx, owner, repo)
 	if err != nil {
@@ -90,9 +90,9 @@ func (c *Client) FindSBOMs(ctx context.Context) ([]SBOMAsset, error) {
 	}
 
 	// Select target releases (single version or all versions)
-	targetReleases := c.filterReleases(releases, c.version)
+	targetReleases := c.filterReleases(releases, c.Version)
 	if len(targetReleases) == 0 {
-		return nil, fmt.Errorf("no matching release found for version: %s", c.version)
+		return nil, fmt.Errorf("no matching release found for version: %s", c.Version)
 	}
 
 	// Extract SBOM assets from target release
@@ -101,7 +101,7 @@ func (c *Client) FindSBOMs(ctx context.Context) ([]SBOMAsset, error) {
 	if len(sboms) == 0 {
 		return nil, fmt.Errorf("no SBOM files found in releases for repository %s/%s", owner, repo)
 	}
-	logger.LogDebug(ctx, "Successfully retrieved SBOMs", "total_sboms", len(sboms), "repo_url", c.repoURL)
+	logger.LogDebug(ctx, "Successfully retrieved SBOMs", "total_sboms", len(sboms), "repo_url", c.RepoURL)
 
 	return sboms, nil
 }
@@ -146,7 +146,7 @@ func (c *Client) extractSBOMs(releases []Release) []SBOMAsset {
 
 // GetReleases fetches all releases for a repository
 func (c *Client) GetReleases(ctx context.Context, owner, repo string) ([]Release, error) {
-	url := fmt.Sprintf("%s/repos/%s/%s/releases", c.baseURL, owner, repo)
+	url := fmt.Sprintf("%s/repos/%s/%s/releases", c.BaseURL, owner, repo)
 	// logger.LogDebug(ctx, "Fetching GitHub Releases", "url", url)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
@@ -221,4 +221,53 @@ func (c *Client) DownloadAsset(ctx context.Context, downloadURL string) (io.Read
 	}
 
 	return resp.Body, nil
+}
+
+// FetchSBOMsFromReleases fetches and downloads SBOMs from GitHub releases
+func (c *Client) FetchSBOMsFromReleases(ctx context.Context) (map[string][]byte, error) {
+	logger.LogDebug(ctx, "Fetching SBOMs from GitHub Releases", "repo", c.RepoURL)
+
+	// Step 1: Get All Releases
+	sbomAssets, err := c.FindSBOMs(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("error finding SBOMs in releases: %w", err)
+	}
+
+	// Step 2: Download Each SBOM
+	versionedSBOMs := make(map[string][]byte)
+	for _, asset := range sbomAssets {
+		sbomData, err := c.DownloadSBOM(ctx, asset)
+		if err != nil {
+			logger.LogError(ctx, err, "Failed to download SBOM", "file", asset.Name)
+			continue
+		}
+
+		versionedSBOMs[asset.Release] = sbomData
+		logger.LogDebug(ctx, "Downloaded SBOM successfully", "version", asset.Release, "file", asset.Name)
+	}
+
+	// Step 3: Return All Downloaded SBOMs
+	return versionedSBOMs, nil
+}
+
+// DownloadSBOM fetches an SBOM from its download URL
+func (c *Client) DownloadSBOM(ctx context.Context, asset SBOMAsset) ([]byte, error) {
+	logger.LogDebug(ctx, "Downloading SBOM", "url", asset.DownloadURL)
+
+	resp, err := c.httpClient.Get(asset.DownloadURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch SBOM: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("GitHub API returned status %d", resp.StatusCode)
+	}
+
+	sbomData, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read SBOM data: %w", err)
+	}
+
+	return sbomData, nil
 }

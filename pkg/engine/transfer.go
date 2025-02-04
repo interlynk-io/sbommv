@@ -20,18 +20,52 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 
-	adapter "github.com/interlynk-io/sbommv/pkg/adapters"
+	adapter "github.com/interlynk-io/sbommv/pkg/adapter"
+	adapters "github.com/interlynk-io/sbommv/pkg/adapters"
 	"github.com/interlynk-io/sbommv/pkg/logger"
 	"github.com/interlynk-io/sbommv/pkg/mvtypes"
 	"github.com/interlynk-io/sbommv/pkg/sbom"
+	"github.com/spf13/cobra"
 )
 
-func TransferRun(ctx context.Context, config mvtypes.Config) error {
+func TransferRun(ctx context.Context, cmd *cobra.Command, config mvtypes.Config) error {
 	logger.LogInfo(ctx, "Starting SBOM transfer process")
 
-	sourceAdapter, err := adapter.NewSourceAdapter(ctx, config)
+	var inputAdapterInstance adapter.Adapter
+	var outputAdapterInstance adapter.Adapter
+
+	inputAdapterInstance, err := adapter.NewAdapter(ctx, config.SourceType)
+	if err != nil {
+		logger.LogError(ctx, err, "Failed to initialize source adapter")
+		return fmt.Errorf("failed to get source adapter: %w", err)
+	}
+
+	outputAdapterInstance, err = adapter.NewAdapter(ctx, config.DestinationType)
+	if err != nil {
+		logger.LogError(ctx, err, "Failed to initialize destination adapter")
+		return fmt.Errorf("failed to get a destination adapter %v", err)
+	}
+
+	// Parse & Validate Parameters
+	if err := inputAdapterInstance.ParseAndValidateParams(cmd); err != nil {
+		logger.LogError(ctx, err, "Input adapter error")
+	}
+
+	logger.LogDebug(ctx, "input adapter instance config", "value", inputAdapterInstance)
+
+	if err := outputAdapterInstance.ParseAndValidateParams(cmd); err != nil {
+		logger.LogError(ctx, err, "Output adapter error")
+	}
+
+	logger.LogDebug(ctx, "output adapter instance config", "value", outputAdapterInstance)
+
+	os.Exit(0)
+	///-----------------------------------------------------------
+
+	sourceAdapter, err := adapters.NewSourceAdapter(ctx, config)
 	if err != nil {
 		logger.LogError(ctx, err, "Failed to initialize source adapter")
 		return fmt.Errorf("failed to get source adapter: %w", err)
@@ -55,7 +89,7 @@ func TransferRun(ctx context.Context, config mvtypes.Config) error {
 		return nil
 	}
 
-	destAdapter, err := adapter.NewDestAdapter(ctx, config)
+	destAdapter, err := adapters.NewDestAdapter(ctx, config)
 	if err != nil {
 		logger.LogError(ctx, err, "Failed to initialize destination adapter")
 		return fmt.Errorf("failed to get a destination adapter %v", err)
@@ -70,6 +104,15 @@ func TransferRun(ctx context.Context, config mvtypes.Config) error {
 	logger.LogInfo(ctx, "Successfully uploaded all SBOMs")
 	return nil
 }
+
+// // registerAdapterFlags ensures flags are added only once per adapter type.
+// func registerAdapterFlags(cmd *cobra.Command, adapters ...adapter.Adapter) {
+// 	seenFlags := make(map[string]bool) // Track already registered flags
+
+// 	for _, adapter := range adapters {
+// 		adapter.AddCommandParams(cmd, seenFlags)
+// 	}
+// }
 
 func dryMode(ctx context.Context, allSBOMs map[string][]string) error {
 	logger.LogDebug(ctx, "Dry-run mode enabled. Preparing to print SBOM details.", "total_versions", len(allSBOMs))

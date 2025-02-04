@@ -34,12 +34,13 @@ type GitHubSBOMResponse struct {
 }
 
 func (c *Client) FetchSBOMFromAPI(ctx context.Context) ([]byte, error) {
-	owner, repo, err := ParseGitHubURL(c.repoURL)
+	owner, repo, err := ParseGitHubURL(c.RepoURL)
 	if err != nil {
 		return nil, fmt.Errorf("parsing GitHub URL: %w", err)
 	}
+
 	// Construct the API URL for the SBOM export
-	url := fmt.Sprintf("%s/%s", c.baseURL, fmt.Sprintf(githubSBOMEndpoint, owner, repo))
+	url := fmt.Sprintf("%s/%s", c.BaseURL, fmt.Sprintf(githubSBOMEndpoint, owner, repo))
 	logger.LogDebug(ctx, "Fetching SBOM via GitHub API", "url", url)
 
 	// Create request
@@ -86,7 +87,7 @@ func (c *Client) FetchSBOMFromAPI(ctx context.Context) ([]byte, error) {
 		return nil, fmt.Errorf("empty SBOM data received from GitHub API")
 	}
 
-	logger.LogDebug(ctx, "Fetched SBOM successfully", "repository", c.repoURL)
+	logger.LogDebug(ctx, "Fetched SBOM successfully", "repository", c.RepoURL)
 
 	// Return the raw SBOM JSON as bytes
 	return response.SBOM, nil
