@@ -4,7 +4,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//	http://www.apache.org/licenses/LICENSE-2.0
+//     http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -13,14 +13,19 @@
 // limitations under the License.
 // -------------------------------------------------------------------------
 
-package source
+package iterator
 
-import "strings"
+import (
+	"context"
+)
 
-func sanitizeRepoName(repoURL string) string {
-	repoParts := strings.Split(repoURL, "/")
-	if len(repoParts) < 2 {
-		return "unknown"
-	}
-	return repoParts[len(repoParts)-1] // Extracts "cosign" from URL
+// SBOM represents a single SBOM file
+type SBOM struct {
+	Path string
+	Data []byte
+}
+
+// SBOMIterator provides a way to lazily fetch SBOMs one by one
+type SBOMIterator interface {
+	Next(ctx context.Context) (*SBOM, error) // Fetch the next SBOM
 }

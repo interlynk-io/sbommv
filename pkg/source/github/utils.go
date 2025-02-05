@@ -89,3 +89,11 @@ func decodeBase64(encoded string) (string, error) {
 	}
 	return string(decodedBytes), nil
 }
+
+func sanitizeRepoName(repoURL string) string {
+	repoParts := strings.Split(repoURL, "/")
+	if len(repoParts) < 2 {
+		return "unknown"
+	}
+	return repoParts[len(repoParts)-1] // Extracts "cosign" from URL
+}

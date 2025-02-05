@@ -18,61 +18,87 @@ package engine
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
 
-	adapter "github.com/interlynk-io/sbommv/pkg/adapters"
+	adapter "github.com/interlynk-io/sbommv/pkg/adapter"
+	"github.com/interlynk-io/sbommv/pkg/iterator"
 	"github.com/interlynk-io/sbommv/pkg/logger"
 	"github.com/interlynk-io/sbommv/pkg/mvtypes"
 	"github.com/interlynk-io/sbommv/pkg/sbom"
+	"github.com/spf13/cobra"
 )
 
-func TransferRun(ctx context.Context, config mvtypes.Config) error {
+func TransferRun(ctx context.Context, cmd *cobra.Command, config mvtypes.Config) error {
 	logger.LogInfo(ctx, "Starting SBOM transfer process")
 
-	sourceAdapter, err := adapter.NewSourceAdapter(ctx, config)
+	var inputAdapterInstance adapter.Adapter
+	var outputAdapterInstance adapter.Adapter
+	var err error
+
+	// Initialize source adapter
+	inputAdapterInstance, err = adapter.NewAdapter(ctx, config.SourceType)
 	if err != nil {
 		logger.LogError(ctx, err, "Failed to initialize source adapter")
 		return fmt.Errorf("failed to get source adapter: %w", err)
 	}
 
-	logger.LogDebug(ctx, "Fetching SBOMs from source using source adapters")
-	allSBOMs, err := sourceAdapter.GetSBOMs(ctx)
-	if err != nil {
-		logger.LogError(ctx, err, "Failed to retrieve SBOMs")
-		return fmt.Errorf("failed to get SBOMs: %w", err)
-	}
-	logger.LogInfo(ctx, "Successfully fetched all SBOMs")
-
-	if config.DryRun {
-		logger.LogInfo(ctx, "Dry-run mode enabled: Displaying SBOMs which are retrieved", "values", config.DryRun)
-		err := dryMode(ctx, allSBOMs)
-		if err != nil {
-			logger.LogError(ctx, err, "Dry-run mode failed")
-			return fmt.Errorf("failed to execute dry-run mode: %v", err)
-		}
-		return nil
-	}
-
-	destAdapter, err := adapter.NewDestAdapter(ctx, config)
+	// Initialize destination adapter
+	outputAdapterInstance, err = adapter.NewAdapter(ctx, config.DestinationType)
 	if err != nil {
 		logger.LogError(ctx, err, "Failed to initialize destination adapter")
 		return fmt.Errorf("failed to get a destination adapter %v", err)
 	}
 
-	logger.LogDebug(ctx, "Uploading SBOMs to destination")
-	err = destAdapter.UploadSBOMs(ctx, allSBOMs)
-	if err != nil {
-		logger.LogError(ctx, err, "Failed to upload SBOMs")
-		return fmt.Errorf("failed to upload SBOMs %v", err)
+	// Parse and validate input adapter parameters
+	if err := inputAdapterInstance.ParseAndValidateParams(cmd); err != nil {
+		logger.LogError(ctx, err, "Input adapter error")
+		return fmt.Errorf("input adapter error: %w", err)
+
 	}
-	logger.LogInfo(ctx, "Successfully uploaded all SBOMs")
+	logger.LogDebug(ctx, "input adapter instance config", "value", inputAdapterInstance)
+
+	// Parse and validate output adapter parameters
+	if err := outputAdapterInstance.ParseAndValidateParams(cmd); err != nil {
+		return fmt.Errorf("output adapter error: %w", err)
+	}
+	logger.LogDebug(ctx, "output adapter instance config", "value", outputAdapterInstance)
+
+	// Fetch SBOMs lazily using the iterator
+	logger.LogInfo(ctx, "Fetching SBOMs from input adapter...")
+
+	sbomIterator, err := inputAdapterInstance.FetchSBOMs(ctx)
+	if err != nil {
+		logger.LogError(ctx, err, "Failed to fetch SBOMs")
+		return fmt.Errorf("failed to fetch SBOMs: %w", err)
+	}
+
+	logger.LogDebug(ctx, "SBOM fetching started successfully", "sbomIterator", sbomIterator)
+
+	// Dry-Run Mode: Display SBOMs Without Uploading
+	if config.DryRun {
+		logger.LogInfo(ctx, "Dry-run mode enabled: Displaying retrieved SBOMs", "values", config.DryRun)
+
+		if err := dryMode(ctx, sbomIterator); err != nil {
+			return fmt.Errorf("failed to execute dry-run mode: %v", err)
+		}
+		return nil
+	}
+
+	// Process & Upload SBOMs Sequentially
+	if err := outputAdapterInstance.UploadSBOMs(ctx, sbomIterator); err != nil {
+		logger.LogError(ctx, err, "Failed to output SBOMs")
+		return fmt.Errorf("failed to output SBOMs: %w", err)
+	}
+
+	logger.LogDebug(ctx, "SBOM transfer process completed successfully ✅")
 	return nil
 }
 
-func dryMode(ctx context.Context, allSBOMs map[string][]string) error {
-	logger.LogDebug(ctx, "Dry-run mode enabled. Preparing to print SBOM details.", "total_versions", len(allSBOMs))
+func dryMode(ctx context.Context, iterator iterator.SBOMIterator) error {
+	logger.LogDebug(ctx, "Dry-run mode enabled. Preparing to print SBOM details.")
 
 	processor := sbom.NewSBOMProcessor("", false)
 	sbomCount := 0
@@ -81,26 +107,28 @@ func dryMode(ctx context.Context, allSBOMs map[string][]string) error {
 	fmt.Println(" List of SBOM files fetched by Input Adapter (Grouped by Version)")
 	fmt.Println("=========================================")
 
-	for version, sboms := range allSBOMs {
-		fmt.Printf("\n--- Version: %s ---\n", version)
-
-		for _, sbomPath := range sboms {
-			logger.LogDebug(ctx, "Processing SBOM file", "path", sbomPath)
-
-			doc, err := processor.ProcessSBOM(sbomPath)
-			if err != nil {
-				logger.LogError(ctx, err, "Failed to process SBOM", "path", sbomPath)
-				continue
-			}
-
-			sbomCount++
-			fmt.Printf("%d. File: %s | Format: %s | SpecVersion: %s\n", sbomCount, doc.Filename, doc.Format, doc.SpecVersion)
-
-			// Uncomment if you want to pretty print the SBOM content
-			// if err := sbom.PrettyPrintSBOM(os.Stdout, doc.Content); err != nil {
-			//     logger.LogError(ctx, err, "Failed to pretty-print SBOM content", "file", doc.Filename)
-			// }
+	for {
+		sbom, err := iterator.Next(ctx)
+		if err == io.EOF {
+			break // no more sboms
 		}
+
+		if err != nil {
+			logger.LogError(ctx, err, "Error retrieving SBOM from iterator")
+			continue
+		}
+
+		logger.LogDebug(ctx, "Processing SBOM file", "path", sbom.Path)
+
+		doc, err := processor.ProcessSBOM(sbom.Path)
+		if err != nil {
+			logger.LogError(ctx, err, "Failed to process SBOM", "path", sbom.Path)
+			continue
+		}
+
+		sbomCount++
+		fmt.Printf("%d. File: %s | Format: %s | SpecVersion: %s\n", sbomCount, doc.Filename, doc.Format, doc.SpecVersion)
+
 	}
 
 	logger.LogDebug(ctx, "Dry-run mode completed", "total_sboms_processed", sbomCount)

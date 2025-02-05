@@ -20,6 +20,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 )
 
 func GetBinaryPath() (string, error) {
@@ -87,4 +88,48 @@ func CloneRepoWithGit(ctx context.Context, repoURL, targetDir string) error {
 
 	fmt.Println("✅ Repository successfully cloned using Git.")
 	return nil
+}
+
+// ParseRepoVersion extracts the repository URL without version and version from a GitHub URL.
+// For URLs like "https://github.com/owner/repo", returns ("https://github.com/owner/repo", "latest", nil).
+// For URLs like "https://github.com/owner/repo@v1.0.0", returns ("https://github.com/owner/repo", "v1.0.0", nil).
+func ParseRepoVersion(repoURL string) (string, string, error) {
+	// Remove any trailing slashes
+	repoURL = strings.TrimRight(repoURL, "/")
+
+	// Check if URL is a GitHub URL
+	if !strings.Contains(repoURL, "github.com") {
+		return "", "", fmt.Errorf("not a GitHub URL: %s", repoURL)
+	}
+
+	// Split on @ to separate repo URL from version
+	parts := strings.Split(repoURL, "@")
+	if len(parts) > 2 {
+		return "", "", fmt.Errorf("invalid GitHub URL format: %s", repoURL)
+	}
+
+	baseURL := parts[0]
+	version := "latest"
+
+	// Normalize the base URL format
+	if !strings.HasPrefix(baseURL, "http") {
+		baseURL = "https://" + baseURL
+	}
+
+	// Validate repository path format (github.com/owner/repo)
+	urlParts := strings.Split(baseURL, "/")
+	if len(urlParts) < 4 || urlParts[len(urlParts)-2] == "" || urlParts[len(urlParts)-1] == "" {
+		return "", "", fmt.Errorf("invalid repository path format: %s", baseURL)
+	}
+
+	// Get version if specified
+	if len(parts) == 2 {
+		version = parts[1]
+		// Validate version format
+		if !strings.HasPrefix(version, "v") {
+			return "", "", fmt.Errorf("invalid version format (should start with 'v'): %s", version)
+		}
+	}
+
+	return baseURL, version, nil
 }
