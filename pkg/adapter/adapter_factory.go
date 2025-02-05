@@ -23,14 +23,8 @@ import (
 	"github.com/interlynk-io/sbommv/pkg/logger"
 	"github.com/interlynk-io/sbommv/pkg/source/github"
 	"github.com/interlynk-io/sbommv/pkg/target/interlynk"
+	"github.com/interlynk-io/sbommv/pkg/types"
 	"github.com/spf13/cobra"
-)
-
-type AdapterType string
-
-const (
-	GithubAdapterType    AdapterType = "github"
-	InterlynkAdapterType AdapterType = "interlynk"
 )
 
 // Adapter defines the interface for all adapters
@@ -49,16 +43,16 @@ type Adapter interface {
 }
 
 // NewAdapter initializes and returns the correct adapter
-func NewAdapter(ctx context.Context, adapterType string) (Adapter, error) {
+func NewAdapter(ctx context.Context, adapterType string, role types.AdapterRole) (Adapter, error) {
 	logger.LogInfo(ctx, "Initializing adapter", "adapterType", adapterType)
 
-	switch AdapterType(adapterType) {
+	switch types.AdapterType(adapterType) {
 
-	case GithubAdapterType:
-		return &github.GitHubAdapter{}, nil
+	case types.GithubAdapterType:
+		return &github.GitHubAdapter{Role: role}, nil
 
-	case InterlynkAdapterType:
-		return &interlynk.InterlynkAdapter{}, nil
+	case types.InterlynkAdapterType:
+		return &interlynk.InterlynkAdapter{Role: role}, nil
 
 	default:
 		return nil, fmt.Errorf("unsupported adapter type: %s", adapterType)
