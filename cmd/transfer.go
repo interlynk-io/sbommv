@@ -107,8 +107,8 @@ func transferSBOM(cmd *cobra.Command, args []string) error {
 
 	logger.LogDebug(ctx, "configuration", "value", config)
 
-	// Execute engine operation
 	logger.LogDebug(ctx, "Executing SBOM transfer process")
+
 	if err := engine.TransferRun(ctx, cmd, config); err != nil {
 		logger.LogError(ctx, err, "Transfer operation failed")
 		return fmt.Errorf("failed to process engine for transfer cmd: %w", err)
