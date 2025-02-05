@@ -20,9 +20,10 @@ import (
 	"os"
 	"strings"
 
-	"github.com/interlynk-io/sbommv/pkg/adapter"
 	"github.com/interlynk-io/sbommv/pkg/engine"
 	"github.com/interlynk-io/sbommv/pkg/mvtypes"
+	"github.com/interlynk-io/sbommv/pkg/source/github"
+	"github.com/interlynk-io/sbommv/pkg/target/interlynk"
 
 	"github.com/interlynk-io/sbommv/pkg/logger"
 	"github.com/spf13/cobra"
@@ -75,11 +76,11 @@ func init() {
 // registerAdapterFlags dynamically adds flags for the selected adapters after flag parsing
 func registerAdapterFlags(cmd *cobra.Command) {
 	// Register GitHub Adapter Flags
-	githubAdapter := &adapter.GitHubAdapter{}
+	githubAdapter := &github.GitHubAdapter{}
 	githubAdapter.AddCommandParams(cmd)
 
 	// Register Interlynk Adapter Flags
-	interlynkAdapter := &adapter.InterlynkAdapter{}
+	interlynkAdapter := &interlynk.InterlynkAdapter{}
 	interlynkAdapter.AddCommandParams(cmd)
 
 	// similarly for all other Adapters

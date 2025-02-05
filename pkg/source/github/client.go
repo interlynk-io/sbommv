@@ -20,9 +20,24 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"path/filepath"
+	"sync"
 
 	"github.com/interlynk-io/sbommv/pkg/logger"
 )
+
+type downloadWork struct {
+	sbom   SBOMAsset
+	output string
+}
+
+const githubSBOMEndpoint = "repos/%s/%s/dependency-graph/sbom"
+
+// GitHubSBOMResponse holds the JSON structure returned by GitHub API
+type GitHubSBOMResponse struct {
+	SBOM json.RawMessage `json:"sbom"` // Extract SBOM as raw JSON
+}
 
 // Asset represents a GitHub release asset (e.g., SBOM files)
 type Asset struct {
@@ -270,4 +285,175 @@ func (c *Client) DownloadSBOM(ctx context.Context, asset SBOMAsset) ([]byte, err
 	}
 
 	return sbomData, nil
+}
+
+// GetSBOMs downloads and saves all SBOM files found in the repository
+func (c *Client) GetSBOMs(ctx context.Context, outputDir string) (VersionedSBOMs, error) {
+	// Find SBOMs in releases
+	sboms, err := c.FindSBOMs(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("finding SBOMs: %w", err)
+	}
+	if len(sboms) == 0 {
+		return nil, fmt.Errorf("no SBOMs found in repository")
+	}
+
+	logger.LogDebug(ctx, "Total SBOMs found in the repository", "version", c.Version, "total sboms", len(sboms))
+
+	// Create output directory if needed
+	if outputDir != "" {
+		if err := os.MkdirAll(outputDir, 0o755); err != nil {
+			return nil, fmt.Errorf("creating output directory: %w", err)
+		}
+	}
+
+	return c.downloadSBOMs(ctx, sboms, outputDir)
+}
+
+// downloadSBOMs handles the concurrent downloading of multiple SBOM files
+func (c *Client) downloadSBOMs(ctx context.Context, sboms []SBOMAsset, outputDir string) (VersionedSBOMs, error) {
+	var (
+		wg             sync.WaitGroup                        // Coordinates all goroutines
+		mu             sync.Mutex                            // Protects shared resources
+		versionedSBOMs = make(VersionedSBOMs)                // Stores results
+		errors         []error                               // Collects errors
+		maxConcurrency = 3                                   // Maximum parallel downloads
+		semaphore      = make(chan struct{}, maxConcurrency) // Controls concurrency
+	)
+
+	// Process each SBOM
+	for _, sbom := range sboms {
+		// Context cancellation check
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+		}
+
+		wg.Add(1)
+		go func(sbom SBOMAsset) {
+			defer wg.Done()
+			semaphore <- struct{}{}        // Acquire semaphore
+			defer func() { <-semaphore }() // Release semaphore
+
+			// Download and save the SBOM
+			outputPath := ""
+			if outputDir != "" {
+				outputPath = filepath.Join(outputDir, sbom.Name)
+			}
+
+			err := c.downloadSingleSBOM(ctx, sbom, outputPath)
+			if err != nil {
+				mu.Lock()
+				errors = append(errors, fmt.Errorf("downloading %s: %w", sbom.Name, err))
+				mu.Unlock()
+				return
+			}
+
+			if outputPath != "" {
+				mu.Lock()
+				versionedSBOMs[sbom.Release] = append(versionedSBOMs[sbom.Release], outputPath)
+				mu.Unlock()
+				logger.LogDebug(ctx, "SBOM file", "name", sbom.Name, "saved to", outputPath)
+			}
+		}(sbom)
+	}
+
+	wg.Wait()
+
+	if len(errors) > 0 {
+		return nil, fmt.Errorf("encountered %d download errors: %v", len(errors), errors[0])
+	}
+
+	return versionedSBOMs, nil
+}
+
+// downloadSingleSBOM downloads and saves a single SBOM file
+func (c *Client) downloadSingleSBOM(ctx context.Context, sbom SBOMAsset, outputPath string) error {
+	reader, err := c.DownloadAsset(ctx, sbom.DownloadURL)
+	if err != nil {
+		return fmt.Errorf("downloading asset: %w", err)
+	}
+	defer reader.Close()
+
+	var output io.Writer
+	if outputPath == "" {
+		// Write to stdout with header
+		fmt.Printf("\n=== SBOM: %s ===\n", sbom.Name)
+		output = os.Stdout
+	} else {
+		// Create and write to file
+		file, err := os.Create(outputPath)
+		if err != nil {
+			return fmt.Errorf("creating output file: %w", err)
+		}
+		defer file.Close()
+		output = file
+	}
+
+	if _, err := io.Copy(output, reader); err != nil {
+		return fmt.Errorf("writing SBOM: %w", err)
+	}
+
+	return nil
+}
+
+func (c *Client) FetchSBOMFromAPI(ctx context.Context) ([]byte, error) {
+	owner, repo, err := ParseGitHubURL(c.RepoURL)
+	if err != nil {
+		return nil, fmt.Errorf("parsing GitHub URL: %w", err)
+	}
+
+	// Construct the API URL for the SBOM export
+	url := fmt.Sprintf("%s/%s", c.BaseURL, fmt.Sprintf(githubSBOMEndpoint, owner, repo))
+	logger.LogDebug(ctx, "Fetching SBOM via GitHub API", "url", url)
+
+	// Create request
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Add authentication only if a token is provided
+	if c.token != "" {
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.token))
+	}
+
+	// Set required headers
+	req.Header.Set("Accept", "application/vnd.github.v3+json")
+
+	// Perform the request
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch SBOM: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Handle non-200 responses
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("GitHub API returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	// Read response body
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	// Extract SBOM field from response
+	var response GitHubSBOMResponse
+	if err := json.Unmarshal(body, &response); err != nil {
+		return nil, fmt.Errorf("parsing SBOM response: %w", err)
+	}
+
+	// Ensure SBOM field is not empty
+	if len(response.SBOM) == 0 {
+		return nil, fmt.Errorf("empty SBOM data received from GitHub API")
+	}
+
+	logger.LogDebug(ctx, "Fetched SBOM successfully", "repository", c.RepoURL)
+
+	// Return the raw SBOM JSON as bytes
+	return response.SBOM, nil
 }

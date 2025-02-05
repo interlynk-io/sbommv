@@ -21,6 +21,8 @@ import (
 
 	"github.com/interlynk-io/sbommv/pkg/iterator"
 	"github.com/interlynk-io/sbommv/pkg/logger"
+	"github.com/interlynk-io/sbommv/pkg/source/github"
+	"github.com/interlynk-io/sbommv/pkg/target/interlynk"
 	"github.com/spf13/cobra"
 )
 
@@ -64,9 +66,9 @@ func NewAdapter(ctx context.Context, adapterType string) (Adapter, error) {
 
 	switch AdapterType(adapterType) {
 	case GithubAdapterType:
-		return &GitHubAdapter{}, nil
+		return &github.GitHubAdapter{}, nil
 	case InterlynkAdapterType:
-		return &InterlynkAdapter{}, nil
+		return &interlynk.InterlynkAdapter{}, nil
 	default:
 		return nil, fmt.Errorf("unsupported adapter type: %s", adapterType)
 	}

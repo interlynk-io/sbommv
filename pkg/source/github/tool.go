@@ -74,3 +74,25 @@ func GenerateSBOM(ctx context.Context, repoDir, binaryPath string) (string, erro
 
 	return "", fmt.Errorf("SBOM file was not created: %s", sbomFile)
 }
+
+// CloneRepoWithGit clones a GitHub repository using the Git command-line tool.
+func CloneRepoWithGit(ctx context.Context, repoURL, targetDir string) error {
+	// Ensure Git is installed
+	if _, err := exec.LookPath("git"); err != nil {
+		return fmt.Errorf("git is not installed, install Git or use --method=api")
+	}
+
+	fmt.Println("🚀 Cloning repository using Git:", repoURL)
+
+	// Run `git clone --depth=1` for faster shallow cloning
+	cmd := exec.CommandContext(ctx, "git", "clone", "--depth=1", repoURL, targetDir)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("git clone failed: %w", err)
+	}
+
+	fmt.Println("✅ Repository successfully cloned using Git.")
+	return nil
+}
