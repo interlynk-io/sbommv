@@ -20,6 +20,7 @@ import (
 	"net/http"
 
 	"github.com/interlynk-io/sbommv/pkg/iterator"
+	"github.com/interlynk-io/sbommv/pkg/logger"
 	"github.com/interlynk-io/sbommv/pkg/types"
 	"github.com/interlynk-io/sbommv/pkg/utils"
 	"github.com/spf13/cobra"
@@ -76,6 +77,16 @@ func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 	method, _ := cmd.Flags().GetString(methodFlag)
 	if method != "release" && method != "api" && method != "tool" {
 		return fmt.Errorf("missing or invalid flag: in-github-method")
+	}
+
+	if method == "tool" {
+		binaryPath, err := utils.GetBinaryPath()
+		if err != nil {
+			return fmt.Errorf("failed to get Syft binary: %w", err)
+		}
+		fmt.Println("Binary Path: ", binaryPath)
+		g.BinaryPath = binaryPath
+		logger.LogDebug(context.Background(), "Binary Path", "value", g.BinaryPath)
 	}
 
 	token := viper.GetString("GITHUB_TOKEN")

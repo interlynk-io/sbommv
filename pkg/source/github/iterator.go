@@ -28,10 +28,11 @@ import (
 
 // GitHubIterator iterates over SBOMs fetched from GitHub (API, Release, Tool)
 type GitHubIterator struct {
-	ctx      context.Context
-	client   *Client
-	sboms    []*iterator.SBOM // Stores all fetched SBOMs
-	position int              // Tracks iteration position
+	ctx        context.Context
+	client     *Client
+	sboms      []*iterator.SBOM // Stores all fetched SBOMs
+	position   int              // Tracks iteration position
+	binaryPath string
 }
 
 // NewGitHubIterator initializes the iterator based on the GitHub method
@@ -40,9 +41,10 @@ func NewGitHubIterator(ctx context.Context, g *GitHubAdapter) (*GitHubIterator, 
 
 	client := NewClient(g.URL, g.Version, string(g.Method))
 	iterator := &GitHubIterator{
-		ctx:    ctx,
-		client: client,
-		sboms:  []*iterator.SBOM{},
+		ctx:        ctx,
+		client:     client,
+		sboms:      []*iterator.SBOM{},
+		binaryPath: g.BinaryPath,
 	}
 
 	// Fetch SBOMs based on method
@@ -151,13 +153,19 @@ func (it *GitHubIterator) fetchSBOMFromTool() error {
 	}
 
 	// Generate SBOM
-	sbomFile, err := GenerateSBOM(it.ctx, repoDir, "/path/to/syft")
+	sbomFile, err := GenerateSBOM(it.ctx, repoDir, it.binaryPath)
 	if err != nil {
 		return fmt.Errorf("failed to generate SBOM: %w", err)
 	}
 
+	// Ensure the "sboms" directory exists
+	sbomDir := "sboms"
+	if err := os.MkdirAll(sbomDir, 0o755); err != nil {
+		return fmt.Errorf("failed to create SBOM output directory: %w", err)
+	}
+
 	// Move SBOM to final location
-	sbomFilePath := fmt.Sprintf("sboms/github_tool_sbom_%s.json", sanitizeRepoName(it.client.RepoURL))
+	sbomFilePath := fmt.Sprintf("%s/github_tool_sbom_%s.json", sbomDir, sanitizeRepoName(it.client.RepoURL))
 	if err := os.Rename(sbomFile, sbomFilePath); err != nil {
 		return fmt.Errorf("failed to move SBOM file: %w", err)
 	}
