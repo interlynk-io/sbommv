@@ -50,12 +50,15 @@ func NewGitHubIterator(ctx context.Context, g *GitHubAdapter) (*GitHubIterator, 
 
 	switch GitHubMethod(g.Method) {
 	case MethodAPI:
+		logger.LogDebug(ctx, "Github Method", "value", MethodAPI)
 		err = iterator.fetchSBOMFromAPI()
 
 	case MethodReleases:
+		logger.LogDebug(ctx, "Github Method", "value", MethodReleases)
 		err = iterator.fetchSBOMFromReleases()
 
 	case MethodTool:
+		logger.LogDebug(ctx, "Github Method", "value", MethodTool)
 		err = iterator.fetchSBOMFromTool()
 
 	default:
@@ -78,6 +81,7 @@ func NewGitHubIterator(ctx context.Context, g *GitHubAdapter) (*GitHubIterator, 
 
 // Next returns the next SBOM from the stored list
 func (it *GitHubIterator) Next(ctx context.Context) (*iterator.SBOM, error) {
+	logger.LogDebug(ctx, "Inside Next")
 	if it.position >= len(it.sboms) {
 		return nil, io.EOF // No more SBOMs left
 	}
@@ -113,21 +117,22 @@ func (it *GitHubIterator) fetchSBOMFromAPI() error {
 func (it *GitHubIterator) fetchSBOMFromReleases() error {
 	logger.LogDebug(it.ctx, "Fetching SBOMs from GitHub Releases", "repo", it.client.RepoURL)
 
-	releaseSBOMs, err := it.client.FetchSBOMsFromReleases(it.ctx)
+	ctx := context.Background()
+	// sboms, err := it.client.FindSBOMs(ctx)
+
+	sbomFiles, err := it.client.GetSBOMs(ctx, "sboms")
 	if err != nil {
-		return err
+		logger.LogError(ctx, err, "Failed to retrieve SBOMs from GitHub releases", "url", it.client.RepoURL, "version", it.client.Version)
+		return fmt.Errorf("error retrieving SBOMs from releases: %w", err)
 	}
 
-	for _, sbomData := range releaseSBOMs {
-		sbomFilePath := fmt.Sprintf("sboms/github_release_sbom_%s.json", sanitizeRepoName(it.client.RepoURL))
-		if err := saveSBOMToFile(sbomFilePath, sbomData); err != nil {
-			continue
+	for _, sbomFile := range sbomFiles {
+		for _, sbom := range sbomFile {
+			it.sboms = append(it.sboms, &iterator.SBOM{
+				Path: sbom,
+				Data: nil,
+			})
 		}
-
-		it.sboms = append(it.sboms, &iterator.SBOM{
-			Path: sbomFilePath,
-			Data: sbomData,
-		})
 	}
 
 	return nil

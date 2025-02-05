@@ -141,7 +141,8 @@ func sanitizeRepoName(repoURL string) string {
 }
 
 // uploadSequential handles sequential SBOM processing and uploading
-func (i *InterlynkAdapter) uploadSequential(ctx context.Context, iterator iterator.SBOMIterator) error {
+func (i *InterlynkAdapter) uploadSequential(ctx context.Context, sboms iterator.SBOMIterator) error {
+	logger.LogDebug(ctx, "uploading in sequestion mode")
 	// interlynk adapter client
 	client := NewClient(Config{
 		Token:     i.ApiKey,
@@ -159,18 +160,26 @@ func (i *InterlynkAdapter) uploadSequential(ctx context.Context, iterator iterat
 		client.SetProjectID(projectID)
 	}
 
-	// upload SBOMs
 	for {
-		sbom, err := iterator.Next(ctx)
+		sbom, err := sboms.Next(ctx)
 		if err == io.EOF {
-			return nil
+			logger.LogDebug(ctx, "All SBOMs uploaded successfully, no more SBOMs left.")
+			break
 		}
 		if err != nil {
-			return fmt.Errorf("failed to fetch SBOM: %w", err)
+			logger.LogError(ctx, err, "Failed to retrieve SBOM from iterator")
+			continue
 		}
 
-		if err := client.UploadSBOM(ctx, sbom.Path); err != nil {
-			return fmt.Errorf("failed to upload SBOM %q: %w", sbom.Path, err)
+		logger.LogDebug(ctx, "Currently Uploading SBOM", "file", sbom.Path)
+
+		// Upload SBOM
+		err = client.UploadSBOM(ctx, sbom.Path)
+		if err != nil {
+			logger.LogError(ctx, err, "Failed to upload SBOM", "file", sbom.Path)
+		} else {
+			logger.LogDebug(ctx, "Successfully uploaded SBOM", "file", sbom.Path)
 		}
 	}
+	return nil
 }

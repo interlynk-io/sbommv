@@ -248,6 +248,12 @@ func (c *Client) FetchSBOMsFromReleases(ctx context.Context) (map[string][]byte,
 		return nil, fmt.Errorf("error finding SBOMs in releases: %w", err)
 	}
 
+	if len(sbomAssets) == 0 {
+		return nil, fmt.Errorf("no SBOMs found in repository")
+	}
+
+	logger.LogDebug(ctx, "Total SBOMs found in the repository", "version", c.Version, "total sboms", len(sbomAssets))
+
 	// Step 2: Download Each SBOM
 	versionedSBOMs := make(map[string][]byte)
 	for _, asset := range sbomAssets {
