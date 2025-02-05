@@ -26,25 +26,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// AdapterConfig holds configuration for any adapter (input or output)
-type AdapterConfig struct {
-	AdapterType string // "github" or "interlynk"
-
-	// github adapter speciic field
-	RepoURL     string
-	Branch      string
-	Version     string
-	Owner       string
-	Repo        string
-	Method      string
-	GithubToken string
-
-	// interlynk adapter speciic field
-	URL       string
-	ProjectID string
-	Token     string
-}
-
 type AdapterType string
 
 const (
@@ -54,10 +35,17 @@ const (
 
 // Adapter defines the interface for all adapters
 type Adapter interface {
-	AddCommandParams(cmd *cobra.Command)                                   // Adds CLI flags to the command
-	ParseAndValidateParams(cmd *cobra.Command) error                       // Parses & validates input params
-	FetchSBOMs(ctx context.Context) (iterator.SBOMIterator, error)         // Fetch SBOMs lazily using iterator
-	UploadSBOMs(ctx context.Context, iterator iterator.SBOMIterator) error // Outputs SBOMs (uploading)
+	// Adds CLI flags to the commands
+	AddCommandParams(cmd *cobra.Command)
+
+	// Parses & validates input params
+	ParseAndValidateParams(cmd *cobra.Command) error
+
+	// Fetch SBOMs lazily using iterator
+	FetchSBOMs(ctx context.Context) (iterator.SBOMIterator, error)
+
+	// Outputs SBOMs (uploading)
+	UploadSBOMs(ctx context.Context, iterator iterator.SBOMIterator) error
 }
 
 // NewAdapter initializes and returns the correct adapter
@@ -65,10 +53,13 @@ func NewAdapter(ctx context.Context, adapterType string) (Adapter, error) {
 	logger.LogInfo(ctx, "Initializing adapter", "adapterType", adapterType)
 
 	switch AdapterType(adapterType) {
+
 	case GithubAdapterType:
 		return &github.GitHubAdapter{}, nil
+
 	case InterlynkAdapterType:
 		return &interlynk.InterlynkAdapter{}, nil
+
 	default:
 		return nil, fmt.Errorf("unsupported adapter type: %s", adapterType)
 	}

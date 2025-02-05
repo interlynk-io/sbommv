@@ -33,13 +33,17 @@ func NewGitHubIterator(ctx context.Context, g *GitHubAdapter) (*GitHubIterator, 
 
 	// Fetch SBOMs based on method
 	var err error
+
 	switch GitHubMethod(g.Method) {
 	case MethodAPI:
 		err = iterator.fetchSBOMFromAPI()
+
 	case MethodReleases:
 		err = iterator.fetchSBOMFromReleases()
+
 	case MethodTool:
 		err = iterator.fetchSBOMFromTool()
+
 	default:
 		return nil, fmt.Errorf("unsupported GitHub method: %s", g.Method)
 	}

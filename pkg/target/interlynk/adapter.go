@@ -112,6 +112,7 @@ func (a *InterlynkAdapter) UploadSBOMs(ctx context.Context, iterator iterator.SB
 		}
 	default:
 		//
+		logger.LogInfo(ctx, "Invalid mode to upload SBOMs")
 	}
 
 	return nil
