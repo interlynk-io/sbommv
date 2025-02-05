@@ -81,7 +81,7 @@ func NewGitHubIterator(ctx context.Context, g *GitHubAdapter) (*GitHubIterator, 
 
 // Next returns the next SBOM from the stored list
 func (it *GitHubIterator) Next(ctx context.Context) (*iterator.SBOM, error) {
-	logger.LogDebug(ctx, "Inside Next")
+	logger.LogDebug(ctx, "Iterating via Next")
 	if it.position >= len(it.sboms) {
 		return nil, io.EOF // No more SBOMs left
 	}

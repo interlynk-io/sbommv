@@ -20,6 +20,7 @@ import (
 	"net/http"
 
 	"github.com/interlynk-io/sbommv/pkg/iterator"
+	"github.com/interlynk-io/sbommv/pkg/types"
 	"github.com/interlynk-io/sbommv/pkg/utils"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -36,6 +37,7 @@ type GitHubAdapter struct {
 	BinaryPath  string
 	client      *http.Client
 	GithubToken string
+	Role        types.AdapterRole
 }
 
 type GitHubMethod string
@@ -59,12 +61,19 @@ func (g *GitHubAdapter) AddCommandParams(cmd *cobra.Command) {
 
 // ParseAndValidateParams validates the GitHub adapter params
 func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
-	url, _ := cmd.Flags().GetString("in-github-url")
+	var urlFlag, methodFlag string
+
+	if g.Role == types.InputAdapter {
+		urlFlag = "in-github-url"
+		methodFlag = "in-github-method"
+	}
+
+	url, _ := cmd.Flags().GetString(urlFlag)
 	if url == "" {
 		return fmt.Errorf("missing or invalid flag: in-github-url")
 	}
 
-	method, _ := cmd.Flags().GetString("in-github-method")
+	method, _ := cmd.Flags().GetString(methodFlag)
 	if method != "release" && method != "api" && method != "tool" {
 		return fmt.Errorf("missing or invalid flag: in-github-method")
 	}

@@ -23,6 +23,7 @@ import (
 
 	"github.com/interlynk-io/sbommv/pkg/iterator"
 	"github.com/interlynk-io/sbommv/pkg/logger"
+	"github.com/interlynk-io/sbommv/pkg/types"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -33,6 +34,7 @@ type InterlynkAdapter struct {
 	ProjectID string
 	BaseURL   string
 	ApiKey    string
+	Role      types.AdapterRole
 
 	// HTTP client for API requests
 	client *http.Client
@@ -64,12 +66,22 @@ func (i *InterlynkAdapter) AddCommandParams(cmd *cobra.Command) {
 
 // ParseAndValidateParams validates the GitHub adapter params
 func (i *InterlynkAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
-	url, _ := cmd.Flags().GetString("out-interlynk-url")
-	if url == "" {
-		return fmt.Errorf("missing or invalid flag: : out-interlynk-url")
+	var urlFlag, projectIDFlag string
+
+	if i.Role == types.InputAdapter {
+		urlFlag = "in-interlynk-url"
+		projectIDFlag = "in-interlynk-project-id"
+	} else {
+		urlFlag = "out-interlynk-url"
+		projectIDFlag = "out-interlynk-project-id"
 	}
 
-	projectID, _ := cmd.Flags().GetString("out-interlynk-project-id")
+	url, _ := cmd.Flags().GetString(urlFlag)
+	if url == "" {
+		return fmt.Errorf("missing or invalid flag: %s", urlFlag)
+	}
+
+	projectID, _ := cmd.Flags().GetString(projectIDFlag)
 	if projectID == "" {
 		fmt.Println("Warning: No project ID provided, a new project will be created")
 	}

@@ -28,6 +28,7 @@ import (
 	"github.com/interlynk-io/sbommv/pkg/logger"
 	"github.com/interlynk-io/sbommv/pkg/mvtypes"
 	"github.com/interlynk-io/sbommv/pkg/sbom"
+	"github.com/interlynk-io/sbommv/pkg/types"
 	"github.com/spf13/cobra"
 )
 
@@ -39,14 +40,14 @@ func TransferRun(ctx context.Context, cmd *cobra.Command, config mvtypes.Config)
 	var err error
 
 	// Initialize source adapter
-	inputAdapterInstance, err = adapter.NewAdapter(ctx, config.SourceType)
+	inputAdapterInstance, err = adapter.NewAdapter(ctx, config.SourceType, types.AdapterRole("input"))
 	if err != nil {
 		logger.LogError(ctx, err, "Failed to initialize source adapter")
 		return fmt.Errorf("failed to get source adapter: %w", err)
 	}
 
 	// Initialize destination adapter
-	outputAdapterInstance, err = adapter.NewAdapter(ctx, config.DestinationType)
+	outputAdapterInstance, err = adapter.NewAdapter(ctx, config.DestinationType, types.AdapterRole("output"))
 	if err != nil {
 		logger.LogError(ctx, err, "Failed to initialize destination adapter")
 		return fmt.Errorf("failed to get a destination adapter %v", err)
