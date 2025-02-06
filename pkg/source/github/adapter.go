@@ -21,6 +21,7 @@ import (
 
 	"github.com/interlynk-io/sbommv/pkg/iterator"
 	"github.com/interlynk-io/sbommv/pkg/logger"
+	"github.com/interlynk-io/sbommv/pkg/tcontext"
 	"github.com/interlynk-io/sbommv/pkg/types"
 	"github.com/interlynk-io/sbommv/pkg/utils"
 	"github.com/spf13/cobra"
@@ -112,11 +113,11 @@ func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 }
 
 // FetchSBOMs initializes the GitHub SBOM iterator using the unified method
-func (g *GitHubAdapter) FetchSBOMs(ctx context.Context) (iterator.SBOMIterator, error) {
+func (g *GitHubAdapter) FetchSBOMs(ctx *tcontext.TransferMetadata) (iterator.SBOMIterator, error) {
 	return NewGitHubIterator(ctx, g)
 }
 
 // OutputSBOMs should return an error since GitHub does not support SBOM uploads
-func (g *GitHubAdapter) UploadSBOMs(ctx context.Context, iterator iterator.SBOMIterator) error {
+func (g *GitHubAdapter) UploadSBOMs(ctx *tcontext.TransferMetadata, iterator iterator.SBOMIterator) error {
 	return fmt.Errorf("GitHub adapter does not support SBOM uploading")
 }

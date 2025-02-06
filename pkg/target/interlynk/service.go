@@ -15,10 +15,10 @@
 package interlynk
 
 import (
-	"context"
 	"time"
 
 	"github.com/interlynk-io/sbommv/pkg/logger"
+	"github.com/interlynk-io/sbommv/pkg/tcontext"
 )
 
 // UploadService handles batch uploads of SBOMs to Interlynk
@@ -63,9 +63,9 @@ type UploadResult struct {
 }
 
 // UploadSBOMs uploads multiple SBOM files sequentially
-func (s *UploadService) UploadSBOMs(ctx context.Context, files []string) []UploadResult {
+func (s *UploadService) UploadSBOMs(ctx *tcontext.TransferMetadata, files []string) []UploadResult {
 	results := make([]UploadResult, len(files))
-	logger.LogDebug(ctx, "Initializing SBOM upload Process", "count files", len(files))
+	logger.LogDebug(ctx.Context, "Initializing SBOM upload Process", "count files", len(files))
 
 	for i, file := range files {
 		select {

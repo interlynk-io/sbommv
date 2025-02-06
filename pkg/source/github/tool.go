@@ -15,7 +15,6 @@
 package github
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -23,6 +22,7 @@ import (
 	"time"
 
 	"github.com/interlynk-io/sbommv/pkg/logger"
+	"github.com/interlynk-io/sbommv/pkg/tcontext"
 )
 
 // SupportedTools maps tool names to their GitHub repositories
@@ -31,8 +31,8 @@ var SupportedTools = map[string]string{
 	"spdxgen": "https://github.com/spdx/spdx-sbom-generator.git",
 }
 
-func GenerateSBOM(ctx context.Context, repoDir, binaryPath string) (string, error) {
-	logger.LogDebug(ctx, "Initializing SBOM generation with Syft")
+func GenerateSBOM(ctx *tcontext.TransferMetadata, repoDir, binaryPath string) (string, error) {
+	logger.LogDebug(ctx.Context, "Initializing SBOM generation with Syft")
 
 	// Ensure Syft binary is executable
 	if err := os.Chmod(binaryPath, 0o755); err != nil {
@@ -46,7 +46,7 @@ func GenerateSBOM(ctx context.Context, repoDir, binaryPath string) (string, erro
 
 	args := []string{"scan", dirFlags, "-o", outputFlags}
 
-	logger.LogDebug(ctx, "Executing SBOM command", "cmd", binaryPath, "args", args)
+	logger.LogDebug(ctx.Context, "Executing SBOM command", "cmd", binaryPath, "args", args)
 
 	// Run Syft
 	cmd := exec.Command(binaryPath, args...)
@@ -57,16 +57,16 @@ func GenerateSBOM(ctx context.Context, repoDir, binaryPath string) (string, erro
 	cmd.Stderr = &errBuffer
 
 	if err := cmd.Run(); err != nil {
-		logger.LogError(ctx, err, "Syft execution failed", "stderr", errBuffer.String(), "stdout", outBuffer.String())
+		logger.LogError(ctx.Context, err, "Syft execution failed", "stderr", errBuffer.String(), "stdout", outBuffer.String())
 		return "", fmt.Errorf("failed to run Syft: %w", err)
 	}
 
-	logger.LogDebug(ctx, "Syft Output", "stdout", outBuffer.String())
+	logger.LogDebug(ctx.Context, "Syft Output", "stdout", outBuffer.String())
 
 	// Wait for SBOM file to be created
 	for i := 0; i < 5; i++ {
 		if _, err := os.Stat(sbomFile); err == nil {
-			logger.LogDebug(ctx, "SBOM file created successfully", "path", sbomFile)
+			logger.LogDebug(ctx.Context, "SBOM file created successfully", "path", sbomFile)
 			return sbomFile, nil
 		}
 		time.Sleep(1 * time.Second) // Wait before retrying
@@ -76,7 +76,7 @@ func GenerateSBOM(ctx context.Context, repoDir, binaryPath string) (string, erro
 }
 
 // CloneRepoWithGit clones a GitHub repository using the Git command-line tool.
-func CloneRepoWithGit(ctx context.Context, repoURL, targetDir string) error {
+func CloneRepoWithGit(ctx *tcontext.TransferMetadata, repoURL, targetDir string) error {
 	// Ensure Git is installed
 	if _, err := exec.LookPath("git"); err != nil {
 		return fmt.Errorf("git is not installed, install Git or use --method=api")
@@ -85,7 +85,7 @@ func CloneRepoWithGit(ctx context.Context, repoURL, targetDir string) error {
 	fmt.Println("🚀 Cloning repository using Git:", repoURL)
 
 	// Run `git clone --depth=1` for faster shallow cloning
-	cmd := exec.CommandContext(ctx, "git", "clone", "--depth=1", repoURL, targetDir)
+	cmd := exec.CommandContext(ctx.Context, "git", "clone", "--depth=1", repoURL, targetDir)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 

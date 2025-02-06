@@ -15,7 +15,6 @@
 package interlynk
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -23,7 +22,9 @@ import (
 
 	"github.com/interlynk-io/sbommv/pkg/iterator"
 	"github.com/interlynk-io/sbommv/pkg/logger"
+	"github.com/interlynk-io/sbommv/pkg/tcontext"
 	"github.com/interlynk-io/sbommv/pkg/types"
+	"github.com/schollz/progressbar/v3"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -109,12 +110,12 @@ func (i *InterlynkAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 }
 
 // FetchSBOMs retrieves SBOMs lazily
-func (i *InterlynkAdapter) FetchSBOMs(ctx context.Context) (iterator.SBOMIterator, error) {
+func (i *InterlynkAdapter) FetchSBOMs(ctx *tcontext.TransferMetadata) (iterator.SBOMIterator, error) {
 	return nil, fmt.Errorf("GitHub adapter does not support SBOM uploading")
 }
 
-func (i *InterlynkAdapter) UploadSBOMs(ctx context.Context, iterator iterator.SBOMIterator) error {
-	logger.LogDebug(ctx, "Starting SBOM upload", "mode", i.settings.ProcessingMode)
+func (i *InterlynkAdapter) UploadSBOMs(ctx *tcontext.TransferMetadata, iterator iterator.SBOMIterator) error {
+	logger.LogDebug(ctx.Context, "Starting SBOM upload", "mode", i.settings.ProcessingMode)
 
 	if i.settings.ProcessingMode != "sequential" {
 		return fmt.Errorf("unsupported processing mode: %s", i.settings.ProcessingMode) // Future-proofed for parallel & batch
@@ -153,8 +154,8 @@ func sanitizeRepoName(repoURL string) string {
 }
 
 // uploadSequential handles sequential SBOM processing and uploading
-func (i *InterlynkAdapter) uploadSequential(ctx context.Context, sboms iterator.SBOMIterator) error {
-	logger.LogDebug(ctx, "uploading in sequestion mode")
+func (i *InterlynkAdapter) uploadSequential(ctx *tcontext.TransferMetadata, sboms iterator.SBOMIterator) error {
+	logger.LogDebug(ctx.Context, "uploading in sequestion mode")
 	// interlynk adapter client
 	client := NewClient(Config{
 		Token:     i.ApiKey,
@@ -162,49 +163,60 @@ func (i *InterlynkAdapter) uploadSequential(ctx context.Context, sboms iterator.
 		ProjectID: i.ProjectID,
 	})
 
+	repoURL, _ := ctx.Value("repo_url").(string)
+	repoVersion, _ := ctx.Value("repo_version").(string)
+	totalSBOMs, _ := ctx.Value("total_sboms").(int)
+
+	fmt.Println("repoURL: ", repoURL)
+	fmt.Println("repoVersion: ", repoVersion)
+	fmt.Println("totalSBOMs: ", totalSBOMs)
+
+	repoName := sanitizeRepoName(repoURL)
+	fmt.Println("repoName: ", repoName)
+
 	// Create project if needed
 	if client.ProjectID == "" {
-		projectName := fmt.Sprintf("%s-%s", sanitizeRepoName(i.RepoURL), i.Version)
+		projectName := fmt.Sprintf("%s-%s", repoName, repoVersion)
+		logger.LogDebug(ctx.Context, "Project", "name", projectName)
 		projectID, err := client.CreateProjectGroup(ctx, projectName, "Project for SBOM", true)
 		if err != nil {
 			return fmt.Errorf("failed to create project: %w", err)
 		}
+		logger.LogDebug(ctx.Context, "New Project successfully created", "name", projectName)
+
 		client.SetProjectID(projectID)
 	}
-	// // Count total SBOMs
-	// totalSBOMs := 11
 
-	// // Initialize progress bar
-	// bar := progressbar.Default(int64(totalSBOMs), "🚀 Uploading SBOMs")
-	// fmt.Println()
+	// Initialize progress bar
+	bar := progressbar.Default(int64(totalSBOMs), "🚀 Uploading SBOMs")
 
 	for {
-		sbom, err := sboms.Next(ctx)
+		sbom, err := sboms.Next(ctx.Context)
 		if err == io.EOF {
-			logger.LogDebug(ctx, "All SBOMs uploaded successfully, no more SBOMs left.")
+			logger.LogDebug(ctx.Context, "All SBOMs uploaded successfully, no more SBOMs left.")
 			break
 		}
 		if err != nil {
-			logger.LogError(ctx, err, "Failed to retrieve SBOM from iterator")
+			logger.LogError(ctx.Context, err, "Failed to retrieve SBOM from iterator")
 			continue
 		}
 
-		logger.LogDebug(ctx, "Currently Uploading SBOM", "file", sbom.Path)
+		logger.LogDebug(ctx.Context, "Currently Uploading SBOM", "file", sbom.Path)
 
 		// Upload SBOM
 		err = client.UploadSBOM(ctx, sbom.Path)
 		if err != nil {
-			logger.LogError(ctx, err, "Failed to upload SBOM", "file", sbom.Path)
+			logger.LogError(ctx.Context, err, "Failed to upload SBOM", "file", sbom.Path)
 		} else {
-			logger.LogDebug(ctx, "Successfully uploaded SBOM", "file", sbom.Path)
+			logger.LogDebug(ctx.Context, "Successfully uploaded SBOM", "file", sbom.Path)
 		}
 
-		// // Update progress bar
-		// if err := bar.Add(1); err != nil {
-		// 	logger.LogError(ctx, err, "Error updating progress bar")
-		// }
+		// Update progress bar
+		if err := bar.Add(1); err != nil {
+			logger.LogError(ctx.Context, err, "Error updating progress bar")
+		}
 	}
-	logger.LogInfo(ctx, "✅ All SBOMs uploaded successfully!")
+	logger.LogInfo(ctx.Context, "✅ All SBOMs uploaded successfully!")
 
 	return nil
 }
