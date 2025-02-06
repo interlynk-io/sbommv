@@ -171,6 +171,12 @@ func (i *InterlynkAdapter) uploadSequential(ctx context.Context, sboms iterator.
 		}
 		client.SetProjectID(projectID)
 	}
+	// // Count total SBOMs
+	// totalSBOMs := 11
+
+	// // Initialize progress bar
+	// bar := progressbar.Default(int64(totalSBOMs), "🚀 Uploading SBOMs")
+	// fmt.Println()
 
 	for {
 		sbom, err := sboms.Next(ctx)
@@ -192,6 +198,13 @@ func (i *InterlynkAdapter) uploadSequential(ctx context.Context, sboms iterator.
 		} else {
 			logger.LogDebug(ctx, "Successfully uploaded SBOM", "file", sbom.Path)
 		}
+
+		// // Update progress bar
+		// if err := bar.Add(1); err != nil {
+		// 	logger.LogError(ctx, err, "Error updating progress bar")
+		// }
 	}
+	logger.LogInfo(ctx, "✅ All SBOMs uploaded successfully!")
+
 	return nil
 }

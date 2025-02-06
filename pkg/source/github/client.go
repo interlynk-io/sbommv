@@ -25,6 +25,7 @@ import (
 	"sync"
 
 	"github.com/interlynk-io/sbommv/pkg/logger"
+	"github.com/schollz/progressbar/v3"
 )
 
 type downloadWork struct {
@@ -327,6 +328,9 @@ func (c *Client) downloadSBOMs(ctx context.Context, sboms []SBOMAsset, outputDir
 		semaphore      = make(chan struct{}, maxConcurrency) // Controls concurrency
 	)
 
+	// Initialize progress bar
+	bar := progressbar.Default(int64(len(sboms)), "📥 Fetching SBOMs")
+
 	// Process each SBOM
 	for _, sbom := range sboms {
 		// Context cancellation check
@@ -361,11 +365,16 @@ func (c *Client) downloadSBOMs(ctx context.Context, sboms []SBOMAsset, outputDir
 				versionedSBOMs[sbom.Release] = append(versionedSBOMs[sbom.Release], outputPath)
 				mu.Unlock()
 				logger.LogDebug(ctx, "SBOM file", "name", sbom.Name, "saved to", outputPath)
+
+				// Update progress bar
+				_ = bar.Add(1)
 			}
 		}(sbom)
 	}
 
 	wg.Wait()
+	// Close progress bar on completion
+	_ = bar.Finish()
 
 	if len(errors) > 0 {
 		return nil, fmt.Errorf("encountered %d download errors: %v", len(errors), errors[0])
