@@ -16,13 +16,13 @@
 package adapter
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/interlynk-io/sbommv/pkg/iterator"
 	"github.com/interlynk-io/sbommv/pkg/logger"
 	"github.com/interlynk-io/sbommv/pkg/source/github"
 	"github.com/interlynk-io/sbommv/pkg/target/interlynk"
+	"github.com/interlynk-io/sbommv/pkg/tcontext"
 	"github.com/interlynk-io/sbommv/pkg/types"
 	"github.com/spf13/cobra"
 )
@@ -36,15 +36,15 @@ type Adapter interface {
 	ParseAndValidateParams(cmd *cobra.Command) error
 
 	// Fetch SBOMs lazily using iterator
-	FetchSBOMs(ctx context.Context) (iterator.SBOMIterator, error)
+	FetchSBOMs(ctx *tcontext.TransferMetadata) (iterator.SBOMIterator, error)
 
 	// Outputs SBOMs (uploading)
-	UploadSBOMs(ctx context.Context, iterator iterator.SBOMIterator) error
+	UploadSBOMs(ctx *tcontext.TransferMetadata, iterator iterator.SBOMIterator) error
 }
 
 // NewAdapter initializes and returns the correct adapter
-func NewAdapter(ctx context.Context, adapterType string, role types.AdapterRole) (Adapter, error) {
-	logger.LogInfo(ctx, "Initializing adapter", "adapterType", adapterType)
+func NewAdapter(ctx *tcontext.TransferMetadata, adapterType string, role types.AdapterRole) (Adapter, error) {
+	logger.LogInfo(ctx.Context, "Initializing adapter", "adapterType", adapterType)
 
 	switch types.AdapterType(adapterType) {
 

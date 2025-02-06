@@ -24,11 +24,12 @@ import (
 
 	"github.com/interlynk-io/sbommv/pkg/iterator"
 	"github.com/interlynk-io/sbommv/pkg/logger"
+	"github.com/interlynk-io/sbommv/pkg/tcontext"
 )
 
 // GitHubIterator iterates over SBOMs fetched from GitHub (API, Release, Tool)
 type GitHubIterator struct {
-	ctx        context.Context
+	// ctx        context.Context
 	client     *Client
 	sboms      []*iterator.SBOM // Stores all fetched SBOMs
 	position   int              // Tracks iteration position
@@ -36,12 +37,15 @@ type GitHubIterator struct {
 }
 
 // NewGitHubIterator initializes the iterator based on the GitHub method
-func NewGitHubIterator(ctx context.Context, g *GitHubAdapter) (*GitHubIterator, error) {
-	logger.LogDebug(ctx, "Initializing GitHub Iterator", "repo", g.URL, "method", g.Method)
+func NewGitHubIterator(ctx *tcontext.TransferMetadata, g *GitHubAdapter) (*GitHubIterator, error) {
+	logger.LogDebug(ctx.Context, "Initializing GitHub Iterator", "repo", g.URL, "method", g.Method)
+
+	ctx.WithValue("repo_url", g.URL)
+	ctx.WithValue("repo_version", g.Version)
 
 	client := NewClient(g.URL, g.Version, string(g.Method))
 	iterator := &GitHubIterator{
-		ctx:        ctx,
+		// ctx:        ctx,
 		client:     client,
 		sboms:      []*iterator.SBOM{},
 		binaryPath: g.BinaryPath,
@@ -52,23 +56,23 @@ func NewGitHubIterator(ctx context.Context, g *GitHubAdapter) (*GitHubIterator, 
 
 	switch GitHubMethod(g.Method) {
 	case MethodAPI:
-		logger.LogDebug(ctx, "Github Method", "value", MethodAPI)
-		err = iterator.fetchSBOMFromAPI()
+		logger.LogDebug(ctx.Context, "Github Method", "value", MethodAPI)
+		err = iterator.fetchSBOMFromAPI(ctx)
 
 	case MethodReleases:
-		logger.LogDebug(ctx, "Github Method", "value", MethodReleases)
-		err = iterator.fetchSBOMFromReleases()
+		logger.LogDebug(ctx.Context, "Github Method", "value", MethodReleases)
+		err = iterator.fetchSBOMFromReleases(ctx)
 
 	case MethodTool:
-		logger.LogDebug(ctx, "Github Method", "value", MethodTool)
-		err = iterator.fetchSBOMFromTool()
+		logger.LogDebug(ctx.Context, "Github Method", "value", MethodTool)
+		err = iterator.fetchSBOMFromTool(ctx)
 
 	default:
 		return nil, fmt.Errorf("unsupported GitHub method: %s", g.Method)
 	}
 
 	if err != nil {
-		logger.LogError(ctx, err, "Failed to fetch SBOMs")
+		logger.LogError(ctx.Context, err, "Failed to fetch SBOMs")
 		return nil, err
 	}
 
@@ -76,7 +80,7 @@ func NewGitHubIterator(ctx context.Context, g *GitHubAdapter) (*GitHubIterator, 
 		return nil, fmt.Errorf("no SBOMs found for repository")
 	}
 
-	logger.LogDebug(ctx, "Total SBOMs fetched", "count", len(iterator.sboms))
+	logger.LogDebug(ctx.Context, "Total SBOMs fetched", "count", len(iterator.sboms))
 
 	return iterator, nil
 }
@@ -94,10 +98,10 @@ func (it *GitHubIterator) Next(ctx context.Context) (*iterator.SBOM, error) {
 }
 
 // Fetch SBOM via GitHub API
-func (it *GitHubIterator) fetchSBOMFromAPI() error {
-	logger.LogDebug(it.ctx, "Fetching SBOM from GitHub API", "repo", it.client.RepoURL)
+func (it *GitHubIterator) fetchSBOMFromAPI(ctx *tcontext.TransferMetadata) error {
+	logger.LogDebug(ctx.Context, "Fetching SBOM from GitHub API", "repo", it.client.RepoURL)
 
-	sbomData, err := it.client.FetchSBOMFromAPI(it.ctx)
+	sbomData, err := it.client.FetchSBOMFromAPI(ctx)
 	if err != nil {
 		return err
 	}
@@ -116,15 +120,15 @@ func (it *GitHubIterator) fetchSBOMFromAPI() error {
 }
 
 // Fetch SBOMs from GitHub Releases
-func (it *GitHubIterator) fetchSBOMFromReleases() error {
-	logger.LogDebug(it.ctx, "Fetching SBOMs from GitHub Releases", "repo", it.client.RepoURL)
+func (it *GitHubIterator) fetchSBOMFromReleases(ctx *tcontext.TransferMetadata) error {
+	logger.LogDebug(ctx.Context, "Fetching SBOMs from GitHub Releases", "repo", it.client.RepoURL)
 
-	ctx := context.Background()
 	// sboms, err := it.client.FindSBOMs(ctx)
+	ctx.WithValue("output_dir", "sboms")
 
 	sbomFiles, err := it.client.GetSBOMs(ctx, "sboms")
 	if err != nil {
-		logger.LogError(ctx, err, "Failed to retrieve SBOMs from GitHub releases", "url", it.client.RepoURL, "version", it.client.Version)
+		logger.LogError(ctx.Context, err, "Failed to retrieve SBOMs from GitHub releases", "url", it.client.RepoURL, "version", it.client.Version)
 		return fmt.Errorf("error retrieving SBOMs from releases: %w", err)
 	}
 
@@ -141,19 +145,19 @@ func (it *GitHubIterator) fetchSBOMFromReleases() error {
 }
 
 // Fetch SBOM by running a tool (Syft)
-func (it *GitHubIterator) fetchSBOMFromTool() error {
-	logger.LogDebug(it.ctx, "Generating SBOM using tool", "repository", it.client.RepoURL)
+func (it *GitHubIterator) fetchSBOMFromTool(ctx *tcontext.TransferMetadata) error {
+	logger.LogDebug(ctx.Context, "Generating SBOM using tool", "repository", it.client.RepoURL)
 
 	// Clone the repository
 	repoDir := filepath.Join(os.TempDir(), fmt.Sprintf("sbommv_%d", time.Now().UnixNano()))
 	defer os.RemoveAll(repoDir)
 
-	if err := CloneRepoWithGit(it.ctx, it.client.RepoURL, repoDir); err != nil {
+	if err := CloneRepoWithGit(ctx, it.client.RepoURL, repoDir); err != nil {
 		return fmt.Errorf("failed to clone repository: %w", err)
 	}
 
 	// Generate SBOM
-	sbomFile, err := GenerateSBOM(it.ctx, repoDir, it.binaryPath)
+	sbomFile, err := GenerateSBOM(ctx, repoDir, it.binaryPath)
 	if err != nil {
 		return fmt.Errorf("failed to generate SBOM: %w", err)
 	}

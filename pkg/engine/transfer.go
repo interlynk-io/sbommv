@@ -28,6 +28,7 @@ import (
 	"github.com/interlynk-io/sbommv/pkg/logger"
 	"github.com/interlynk-io/sbommv/pkg/mvtypes"
 	"github.com/interlynk-io/sbommv/pkg/sbom"
+	"github.com/interlynk-io/sbommv/pkg/tcontext"
 	"github.com/interlynk-io/sbommv/pkg/types"
 	"github.com/spf13/cobra"
 )
@@ -35,62 +36,65 @@ import (
 func TransferRun(ctx context.Context, cmd *cobra.Command, config mvtypes.Config) error {
 	logger.LogInfo(ctx, "Starting SBOM transfer process")
 
+	// ✅ Initialize shared context with metadata support
+	transferCtx := tcontext.NewTransferMetadata(ctx)
+
 	var inputAdapterInstance adapter.Adapter
 	var outputAdapterInstance adapter.Adapter
 	var err error
 
 	// Initialize source adapter
-	inputAdapterInstance, err = adapter.NewAdapter(ctx, config.SourceType, types.AdapterRole("input"))
+	inputAdapterInstance, err = adapter.NewAdapter(transferCtx, config.SourceType, types.AdapterRole("input"))
 	if err != nil {
-		logger.LogError(ctx, err, "Failed to initialize source adapter")
+		logger.LogError(transferCtx.Context, err, "Failed to initialize source adapter")
 		return fmt.Errorf("failed to get source adapter: %w", err)
 	}
 
 	// Initialize destination adapter
-	outputAdapterInstance, err = adapter.NewAdapter(ctx, config.DestinationType, types.AdapterRole("output"))
+	outputAdapterInstance, err = adapter.NewAdapter(transferCtx, config.DestinationType, types.AdapterRole("output"))
 	if err != nil {
-		logger.LogError(ctx, err, "Failed to initialize destination adapter")
+		logger.LogError(transferCtx.Context, err, "Failed to initialize destination adapter")
 		return fmt.Errorf("failed to get a destination adapter %v", err)
 	}
 
 	// Parse and validate input adapter parameters
 	if err := inputAdapterInstance.ParseAndValidateParams(cmd); err != nil {
-		logger.LogError(ctx, err, "Input adapter error")
+		logger.LogError(transferCtx.Context, err, "Input adapter error")
 		return fmt.Errorf("input adapter error: %w", err)
 
 	}
-	logger.LogDebug(ctx, "input adapter instance config", "value", inputAdapterInstance)
+	logger.LogDebug(transferCtx.Context, "input adapter instance config", "value", inputAdapterInstance)
 
 	// Parse and validate output adapter parameters
 	if err := outputAdapterInstance.ParseAndValidateParams(cmd); err != nil {
 		return fmt.Errorf("output adapter error: %w", err)
 	}
-	logger.LogDebug(ctx, "output adapter instance config", "value", outputAdapterInstance)
+	logger.LogDebug(transferCtx.Context, "output adapter instance config", "value", outputAdapterInstance)
 
 	// Fetch SBOMs lazily using the iterator
-	logger.LogInfo(ctx, "Fetching SBOMs from input adapter...")
+	logger.LogInfo(transferCtx.Context, "Fetching SBOMs from input adapter...")
 
-	sbomIterator, err := inputAdapterInstance.FetchSBOMs(ctx)
+	sbomIterator, err := inputAdapterInstance.FetchSBOMs(transferCtx)
 	if err != nil {
-		logger.LogError(ctx, err, "Failed to fetch SBOMs")
+		logger.LogError(transferCtx.Context, err, "Failed to fetch SBOMs")
 		return fmt.Errorf("failed to fetch SBOMs: %w", err)
 	}
 
-	logger.LogDebug(ctx, "SBOM fetching started successfully", "sbomIterator", sbomIterator)
+	logger.LogDebug(transferCtx.Context, "SBOM fetching started successfully", "sbomIterator", sbomIterator)
 
 	// Dry-Run Mode: Display SBOMs Without Uploading
 	if config.DryRun {
-		logger.LogInfo(ctx, "Dry-run mode enabled: Displaying retrieved SBOMs", "values", config.DryRun)
+		logger.LogInfo(transferCtx.Context, "Dry-run mode enabled: Displaying retrieved SBOMs", "values", config.DryRun)
 
-		if err := dryMode(ctx, sbomIterator); err != nil {
+		if err := dryMode(transferCtx.Context, sbomIterator); err != nil {
 			return fmt.Errorf("failed to execute dry-run mode: %v", err)
 		}
 		return nil
 	}
 
 	// Process & Upload SBOMs Sequentially
-	if err := outputAdapterInstance.UploadSBOMs(ctx, sbomIterator); err != nil {
-		logger.LogError(ctx, err, "Failed to output SBOMs")
+	if err := outputAdapterInstance.UploadSBOMs(transferCtx, sbomIterator); err != nil {
+		logger.LogError(transferCtx.Context, err, "Failed to output SBOMs")
 		return fmt.Errorf("failed to output SBOMs: %w", err)
 	}
 

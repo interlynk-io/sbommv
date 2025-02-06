@@ -21,6 +21,7 @@ import (
 
 	"github.com/interlynk-io/sbommv/pkg/iterator"
 	"github.com/interlynk-io/sbommv/pkg/logger"
+	"github.com/interlynk-io/sbommv/pkg/tcontext"
 	"github.com/interlynk-io/sbommv/pkg/types"
 	"github.com/interlynk-io/sbommv/pkg/utils"
 	"github.com/spf13/cobra"
@@ -58,15 +59,17 @@ const (
 func (g *GitHubAdapter) AddCommandParams(cmd *cobra.Command) {
 	cmd.Flags().String("in-github-url", "", "GitHub repository URL")
 	cmd.Flags().String("in-github-method", "release", "GitHub method: release, api, or tool")
+	cmd.Flags().Bool("in-github-all-versions", false, "Fetches SBOMs from all version")
 }
 
 // ParseAndValidateParams validates the GitHub adapter params
 func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
-	var urlFlag, methodFlag string
+	var urlFlag, methodFlag, allVersionFlag string
 
 	if g.Role == types.InputAdapter {
 		urlFlag = "in-github-url"
 		methodFlag = "in-github-method"
+		allVersionFlag = "in-github-all-versions"
 	}
 
 	url, _ := cmd.Flags().GetString(urlFlag)
@@ -78,6 +81,8 @@ func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 	if method != "release" && method != "api" && method != "tool" {
 		return fmt.Errorf("missing or invalid flag: in-github-method")
 	}
+
+	allVersion, _ := cmd.Flags().GetBool(allVersionFlag)
 
 	if method == "tool" {
 		binaryPath, err := utils.GetBinaryPath()
@@ -98,8 +103,13 @@ func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 	if repoURL == "" {
 		return fmt.Errorf("failed to parse repo URL: %s", url)
 	}
+
 	if version == "" {
 		version = "latest"
+	}
+
+	if allVersion {
+		version = ""
 	}
 
 	g.URL = url
@@ -112,11 +122,11 @@ func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 }
 
 // FetchSBOMs initializes the GitHub SBOM iterator using the unified method
-func (g *GitHubAdapter) FetchSBOMs(ctx context.Context) (iterator.SBOMIterator, error) {
+func (g *GitHubAdapter) FetchSBOMs(ctx *tcontext.TransferMetadata) (iterator.SBOMIterator, error) {
 	return NewGitHubIterator(ctx, g)
 }
 
 // OutputSBOMs should return an error since GitHub does not support SBOM uploads
-func (g *GitHubAdapter) UploadSBOMs(ctx context.Context, iterator iterator.SBOMIterator) error {
+func (g *GitHubAdapter) UploadSBOMs(ctx *tcontext.TransferMetadata, iterator iterator.SBOMIterator) error {
 	return fmt.Errorf("GitHub adapter does not support SBOM uploading")
 }

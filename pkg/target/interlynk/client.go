@@ -17,7 +17,6 @@ package interlynk
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -29,6 +28,7 @@ import (
 	"time"
 
 	"github.com/interlynk-io/sbommv/pkg/logger"
+	"github.com/interlynk-io/sbommv/pkg/tcontext"
 )
 
 const uploadMutation = `
@@ -97,7 +97,7 @@ func (c *Client) SetProjectID(projectID string) {
 }
 
 // UploadSBOM uploads a single SBOM file to Interlynk
-func (c *Client) UploadSBOM(ctx context.Context, filePath string) error {
+func (c *Client) UploadSBOM(ctx *tcontext.TransferMetadata, filePath string) error {
 	// create new client
 	// initiate upload service
 	// and then upload SBOMs
@@ -121,7 +121,7 @@ func (c *Client) UploadSBOM(ctx context.Context, filePath string) error {
 	return c.executeUploadRequest(ctx, req)
 }
 
-func (c *Client) createUploadRequest(ctx context.Context, filePath string) (*http.Request, error) {
+func (c *Client) createUploadRequest(ctx *tcontext.TransferMetadata, filePath string) (*http.Request, error) {
 	// GraphQL query for file upload
 	const uploadMutation = `
         mutation uploadSbom($doc: Upload!, $projectId: ID!) {
@@ -138,7 +138,7 @@ func (c *Client) createUploadRequest(ctx context.Context, filePath string) (*htt
 	}
 
 	// Create request with context
-	req, err := http.NewRequestWithContext(ctx, "POST", c.ApiURL, body)
+	req, err := http.NewRequestWithContext(ctx.Context, "POST", c.ApiURL, body)
 	if err != nil {
 		return nil, fmt.Errorf("creating request: %w", err)
 	}
@@ -219,7 +219,7 @@ func (c *Client) attachFile(writer *multipart.Writer, filePath string) error {
 	return nil
 }
 
-func (c *Client) executeUploadRequest(ctx context.Context, req *http.Request) error {
+func (c *Client) executeUploadRequest(ctx *tcontext.TransferMetadata, req *http.Request) error {
 	resp, err := c.client.Do(req)
 	if err != nil {
 		return fmt.Errorf("sending request: %w", err)
@@ -262,7 +262,7 @@ func (c *Client) executeUploadRequest(ctx context.Context, req *http.Request) er
 }
 
 // CreateProjectGroup creates a new project group and returns the default project's ID
-func (c *Client) CreateProjectGroup(ctx context.Context, name, description string, enabled bool) (string, error) {
+func (c *Client) CreateProjectGroup(ctx *tcontext.TransferMetadata, name, description string, enabled bool) (string, error) {
 	const createProjectGroupMutation = `
         mutation CreateProjectGroup($name: String!, $desc: String, $enabled: Boolean) {
             projectGroupCreate(
@@ -300,7 +300,7 @@ func (c *Client) CreateProjectGroup(ctx context.Context, name, description strin
 	if c.ApiURL == "" {
 		c.ApiURL = "http://localhost:3000/lynkapi"
 	}
-	req, err := http.NewRequestWithContext(ctx, "POST", c.ApiURL, bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx.Context, "POST", c.ApiURL, bytes.NewReader(body))
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %w", err)
 	}
@@ -319,7 +319,7 @@ func (c *Client) CreateProjectGroup(ctx context.Context, name, description strin
 		return "", fmt.Errorf("failed to read response body: %w", err)
 	}
 
-	logger.LogDebug(ctx, "Raw message body", "response", string(respBody))
+	logger.LogDebug(ctx.Context, "Raw message body", "response", string(respBody))
 
 	var response struct {
 		Data struct {
