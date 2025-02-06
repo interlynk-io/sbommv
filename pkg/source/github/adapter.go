@@ -59,15 +59,17 @@ const (
 func (g *GitHubAdapter) AddCommandParams(cmd *cobra.Command) {
 	cmd.Flags().String("in-github-url", "", "GitHub repository URL")
 	cmd.Flags().String("in-github-method", "release", "GitHub method: release, api, or tool")
+	cmd.Flags().Bool("in-github-all-versions", false, "Fetches SBOMs from all version")
 }
 
 // ParseAndValidateParams validates the GitHub adapter params
 func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
-	var urlFlag, methodFlag string
+	var urlFlag, methodFlag, allVersionFlag string
 
 	if g.Role == types.InputAdapter {
 		urlFlag = "in-github-url"
 		methodFlag = "in-github-method"
+		allVersionFlag = "in-github-all-versions"
 	}
 
 	url, _ := cmd.Flags().GetString(urlFlag)
@@ -79,6 +81,8 @@ func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 	if method != "release" && method != "api" && method != "tool" {
 		return fmt.Errorf("missing or invalid flag: in-github-method")
 	}
+
+	allVersion, _ := cmd.Flags().GetBool(allVersionFlag)
 
 	if method == "tool" {
 		binaryPath, err := utils.GetBinaryPath()
@@ -99,8 +103,13 @@ func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 	if repoURL == "" {
 		return fmt.Errorf("failed to parse repo URL: %s", url)
 	}
+
 	if version == "" {
 		version = "latest"
+	}
+
+	if allVersion {
+		version = ""
 	}
 
 	g.URL = url

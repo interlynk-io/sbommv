@@ -110,6 +110,7 @@ func (c *Client) FindSBOMs(ctx *tcontext.TransferMetadata) ([]SBOMAsset, error) 
 	if len(targetReleases) == 0 {
 		return nil, fmt.Errorf("no matching release found for version: %s", c.Version)
 	}
+	logger.LogDebug(ctx.Context, "Total number of Releases", "value", len(targetReleases))
 
 	// Extract SBOM assets from target release
 	sboms := c.extractSBOMs(targetReleases)

@@ -167,7 +167,9 @@ func (i *InterlynkAdapter) uploadSequential(ctx *tcontext.TransferMetadata, sbom
 	repoVersion, _ := ctx.Value("repo_version").(string)
 	totalSBOMs, _ := ctx.Value("total_sboms").(int)
 
-	fmt.Println("repoURL: ", repoURL)
+	if repoVersion == "" {
+		repoVersion = "all-version"
+	}
 	fmt.Println("repoVersion: ", repoVersion)
 	fmt.Println("totalSBOMs: ", totalSBOMs)
 
@@ -176,12 +178,14 @@ func (i *InterlynkAdapter) uploadSequential(ctx *tcontext.TransferMetadata, sbom
 
 	// Create project if needed
 	if client.ProjectID == "" {
+		fmt.Println("Project ID is empty.")
 		projectName := fmt.Sprintf("%s-%s", repoName, repoVersion)
 		logger.LogDebug(ctx.Context, "Project", "name", projectName)
 		projectID, err := client.CreateProjectGroup(ctx, projectName, "Project for SBOM", true)
 		if err != nil {
 			return fmt.Errorf("failed to create project: %w", err)
 		}
+		fmt.Println("New Project with name: ", projectName, "will be created !!")
 		logger.LogDebug(ctx.Context, "New Project successfully created", "name", projectName)
 
 		client.SetProjectID(projectID)
@@ -206,9 +210,9 @@ func (i *InterlynkAdapter) uploadSequential(ctx *tcontext.TransferMetadata, sbom
 		// Upload SBOM
 		err = client.UploadSBOM(ctx, sbom.Path)
 		if err != nil {
-			logger.LogError(ctx.Context, err, "Failed to upload SBOM", "file", sbom.Path)
+			logger.LogDebug(ctx.Context, "Failed to upload SBOM", "file", sbom.Path)
 		} else {
-			logger.LogDebug(ctx.Context, "Successfully uploaded SBOM", "file", sbom.Path)
+			logger.LogDebug(ctx.Context, "Uploaded SBOM", "file", sbom.Path)
 		}
 
 		// Update progress bar

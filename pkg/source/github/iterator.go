@@ -123,11 +123,6 @@ func (it *GitHubIterator) fetchSBOMFromAPI(ctx *tcontext.TransferMetadata) error
 func (it *GitHubIterator) fetchSBOMFromReleases(ctx *tcontext.TransferMetadata) error {
 	logger.LogDebug(ctx.Context, "Fetching SBOMs from GitHub Releases", "repo", it.client.RepoURL)
 
-	repoURL, _ := ctx.Value("repo_url").(string)
-	repoVersion, _ := ctx.Value("repo_version").(string)
-	fmt.Println("repoURL: ", repoURL)
-	fmt.Println("repoVersion: ", repoVersion)
-
 	// sboms, err := it.client.FindSBOMs(ctx)
 	ctx.WithValue("output_dir", "sboms")
 
