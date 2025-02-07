@@ -19,8 +19,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
-	"path/filepath"
 	"sync"
 
 	"github.com/interlynk-io/sbommv/pkg/logger"
@@ -62,7 +60,8 @@ type SBOMAsset struct {
 }
 
 // VersionedSBOMs maps versions to their respective SBOMs in that version
-type VersionedSBOMs map[string][]string
+// type VersionedSBOMs map[string][]string
+type VersionedSBOMs map[string][][]byte
 
 // Client interacts with the GitHub API
 type Client struct {
@@ -296,7 +295,7 @@ func (c *Client) DownloadSBOM(ctx *tcontext.TransferMetadata, asset SBOMAsset) (
 }
 
 // GetSBOMs downloads and saves all SBOM files found in the repository
-func (c *Client) GetSBOMs(ctx *tcontext.TransferMetadata, outputDir string) (VersionedSBOMs, error) {
+func (c *Client) GetSBOMs(ctx *tcontext.TransferMetadata) (VersionedSBOMs, error) {
 	// Find SBOMs in releases
 	sboms, err := c.FindSBOMs(ctx)
 	if err != nil {
@@ -309,28 +308,19 @@ func (c *Client) GetSBOMs(ctx *tcontext.TransferMetadata, outputDir string) (Ver
 	logger.LogDebug(ctx.Context, "Total SBOMs found in the repository", "version", c.Version, "total sboms", len(sboms))
 	ctx.WithValue("total_sboms", len(sboms))
 
-	// Create output directory if needed
-	if outputDir != "" {
-		if err := os.MkdirAll(outputDir, 0o755); err != nil {
-			return nil, fmt.Errorf("creating output directory: %w", err)
-		}
-	}
-
-	return c.downloadSBOMs(ctx, sboms, outputDir)
+	return c.downloadSBOMs(ctx, sboms)
 }
 
 // downloadSBOMs handles the concurrent downloading of multiple SBOM files
-func (c *Client) downloadSBOMs(ctx *tcontext.TransferMetadata, sboms []SBOMAsset, outputDir string) (VersionedSBOMs, error) {
+func (c *Client) downloadSBOMs(ctx *tcontext.TransferMetadata, sboms []SBOMAsset) (VersionedSBOMs, error) {
 	var (
 		wg             sync.WaitGroup                        // Coordinates all goroutines
 		mu             sync.Mutex                            // Protects shared resources
-		versionedSBOMs = make(VersionedSBOMs)                // Stores results
+		versionedSBOMs = make(VersionedSBOMs)                // Stores results in memory
 		errors         []error                               // Collects errors
 		maxConcurrency = 3                                   // Maximum parallel downloads
 		semaphore      = make(chan struct{}, maxConcurrency) // Controls concurrency
 	)
-	// totalSboms1, _ := ctx.Value("total_sboms").(int)
-	// fmt.Println("totalSboms: ", totalSboms1)
 
 	// Initialize progress bar
 	bar := progressbar.Default(int64(len(sboms)), "📥 Fetching SBOMs")
@@ -350,13 +340,8 @@ func (c *Client) downloadSBOMs(ctx *tcontext.TransferMetadata, sboms []SBOMAsset
 			semaphore <- struct{}{}        // Acquire semaphore
 			defer func() { <-semaphore }() // Release semaphore
 
-			// Download and save the SBOM
-			outputPath := ""
-			if outputDir != "" {
-				outputPath = filepath.Join(outputDir, sbom.Name)
-			}
-
-			err := c.downloadSingleSBOM(ctx, sbom, outputPath)
+			// Download the SBOM and store it in memory
+			sbomData, err := c.downloadSingleSBOM(ctx, sbom)
 			if err != nil {
 				mu.Lock()
 				errors = append(errors, fmt.Errorf("downloading %s: %w", sbom.Name, err))
@@ -364,21 +349,18 @@ func (c *Client) downloadSBOMs(ctx *tcontext.TransferMetadata, sboms []SBOMAsset
 				return
 			}
 
-			if outputPath != "" {
-				mu.Lock()
-				versionedSBOMs[sbom.Release] = append(versionedSBOMs[sbom.Release], outputPath)
-				mu.Unlock()
-				logger.LogDebug(ctx.Context, "SBOM file", "name", sbom.Name, "saved to", outputPath)
+			// Store SBOM content in memory
+			mu.Lock()
+			versionedSBOMs[sbom.Release] = append(versionedSBOMs[sbom.Release], sbomData)
+			mu.Unlock()
 
-				// Update progress bar
-				_ = bar.Add(1)
-			}
+			logger.LogDebug(ctx.Context, "SBOM fetched and stored in memory", "name", sbom.Name)
+			_ = bar.Add(1) // Update progress bar
 		}(sbom)
 	}
 
 	wg.Wait()
-	// Close progress bar on completion
-	_ = bar.Finish()
+	_ = bar.Finish() // Close progress bar on completion
 
 	if len(errors) > 0 {
 		return nil, fmt.Errorf("encountered %d download errors: %v", len(errors), errors[0])
@@ -387,34 +369,22 @@ func (c *Client) downloadSBOMs(ctx *tcontext.TransferMetadata, sboms []SBOMAsset
 	return versionedSBOMs, nil
 }
 
-// downloadSingleSBOM downloads and saves a single SBOM file
-func (c *Client) downloadSingleSBOM(ctx *tcontext.TransferMetadata, sbom SBOMAsset, outputPath string) error {
+// downloadSingleSBOM downloads a single SBOM and stores it in memory
+func (c *Client) downloadSingleSBOM(ctx *tcontext.TransferMetadata, sbom SBOMAsset) ([]byte, error) {
 	reader, err := c.DownloadAsset(ctx, sbom.DownloadURL)
 	if err != nil {
-		return fmt.Errorf("downloading asset: %w", err)
+		return nil, fmt.Errorf("downloading asset: %w", err)
 	}
 	defer reader.Close()
 
-	var output io.Writer
-	if outputPath == "" {
-		// Write to stdout with header
-		fmt.Printf("\n=== SBOM: %s ===\n", sbom.Name)
-		output = os.Stdout
-	} else {
-		// Create and write to file
-		file, err := os.Create(outputPath)
-		if err != nil {
-			return fmt.Errorf("creating output file: %w", err)
-		}
-		defer file.Close()
-		output = file
+	// Read SBOM content into memory
+	sbomData, err := io.ReadAll(reader)
+	if err != nil {
+		return nil, fmt.Errorf("reading SBOM content: %w", err)
 	}
 
-	if _, err := io.Copy(output, reader); err != nil {
-		return fmt.Errorf("writing SBOM: %w", err)
-	}
-
-	return nil
+	logger.LogDebug(ctx.Context, "SBOM fetched successfully", "file", sbom.Name)
+	return sbomData, nil
 }
 
 func (c *Client) FetchSBOMFromAPI(ctx *tcontext.TransferMetadata) ([]byte, error) {

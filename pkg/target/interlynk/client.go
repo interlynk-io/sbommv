@@ -22,8 +22,6 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -96,23 +94,14 @@ func (c *Client) SetProjectID(projectID string) {
 	c.ProjectID = projectID
 }
 
-// UploadSBOM uploads a single SBOM file to Interlynk
-func (c *Client) UploadSBOM(ctx *tcontext.TransferMetadata, filePath string) error {
-	// create new client
-	// initiate upload service
-	// and then upload SBOMs
-
-	// Validate file existence and size
-	fileInfo, err := os.Stat(filePath)
-	if err != nil {
-		return fmt.Errorf("checking file: %w", err)
-	}
-	if fileInfo.Size() == 0 {
-		return fmt.Errorf("file is empty: %s", filePath)
+// UploadSBOM uploads a single SBOM from memory to Interlynk
+func (c *Client) UploadSBOM(ctx *tcontext.TransferMetadata, sbomData []byte) error {
+	if len(sbomData) == 0 {
+		return fmt.Errorf("SBOM data is empty")
 	}
 
 	// Create a context-aware request with appropriate timeout
-	req, err := c.createUploadRequest(ctx, filePath)
+	req, err := c.createUploadRequest(ctx, sbomData)
 	if err != nil {
 		return fmt.Errorf("preparing request: %w", err)
 	}
@@ -121,8 +110,7 @@ func (c *Client) UploadSBOM(ctx *tcontext.TransferMetadata, filePath string) err
 	return c.executeUploadRequest(ctx, req)
 }
 
-func (c *Client) createUploadRequest(ctx *tcontext.TransferMetadata, filePath string) (*http.Request, error) {
-	// GraphQL query for file upload
+func (c *Client) createUploadRequest(ctx *tcontext.TransferMetadata, sbomData []byte) (*http.Request, error) {
 	const uploadMutation = `
         mutation uploadSbom($doc: Upload!, $projectId: ID!) {
             sbomUpload(input: { doc: $doc, projectId: $projectId }) {
@@ -132,7 +120,7 @@ func (c *Client) createUploadRequest(ctx *tcontext.TransferMetadata, filePath st
     `
 
 	// Prepare multipart form data
-	body, writer, err := c.prepareMultipartForm(filePath, uploadMutation)
+	body, writer, err := c.prepareMultipartForm(sbomData, uploadMutation)
 	if err != nil {
 		return nil, err
 	}
@@ -152,11 +140,11 @@ func (c *Client) createUploadRequest(ctx *tcontext.TransferMetadata, filePath st
 	return req, nil
 }
 
-func (c *Client) prepareMultipartForm(filePath, query string) (*bytes.Buffer, *multipart.Writer, error) {
+func (c *Client) prepareMultipartForm(sbomData []byte, query string) (*bytes.Buffer, *multipart.Writer, error) {
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
 
-	// Add operations
+	// Add GraphQL operations
 	operations := map[string]interface{}{
 		"query": strings.TrimSpace(strings.ReplaceAll(query, "\n", " ")),
 		"variables": map[string]interface{}{
@@ -176,9 +164,13 @@ func (c *Client) prepareMultipartForm(filePath, query string) (*bytes.Buffer, *m
 		return nil, nil, err
 	}
 
-	// Add file
-	if err := c.attachFile(writer, filePath); err != nil {
-		return nil, nil, err
+	// Add SBOM data as a file in-memory
+	part, err := writer.CreateFormFile("0", "sbom.json")
+	if err != nil {
+		return nil, nil, fmt.Errorf("creating form file: %w", err)
+	}
+	if _, err := part.Write(sbomData); err != nil {
+		return nil, nil, fmt.Errorf("writing SBOM content: %w", err)
 	}
 
 	if err := writer.Close(); err != nil {
@@ -197,25 +189,6 @@ func writeJSONField(writer *multipart.Writer, fieldName string, data interface{}
 	if err := writer.WriteField(fieldName, string(jsonData)); err != nil {
 		return fmt.Errorf("writing %s field: %w", fieldName, err)
 	}
-	return nil
-}
-
-func (c *Client) attachFile(writer *multipart.Writer, filePath string) error {
-	file, err := os.Open(filePath)
-	if err != nil {
-		return fmt.Errorf("opening file: %w", err)
-	}
-	defer file.Close()
-
-	part, err := writer.CreateFormFile("0", filepath.Base(filePath))
-	if err != nil {
-		return fmt.Errorf("creating form file: %w", err)
-	}
-
-	if _, err := io.Copy(part, file); err != nil {
-		return fmt.Errorf("copying file content: %w", err)
-	}
-
 	return nil
 }
 

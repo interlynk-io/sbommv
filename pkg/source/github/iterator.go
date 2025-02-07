@@ -27,7 +27,7 @@ import (
 	"github.com/interlynk-io/sbommv/pkg/tcontext"
 )
 
-// GitHubIterator iterates over SBOMs fetched from GitHub (API, Release, Tool)
+// // GitHubIterator iterates over SBOMs fetched from GitHub (API, Release, Tool)
 type GitHubIterator struct {
 	// ctx        context.Context
 	client     *Client
@@ -106,15 +106,13 @@ func (it *GitHubIterator) fetchSBOMFromAPI(ctx *tcontext.TransferMetadata) error
 		return err
 	}
 
-	// Save to file
-	sbomFilePath := fmt.Sprintf("sboms/github_api_sbom_%s.json", sanitizeRepoName(it.client.RepoURL))
-	if err := saveSBOMToFile(sbomFilePath, sbomData); err != nil {
-		return err
-	}
-
 	it.sboms = append(it.sboms, &iterator.SBOM{
-		Path: sbomFilePath,
+		Path: "",
 		Data: sbomData,
+		Repo: it.client.RepoURL,
+
+		// github API creates SBOM from the latest version
+		Version: "latest",
 	})
 	return nil
 }
@@ -123,20 +121,19 @@ func (it *GitHubIterator) fetchSBOMFromAPI(ctx *tcontext.TransferMetadata) error
 func (it *GitHubIterator) fetchSBOMFromReleases(ctx *tcontext.TransferMetadata) error {
 	logger.LogDebug(ctx.Context, "Fetching SBOMs from GitHub Releases", "repo", it.client.RepoURL)
 
-	// sboms, err := it.client.FindSBOMs(ctx)
-	ctx.WithValue("output_dir", "sboms")
-
-	sbomFiles, err := it.client.GetSBOMs(ctx, "sboms")
+	sbomFiles, err := it.client.GetSBOMs(ctx)
 	if err != nil {
 		logger.LogError(ctx.Context, err, "Failed to retrieve SBOMs from GitHub releases", "url", it.client.RepoURL, "version", it.client.Version)
 		return fmt.Errorf("error retrieving SBOMs from releases: %w", err)
 	}
 
-	for _, sbomFile := range sbomFiles {
-		for _, sbom := range sbomFile {
+	for version, sbomDataList := range sbomFiles {
+		for _, sbomData := range sbomDataList { // sbomPath is a string (file path)
 			it.sboms = append(it.sboms, &iterator.SBOM{
-				Path: sbom,
-				Data: nil,
+				Path:    "", // No file path, storing in memory
+				Data:    sbomData,
+				Repo:    it.client.RepoURL,
+				Version: version,
 			})
 		}
 	}
@@ -178,22 +175,5 @@ func (it *GitHubIterator) fetchSBOMFromTool(ctx *tcontext.TransferMetadata) erro
 		Path: sbomFilePath,
 		Data: nil, // SBOM stored in file, no need for in-memory data
 	})
-	return nil
-}
-
-// saveSBOMToFile writes SBOM data to a file and returns its path.
-func saveSBOMToFile(filePath string, sbomData []byte) error {
-	// Ensure the directory exists
-	dir := filepath.Dir(filePath)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return fmt.Errorf("failed to create directory for SBOM file: %w", err)
-	}
-
-	// Write SBOM data to file
-	if err := os.WriteFile(filePath, sbomData, 0o644); err != nil {
-		return fmt.Errorf("failed to write SBOM to file: %w", err)
-	}
-
-	logger.LogDebug(context.Background(), "SBOM successfully written to file", "file", filePath)
 	return nil
 }

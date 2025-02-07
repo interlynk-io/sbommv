@@ -208,7 +208,7 @@ func (i *InterlynkAdapter) uploadSequential(ctx *tcontext.TransferMetadata, sbom
 		logger.LogDebug(ctx.Context, "Currently Uploading SBOM", "file", sbom.Path)
 
 		// Upload SBOM
-		err = client.UploadSBOM(ctx, sbom.Path)
+		err = client.UploadSBOM(ctx, sbom.Data)
 		if err != nil {
 			logger.LogDebug(ctx.Context, "Failed to upload SBOM", "file", sbom.Path)
 		} else {
