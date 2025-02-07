@@ -164,7 +164,8 @@ func customUsageFunc(_ *cobra.Command) string {
 		"github": {
 			{"--in-github-url", "URL for input adapter github (required)"},
 			{"--in-github-method", "Method for input adapter github (optional)"},
-			{"--in-github-all-versions", "Fetch all SBOMs for all versions (optional)"},
+			{"--in-github-include-repos", "Comma-separated list of repositories to include (optional)"},
+			{"--in-github-exclude-repos", "Comma-separated list of repositories to exclude (optional)"},
 		},
 	}
 

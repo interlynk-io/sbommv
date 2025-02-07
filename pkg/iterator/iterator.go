@@ -21,8 +21,10 @@ import (
 
 // SBOM represents a single SBOM file
 type SBOM struct {
-	Path string
-	Data []byte
+	Path    string // File path (empty if stored in memory)
+	Data    []byte // SBOM data stored in memory (nil if using Path)
+	Repo    string // Repository URL (helps track multi-repo processing)
+	Version string // Version of the SBOM (e.g., "latest" or "v1.2.3")
 }
 
 // SBOMIterator provides a way to lazily fetch SBOMs one by one

@@ -17,6 +17,7 @@ package utils
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -132,4 +133,31 @@ func ParseRepoVersion(repoURL string) (string, string, error) {
 	}
 
 	return baseURL, version, nil
+}
+
+// ParseGithubURL extracts the repository owner, repo name, and it's version.
+// For URLs like "https://github.com/interlynk-io/sbomqs@v1.0.0", returns "interlynk-io", "sbomqs", "v1.0.0", nil).
+// For URLs like "https://github.com/interlynk-io/sbomqs", returns "interlynk-io", "sbomqs", "", nil).
+// For URLs like "https://github.com/interlynk-io/", returns "interlynk-io", "", "", nil).
+func ParseGithubURL(githubURL string) (owner, repo, version string, err error) {
+	parsedURL, err := url.Parse(githubURL)
+	if err != nil {
+		return "", "", "", fmt.Errorf("invalid GitHub URL: %w", err)
+	}
+
+	// Example: https://github.com/interlynk-io/sbomqs@v1.0.0
+	pathParts := strings.Split(strings.Trim(parsedURL.Path, "/"), "/")
+	if len(pathParts) < 1 {
+		return "", "", "", fmt.Errorf("invalid GitHub URL format")
+	}
+
+	owner = pathParts[0]
+	if len(pathParts) > 1 {
+		repoVersionParts := strings.Split(pathParts[1], "@")
+		repo = repoVersionParts[0]
+		if len(repoVersionParts) > 1 {
+			version = repoVersionParts[1]
+		}
+	}
+	return owner, repo, version, nil
 }

@@ -145,24 +145,18 @@ func (i *InterlynkAdapter) UploadSBOMs(ctx *tcontext.TransferMetadata, iterator 
 	return nil
 }
 
-func sanitizeRepoName(repoURL string) string {
-	repoParts := strings.Split(repoURL, "/")
-	if len(repoParts) < 2 {
-		return "unknown"
-	}
-	return repoParts[len(repoParts)-1]
-}
-
 // uploadSequential handles sequential SBOM processing and uploading
 func (i *InterlynkAdapter) uploadSequential(ctx *tcontext.TransferMetadata, sboms iterator.SBOMIterator) error {
-	logger.LogDebug(ctx.Context, "uploading in sequestion mode")
-	// interlynk adapter client
+	logger.LogDebug(ctx.Context, "Uploading SBOMs in sequential mode")
+
+	// Initialize Interlynk API client
 	client := NewClient(Config{
 		Token:     i.ApiKey,
 		APIURL:    i.BaseURL,
 		ProjectID: i.ProjectID,
 	})
 
+	// Retrieve metadata from context
 	repoURL, _ := ctx.Value("repo_url").(string)
 	repoVersion, _ := ctx.Value("repo_version").(string)
 	totalSBOMs, _ := ctx.Value("total_sboms").(int)
@@ -178,16 +172,15 @@ func (i *InterlynkAdapter) uploadSequential(ctx *tcontext.TransferMetadata, sbom
 
 	// Create project if needed
 	if client.ProjectID == "" {
-		fmt.Println("Project ID is empty.")
 		projectName := fmt.Sprintf("%s-%s", repoName, repoVersion)
-		logger.LogDebug(ctx.Context, "Project", "name", projectName)
+		logger.LogDebug(ctx.Context, "Creating new project", "name", projectName)
+
 		projectID, err := client.CreateProjectGroup(ctx, projectName, "Project for SBOM", true)
 		if err != nil {
 			return fmt.Errorf("failed to create project: %w", err)
 		}
-		fmt.Println("New Project with name: ", projectName, "will be created !!")
-		logger.LogDebug(ctx.Context, "New Project successfully created", "name", projectName)
 
+		logger.LogDebug(ctx.Context, "New project created successfully", "name", projectName)
 		client.SetProjectID(projectID)
 	}
 
@@ -205,14 +198,14 @@ func (i *InterlynkAdapter) uploadSequential(ctx *tcontext.TransferMetadata, sbom
 			continue
 		}
 
-		logger.LogDebug(ctx.Context, "Currently Uploading SBOM", "file", sbom.Path)
+		logger.LogDebug(ctx.Context, "Uploading SBOM", "repo", sbom.Repo, "version", sbom.Version)
 
-		// Upload SBOM
-		err = client.UploadSBOM(ctx, sbom.Path)
+		// Upload SBOM content (stored in memory)
+		err = client.UploadSBOM(ctx, sbom.Data)
 		if err != nil {
-			logger.LogDebug(ctx.Context, "Failed to upload SBOM", "file", sbom.Path)
+			logger.LogDebug(ctx.Context, "Failed to upload SBOM", "repo", sbom.Repo, "version", sbom.Version)
 		} else {
-			logger.LogDebug(ctx.Context, "Uploaded SBOM", "file", sbom.Path)
+			logger.LogDebug(ctx.Context, "Successfully uploaded SBOM", "repo", sbom.Repo, "version", sbom.Version)
 		}
 
 		// Update progress bar
@@ -223,4 +216,12 @@ func (i *InterlynkAdapter) uploadSequential(ctx *tcontext.TransferMetadata, sbom
 	logger.LogInfo(ctx.Context, "✅ All SBOMs uploaded successfully!")
 
 	return nil
+}
+
+func sanitizeRepoName(repoURL string) string {
+	repoParts := strings.Split(repoURL, "/")
+	if len(repoParts) < 2 {
+		return "unknown"
+	}
+	return repoParts[len(repoParts)-1]
 }

@@ -17,7 +17,9 @@ package github
 import (
 	"context"
 	"fmt"
-	"net/http"
+	"io"
+	"strings"
+	"sync"
 
 	"github.com/interlynk-io/sbommv/pkg/iterator"
 	"github.com/interlynk-io/sbommv/pkg/logger"
@@ -37,10 +39,21 @@ type GitHubAdapter struct {
 	Branch      string
 	Method      string
 	BinaryPath  string
-	client      *http.Client
+	client      *Client
 	GithubToken string
 	Role        types.AdapterRole
+
+	// Comma-separated list (e.g., "repo1,repo2")
+	IncludeRepos []string
+	ExcludeRepos []string
 }
+
+type ProcessingMode string
+
+const (
+	FetchParallel   ProcessingMode = "parallel"
+	FetchSequential ProcessingMode = "sequential"
+)
 
 type GitHubMethod string
 
@@ -59,74 +72,274 @@ const (
 func (g *GitHubAdapter) AddCommandParams(cmd *cobra.Command) {
 	cmd.Flags().String("in-github-url", "", "GitHub repository URL")
 	cmd.Flags().String("in-github-method", "release", "GitHub method: release, api, or tool")
-	cmd.Flags().Bool("in-github-all-versions", false, "Fetches SBOMs from all version")
+
+	// Updated to StringSlice to support multiple values (comma-separated)
+	cmd.Flags().StringSlice("in-github-include-repos", nil, "Comma-separated list of repositories to include")
+	cmd.Flags().StringSlice("in-github-exclude-repos", nil, "Comma-separated list of repositories to exclude")
+
+	// (Optional) If you plan to fetch **all versions** of a repo
+	// cmd.Flags().Bool("in-github-all-versions", false, "Fetch SBOMs from all versions")
 }
 
 // ParseAndValidateParams validates the GitHub adapter params
 func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
-	var urlFlag, methodFlag, allVersionFlag string
+	var urlFlag, methodFlag, includeFlag, excludeFlag string
 
 	if g.Role == types.InputAdapter {
 		urlFlag = "in-github-url"
 		methodFlag = "in-github-method"
-		allVersionFlag = "in-github-all-versions"
+		includeFlag = "in-github-include-repos"
+		excludeFlag = "in-github-exclude-repos"
 	}
 
-	url, _ := cmd.Flags().GetString(urlFlag)
-	if url == "" {
-		return fmt.Errorf("missing or invalid flag: in-github-url")
+	// Extract GitHub URL
+	githubURL, _ := cmd.Flags().GetString(urlFlag)
+	if githubURL == "" {
+		return fmt.Errorf("missing or invalid flag: %s", urlFlag)
 	}
 
 	method, _ := cmd.Flags().GetString(methodFlag)
 	if method != "release" && method != "api" && method != "tool" {
-		return fmt.Errorf("missing or invalid flag: in-github-method")
+		return fmt.Errorf("missing or invalid flag: %s", methodFlag)
 	}
 
-	allVersion, _ := cmd.Flags().GetBool(allVersionFlag)
+	includeRepos, _ := cmd.Flags().GetStringSlice(includeFlag)
+	excludeRepos, _ := cmd.Flags().GetStringSlice(excludeFlag)
+
+	g.IncludeRepos = includeRepos
+	g.ExcludeRepos = excludeRepos
+
+	// Validate that both include & exclude are not used together
+	if len(g.IncludeRepos) > 0 && len(g.ExcludeRepos) > 0 {
+		return fmt.Errorf("cannot use both --in-github-include-repos and --in-github-exclude-repos together")
+	}
 
 	if method == "tool" {
 		binaryPath, err := utils.GetBinaryPath()
 		if err != nil {
 			return fmt.Errorf("failed to get Syft binary: %w", err)
 		}
-		fmt.Println("Binary Path: ", binaryPath)
+
 		g.BinaryPath = binaryPath
 		logger.LogDebug(context.Background(), "Binary Path", "value", g.BinaryPath)
 	}
 
 	token := viper.GetString("GITHUB_TOKEN")
 
-	repoURL, version, err := utils.ParseRepoVersion(url)
+	// Parse URL into owner, repo, and version
+	owner, repo, version, err := utils.ParseGithubURL(githubURL)
 	if err != nil {
-		return fmt.Errorf("falied to parse github repo and version %v", err)
-	}
-	if repoURL == "" {
-		return fmt.Errorf("failed to parse repo URL: %s", url)
+		return fmt.Errorf("invalid GitHub URL format: %w", err)
 	}
 
+	// // Set version to "latest" if empty
 	if version == "" {
 		version = "latest"
 	}
 
-	if allVersion {
-		version = ""
-	}
-
-	g.URL = url
-	g.Method = method
-	g.Repo = repoURL
+	// Assign extracted values to struct
+	g.URL = githubURL
+	g.Owner = owner
+	g.Repo = repo
 	g.Version = version
+	g.Method = method
 	g.GithubToken = token
 
+	// Initialize GitHub client
+	g.client = NewClient(g)
+
+	// Debugging logs for tracking
+	logger.LogDebug(cmd.Context(), "Parsed GitHub parameters",
+		"url", g.URL,
+		"owner", g.Owner,
+		"repo", g.Repo,
+		"version", g.Version,
+		"include_repos", g.IncludeRepos,
+		"exclude_repos", g.ExcludeRepos,
+		"method", g.Method,
+	)
 	return nil
 }
 
 // FetchSBOMs initializes the GitHub SBOM iterator using the unified method
 func (g *GitHubAdapter) FetchSBOMs(ctx *tcontext.TransferMetadata) (iterator.SBOMIterator, error) {
-	return NewGitHubIterator(ctx, g)
+	logger.LogDebug(ctx.Context, "Intializing SBOM fetching process")
+
+	if g.Repo != "" {
+		return NewGitHubIterator(ctx, g)
+	}
+
+	// Org Mode: Fetch all repositories
+	repos, err := g.client.GetAllRepositories(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get repositories: %w", err)
+	}
+
+	// logger.LogDebug(ctx.Context, "Listing repos of organization", "values", repos)
+
+	// filtering to include/exclude repos
+	repos = g.applyRepoFilters(repos)
+
+	if len(repos) == 0 {
+		return nil, fmt.Errorf("no repositories left after applying filters")
+	}
+
+	logger.LogDebug(ctx.Context, "Listing repos of organization after filtering", "values", repos)
+
+	processingMode := "parallel"
+	var sbomIterator iterator.SBOMIterator
+
+	switch ProcessingMode(processingMode) {
+
+	case FetchParallel:
+		sbomIterator, err = g.fetchSBOMsConcurrently(ctx, repos)
+
+	case FetchSequential:
+		sbomIterator, err = g.fetchSBOMsSequentially(ctx, repos)
+
+	default:
+		fmt.Println("Unsupported Processing Mode !!")
+		return nil, fmt.Errorf("Unsupported Processing Mode !!")
+
+	}
+
+	if err != nil {
+		logger.LogError(ctx.Context, err, "Failed to fetch SBOMs via Processing Mode")
+		return nil, err
+	}
+
+	return sbomIterator, err
 }
 
 // OutputSBOMs should return an error since GitHub does not support SBOM uploads
 func (g *GitHubAdapter) UploadSBOMs(ctx *tcontext.TransferMetadata, iterator iterator.SBOMIterator) error {
 	return fmt.Errorf("GitHub adapter does not support SBOM uploading")
+}
+
+// applyRepoFilters filters repositories based on inclusion/exclusion flags
+func (g *GitHubAdapter) applyRepoFilters(repos []string) []string {
+	includedRepos := make(map[string]bool)
+	excludedRepos := make(map[string]bool)
+
+	for _, repo := range g.IncludeRepos {
+		if repo != "" {
+			includedRepos[strings.TrimSpace(repo)] = true
+		}
+	}
+
+	for _, repo := range g.ExcludeRepos {
+		if repo != "" {
+			excludedRepos[strings.TrimSpace(repo)] = true
+		}
+	}
+
+	var filteredRepos []string
+
+	for _, repo := range repos {
+		if _, isExcluded := excludedRepos[repo]; isExcluded {
+			continue // Skip excluded repositories
+		}
+
+		// Include only if in the inclusion list (if provided)
+		if len(includedRepos) > 0 {
+			if _, isIncluded := includedRepos[repo]; !isIncluded {
+				continue // Skip repos that are not in the include list
+			}
+		}
+		// filtered repo are added to the final list
+		filteredRepos = append(filteredRepos, repo)
+	}
+
+	return filteredRepos
+}
+
+// fetchSBOMsConcurrently: fetch SBOMs from repositories concurrently
+func (g *GitHubAdapter) fetchSBOMsConcurrently(ctx *tcontext.TransferMetadata, repos []string) (iterator.SBOMIterator, error) {
+	var wg sync.WaitGroup
+	sbomsChan := make(chan *iterator.SBOM, len(repos))
+
+	for _, repo := range repos {
+		wg.Add(1)
+		go func(repo string) {
+			defer wg.Done()
+			g.Repo = repo
+			g.client.Repo = repo
+			iter, err := NewGitHubIterator(ctx, g)
+			if err != nil {
+				logger.LogError(ctx.Context, err, "Failed to fetch SBOMs for repo", "repo", repo)
+				return
+			}
+			for {
+				fmt.Println("BEFORE")
+				sbom, err := iter.Next(ctx.Context)
+				if err == io.EOF {
+					break
+				}
+				fmt.Println("1. BEFORE")
+
+				if err != nil {
+					logger.LogError(ctx.Context, err, "Error reading SBOM for", "repo", repo)
+					break
+				}
+				fmt.Println("2. BEFORE")
+
+				sbomsChan <- sbom
+				fmt.Println("AFTER")
+
+			}
+		}(repo)
+	}
+
+	wg.Wait()
+	close(sbomsChan)
+
+	// Collect SBOMs from channel
+	var sbomList []*iterator.SBOM
+	for sbom := range sbomsChan {
+		sbomList = append(sbomList, sbom)
+	}
+
+	return &GitHubIterator{
+		sboms: sbomList,
+	}, nil
+}
+
+// fetchSBOMsSequentially: fetch SBOMs from repositories one at a time
+func (g *GitHubAdapter) fetchSBOMsSequentially(ctx *tcontext.TransferMetadata, repos []string) (iterator.SBOMIterator, error) {
+	var sbomList []*iterator.SBOM
+
+	// Iterate over repositories one by one (sequential processing)
+	for _, repo := range repos {
+		g.Repo = repo // Set current repository
+
+		logger.LogInfo(ctx.Context, "Fetching SBOMs sequentially", "repo", repo)
+
+		// Fetch SBOMs for the current repository
+		iter, err := NewGitHubIterator(ctx, g)
+		if err != nil {
+			logger.LogError(ctx.Context, err, "Failed to fetch SBOMs for repo", "repo", repo)
+			continue
+		}
+
+		// use iterator to add the SBOMs to the final sboms list
+		for {
+			sbom, err := iter.Next(ctx.Context)
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				logger.LogError(ctx.Context, err, "Error reading SBOM for", "repo", repo)
+				break
+			}
+			sbomList = append(sbomList, sbom)
+		}
+	}
+
+	if len(sbomList) == 0 {
+		return nil, fmt.Errorf("no SBOMs found for any repository")
+	}
+
+	return &GitHubIterator{
+		sboms: sbomList,
+	}, nil
 }

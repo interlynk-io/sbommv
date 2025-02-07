@@ -19,8 +19,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
-	"path/filepath"
 	"sync"
 
 	"github.com/interlynk-io/sbommv/pkg/logger"
@@ -62,26 +60,32 @@ type SBOMAsset struct {
 }
 
 // VersionedSBOMs maps versions to their respective SBOMs in that version
-type VersionedSBOMs map[string][]string
+// type VersionedSBOMs map[string][]string
+type VersionedSBOMs map[string][][]byte
 
 // Client interacts with the GitHub API
 type Client struct {
-	httpClient *http.Client
-	BaseURL    string
-	RepoURL    string
-	Version    string
-	Method     string
-	token      string
+	httpClient   *http.Client
+	BaseURL      string
+	RepoURL      string
+	Organization string
+	Owner        string
+	Repo         string
+	Version      string
+	Method       string
+	token        string
 }
 
 // NewClient initializes a GitHub client
-func NewClient(repoURL, version, method string) *Client {
+func NewClient(g *GitHubAdapter) *Client {
 	return &Client{
 		httpClient: &http.Client{},
 		BaseURL:    "https://api.github.com",
-		RepoURL:    repoURL,
-		Version:    version,
-		Method:     method,
+		RepoURL:    g.URL,
+		Version:    g.Version,
+		Method:     g.Method,
+		Owner:      g.Owner,
+		Repo:       g.Repo,
 	}
 }
 
@@ -89,20 +93,20 @@ func NewClient(repoURL, version, method string) *Client {
 // filter out the particular provided release asset and
 // extract SBOMs from that
 func (c *Client) FindSBOMs(ctx *tcontext.TransferMetadata) ([]SBOMAsset, error) {
-	owner, repo, err := ParseGitHubURL(c.RepoURL)
-	if err != nil {
-		return nil, fmt.Errorf("parsing GitHub URL: %w", err)
-	}
+	// owner, repo, err := ParseGitHubURL(c.RepoURL)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("parsing GitHub URL: %w", err)
+	// }
 
-	logger.LogDebug(ctx.Context, "Fetching GitHub releases", "repo_url", c.RepoURL, "owner", owner, "repo", repo)
+	logger.LogDebug(ctx.Context, "Fetching GitHub releases", "repo_url", c.RepoURL, "owner", c.Owner, "repo", c.Repo)
 
-	releases, err := c.GetReleases(ctx, owner, repo)
+	releases, err := c.GetReleases(ctx, c.Owner, c.Repo)
 	if err != nil {
 		return nil, fmt.Errorf("error retrieving releases: %w", err)
 	}
 
 	if len(releases) == 0 {
-		return nil, fmt.Errorf("no releases found for repository %s/%s", owner, repo)
+		return nil, fmt.Errorf("no releases found for repository %s/%s", c.Owner, c.Repo)
 	}
 
 	// Select target releases (single version or all versions)
@@ -116,7 +120,7 @@ func (c *Client) FindSBOMs(ctx *tcontext.TransferMetadata) ([]SBOMAsset, error) 
 	sboms := c.extractSBOMs(targetReleases)
 
 	if len(sboms) == 0 {
-		return nil, fmt.Errorf("no SBOM files found in releases for repository %s/%s", owner, repo)
+		return nil, fmt.Errorf("no SBOM files found in releases for repository %s/%s", c.Owner, c.Repo)
 	}
 	logger.LogDebug(ctx.Context, "Successfully retrieved SBOMs", "total_sboms", len(sboms), "repo_url", c.RepoURL)
 
@@ -164,7 +168,7 @@ func (c *Client) extractSBOMs(releases []Release) []SBOMAsset {
 // GetReleases fetches all releases for a repository
 func (c *Client) GetReleases(ctx *tcontext.TransferMetadata, owner, repo string) ([]Release, error) {
 	url := fmt.Sprintf("%s/repos/%s/%s/releases", c.BaseURL, owner, repo)
-	// logger.LogDebug(ctx, "Fetching GitHub Releases", "url", url)
+	logger.LogDebug(ctx.Context, "Constructed GitHub Releases", "url", url)
 
 	req, err := http.NewRequestWithContext(ctx.Context, "GET", url, nil)
 	if err != nil {
@@ -240,38 +244,38 @@ func (c *Client) DownloadAsset(ctx *tcontext.TransferMetadata, downloadURL strin
 	return resp.Body, nil
 }
 
-// FetchSBOMsFromReleases fetches and downloads SBOMs from GitHub releases
-func (c *Client) FetchSBOMsFromReleases(ctx *tcontext.TransferMetadata) (map[string][]byte, error) {
-	logger.LogDebug(ctx.Context, "Fetching SBOMs from GitHub Releases", "repo", c.RepoURL)
+// // FetchSBOMsFromReleases fetches and downloads SBOMs from GitHub releases
+// func (c *Client) FetchSBOMsFromReleases(ctx *tcontext.TransferMetadata) (map[string][]byte, error) {
+// 	logger.LogDebug(ctx.Context, "Fetching SBOMs from GitHub Releases", "repo", c.RepoURL)
 
-	// Step 1: Get All Releases
-	sbomAssets, err := c.FindSBOMs(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("error finding SBOMs in releases: %w", err)
-	}
+// 	// Step 1: Get All Releases
+// 	sbomAssets, err := c.FindSBOMs(ctx)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("error finding SBOMs in releases: %w", err)
+// 	}
 
-	if len(sbomAssets) == 0 {
-		return nil, fmt.Errorf("no SBOMs found in repository")
-	}
+// 	if len(sbomAssets) == 0 {
+// 		return nil, fmt.Errorf("no SBOMs found in repository")
+// 	}
 
-	logger.LogDebug(ctx.Context, "Total SBOMs found in the repository", "version", c.Version, "total sboms", len(sbomAssets))
+// 	logger.LogDebug(ctx.Context, "Total SBOMs found in the repository", "version", c.Version, "total sboms", len(sbomAssets))
 
-	// Step 2: Download Each SBOM
-	versionedSBOMs := make(map[string][]byte)
-	for _, asset := range sbomAssets {
-		sbomData, err := c.DownloadSBOM(ctx, asset)
-		if err != nil {
-			logger.LogError(ctx.Context, err, "Failed to download SBOM", "file", asset.Name)
-			continue
-		}
+// 	// Step 2: Download Each SBOM
+// 	versionedSBOMs := make(map[string][]byte)
+// 	for _, asset := range sbomAssets {
+// 		sbomData, err := c.DownloadSBOM(ctx, asset)
+// 		if err != nil {
+// 			logger.LogError(ctx.Context, err, "Failed to download SBOM", "file", asset.Name)
+// 			continue
+// 		}
 
-		versionedSBOMs[asset.Release] = sbomData
-		logger.LogDebug(ctx.Context, "Downloaded SBOM successfully", "version", asset.Release, "file", asset.Name)
-	}
+// 		versionedSBOMs[asset.Release] = sbomData
+// 		logger.LogDebug(ctx.Context, "Downloaded SBOM successfully", "version", asset.Release, "file", asset.Name)
+// 	}
 
-	// Step 3: Return All Downloaded SBOMs
-	return versionedSBOMs, nil
-}
+// 	// Step 3: Return All Downloaded SBOMs
+// 	return versionedSBOMs, nil
+// }
 
 // DownloadSBOM fetches an SBOM from its download URL
 func (c *Client) DownloadSBOM(ctx *tcontext.TransferMetadata, asset SBOMAsset) ([]byte, error) {
@@ -296,7 +300,7 @@ func (c *Client) DownloadSBOM(ctx *tcontext.TransferMetadata, asset SBOMAsset) (
 }
 
 // GetSBOMs downloads and saves all SBOM files found in the repository
-func (c *Client) GetSBOMs(ctx *tcontext.TransferMetadata, outputDir string) (VersionedSBOMs, error) {
+func (c *Client) GetSBOMs(ctx *tcontext.TransferMetadata) (VersionedSBOMs, error) {
 	// Find SBOMs in releases
 	sboms, err := c.FindSBOMs(ctx)
 	if err != nil {
@@ -309,28 +313,19 @@ func (c *Client) GetSBOMs(ctx *tcontext.TransferMetadata, outputDir string) (Ver
 	logger.LogDebug(ctx.Context, "Total SBOMs found in the repository", "version", c.Version, "total sboms", len(sboms))
 	ctx.WithValue("total_sboms", len(sboms))
 
-	// Create output directory if needed
-	if outputDir != "" {
-		if err := os.MkdirAll(outputDir, 0o755); err != nil {
-			return nil, fmt.Errorf("creating output directory: %w", err)
-		}
-	}
-
-	return c.downloadSBOMs(ctx, sboms, outputDir)
+	return c.downloadSBOMs(ctx, sboms)
 }
 
 // downloadSBOMs handles the concurrent downloading of multiple SBOM files
-func (c *Client) downloadSBOMs(ctx *tcontext.TransferMetadata, sboms []SBOMAsset, outputDir string) (VersionedSBOMs, error) {
+func (c *Client) downloadSBOMs(ctx *tcontext.TransferMetadata, sboms []SBOMAsset) (VersionedSBOMs, error) {
 	var (
 		wg             sync.WaitGroup                        // Coordinates all goroutines
 		mu             sync.Mutex                            // Protects shared resources
-		versionedSBOMs = make(VersionedSBOMs)                // Stores results
+		versionedSBOMs = make(VersionedSBOMs)                // Stores results in memory
 		errors         []error                               // Collects errors
 		maxConcurrency = 3                                   // Maximum parallel downloads
 		semaphore      = make(chan struct{}, maxConcurrency) // Controls concurrency
 	)
-	// totalSboms1, _ := ctx.Value("total_sboms").(int)
-	// fmt.Println("totalSboms: ", totalSboms1)
 
 	// Initialize progress bar
 	bar := progressbar.Default(int64(len(sboms)), "📥 Fetching SBOMs")
@@ -350,13 +345,8 @@ func (c *Client) downloadSBOMs(ctx *tcontext.TransferMetadata, sboms []SBOMAsset
 			semaphore <- struct{}{}        // Acquire semaphore
 			defer func() { <-semaphore }() // Release semaphore
 
-			// Download and save the SBOM
-			outputPath := ""
-			if outputDir != "" {
-				outputPath = filepath.Join(outputDir, sbom.Name)
-			}
-
-			err := c.downloadSingleSBOM(ctx, sbom, outputPath)
+			// Download the SBOM and store it in memory
+			sbomData, err := c.downloadSingleSBOM(ctx, sbom)
 			if err != nil {
 				mu.Lock()
 				errors = append(errors, fmt.Errorf("downloading %s: %w", sbom.Name, err))
@@ -364,21 +354,18 @@ func (c *Client) downloadSBOMs(ctx *tcontext.TransferMetadata, sboms []SBOMAsset
 				return
 			}
 
-			if outputPath != "" {
-				mu.Lock()
-				versionedSBOMs[sbom.Release] = append(versionedSBOMs[sbom.Release], outputPath)
-				mu.Unlock()
-				logger.LogDebug(ctx.Context, "SBOM file", "name", sbom.Name, "saved to", outputPath)
+			// Store SBOM content in memory
+			mu.Lock()
+			versionedSBOMs[sbom.Release] = append(versionedSBOMs[sbom.Release], sbomData)
+			mu.Unlock()
 
-				// Update progress bar
-				_ = bar.Add(1)
-			}
+			logger.LogDebug(ctx.Context, "SBOM fetched and stored in memory", "name", sbom.Name)
+			_ = bar.Add(1) // Update progress bar
 		}(sbom)
 	}
 
 	wg.Wait()
-	// Close progress bar on completion
-	_ = bar.Finish()
+	_ = bar.Finish() // Close progress bar on completion
 
 	if len(errors) > 0 {
 		return nil, fmt.Errorf("encountered %d download errors: %v", len(errors), errors[0])
@@ -387,34 +374,22 @@ func (c *Client) downloadSBOMs(ctx *tcontext.TransferMetadata, sboms []SBOMAsset
 	return versionedSBOMs, nil
 }
 
-// downloadSingleSBOM downloads and saves a single SBOM file
-func (c *Client) downloadSingleSBOM(ctx *tcontext.TransferMetadata, sbom SBOMAsset, outputPath string) error {
+// downloadSingleSBOM downloads a single SBOM and stores it in memory
+func (c *Client) downloadSingleSBOM(ctx *tcontext.TransferMetadata, sbom SBOMAsset) ([]byte, error) {
 	reader, err := c.DownloadAsset(ctx, sbom.DownloadURL)
 	if err != nil {
-		return fmt.Errorf("downloading asset: %w", err)
+		return nil, fmt.Errorf("downloading asset: %w", err)
 	}
 	defer reader.Close()
 
-	var output io.Writer
-	if outputPath == "" {
-		// Write to stdout with header
-		fmt.Printf("\n=== SBOM: %s ===\n", sbom.Name)
-		output = os.Stdout
-	} else {
-		// Create and write to file
-		file, err := os.Create(outputPath)
-		if err != nil {
-			return fmt.Errorf("creating output file: %w", err)
-		}
-		defer file.Close()
-		output = file
+	// Read SBOM content into memory
+	sbomData, err := io.ReadAll(reader)
+	if err != nil {
+		return nil, fmt.Errorf("reading SBOM content: %w", err)
 	}
 
-	if _, err := io.Copy(output, reader); err != nil {
-		return fmt.Errorf("writing SBOM: %w", err)
-	}
-
-	return nil
+	logger.LogDebug(ctx.Context, "SBOM fetched successfully", "file", sbom.Name)
+	return sbomData, nil
 }
 
 func (c *Client) FetchSBOMFromAPI(ctx *tcontext.TransferMetadata) ([]byte, error) {
@@ -475,4 +450,51 @@ func (c *Client) FetchSBOMFromAPI(ctx *tcontext.TransferMetadata) ([]byte, error
 
 	// Return the raw SBOM JSON as bytes
 	return response.SBOM, nil
+}
+
+func (c *Client) GetAllRepositories(ctx *tcontext.TransferMetadata) ([]string, error) {
+	logger.LogDebug(ctx.Context, "Fetching all repositories for an organization", "name", c.Owner)
+
+	apiURL := fmt.Sprintf("https://api.github.com/orgs/%s/repos", c.Owner)
+
+	logger.LogDebug(ctx.Context, "Constructed API URL for repositories", "value", apiURL)
+
+	req, err := http.NewRequestWithContext(ctx.Context, "GET", apiURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("creating request: %w", err)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("fetching repositories: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Check if response is successful
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("GitHub API returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	// Decode the JSON response
+	var repos []map[string]interface{} // Handle dynamic JSON structure
+	if err := json.NewDecoder(resp.Body).Decode(&repos); err != nil {
+		return nil, fmt.Errorf("decoding response: %w", err)
+	}
+
+	// Extract repository names
+	var repoNames []string
+	for _, r := range repos {
+		if name, ok := r["name"].(string); ok {
+			repoNames = append(repoNames, name)
+		}
+	}
+
+	// Check if repositories were found
+	if len(repoNames) == 0 {
+		return nil, fmt.Errorf("no repositories found for organization %s", c.Owner)
+	}
+	logger.LogDebug(ctx.Context, "Total number of", "repositories", "value", len(repoNames), "present are", repoNames, "in an Organization", c.Organization)
+
+	return repoNames, nil
 }
