@@ -43,10 +43,10 @@ func NewGitHubIterator(ctx *tcontext.TransferMetadata, g *GitHubAdapter) (*GitHu
 	ctx.WithValue("repo_url", g.URL)
 	ctx.WithValue("repo_version", g.Version)
 
-	client := NewClient(g.URL, g.Version, string(g.Method))
+	// client := NewClient(g.URL, g.Version, string(g.Method))
 	iterator := &GitHubIterator{
 		// ctx:        ctx,
-		client:     client,
+		client:     g.client,
 		sboms:      []*iterator.SBOM{},
 		binaryPath: g.BinaryPath,
 	}
