@@ -2,35 +2,115 @@
 
 sbommv - Your primary tool to transfer SBOM's between different systems.
 
-## Goal
-
-The goal of this tool is to allow for easy transfer of SBOM's between different systems. 
-
 ## Summary
 
-sbommv is designed to allow transfer sboms across systems. The tool can be run as a standalone tool or can be integrated into a CI/CD pipeline or server mode. In order to transfer SBOM's the tool will need to construct SBOM's using api or or external tools and then transfer the SBOM to the target system in a format that the target system can understand.
+sbommv is designed to allow transfer sboms across systems. The tool supports input, translation, enrichment & output adapters which allow it to be extensible in the future. Input adapters are responsbile to interface with services and provide various methods to extract sboms. The output adapters handles all the complexity related to uploading sboms. 
 
-In server mode the expectation is to have a server running that can periodically check for new SBOM's and transfer them to the target system based on cron style configurations. 
+**Examples**
 
-## Usage
+1. **Transfer SBOM from the latest version of sbomqs to interlynk platform**:
+  This will look for the latest release of the repository and check if SBOMs are generated, if found it will create a new project with the repo-name in interlynk and upload it. 
 
-Security tokens for all systems would need to be provided via ENV variables.
+   ```bash
+   export GITHUB_TOKEN=ghp_klgJBxKukyaoWA******
+   export INTERLYNK_SECURITY_TOKEN=lynk_api******
+   sbommv transfer --in-github-url=https://github.com/interlynk-io/sbomqs --out-interlynk-url=https://api.interlynk.io/lynkapi
+   ```
 
-### Create/Move SBOM from github repo to a specified project in interlynk free tier
+2. **DRY RUN: Transfer SBOM from the latest version of sbomqs to interlynk platform**:
+  This will look for the latest release of the repository and check if SBOMs are generated, in dry-run mode, it will just iterate the sboms found, and check if login to the output adapter works.
 
-```bash
-export INTERLYNK_SECURITY_TOKEN="lynk_test_dlklklsdsldslksldskldskdsklsls"
+   ```bash
+   export GITHUB_TOKEN=ghp_klgJBxKukyaoWA******
+   export INTERLYNK_SECURITY_TOKEN=lynk_api******
+   sbommv transfer --in-github-url=https://github.com/interlynk-io/sbomqs --out-interlynk-url=https://api.interlynk.io/lynkapi --dry-run
+   ```
 
-# transfer all SBOMs from cosign release page to interlynk platform to a provided project ID
-sbommv transfer -D  --input-adapter=github  --in-github-url="http://github.com/sigstore/cosign" --output-adapter=interlynk  --out-interlynk-url="https://localhost:3000/lynkapi" --out-interlynk-project-id=014eda95-5ac6-4bd8-a24d-014217f0b873
+
+## Data Flow 
+```
++---------------------+     +------------------------------+     +----------------------+
+|    Input Adapter    | --> |    Enrichment/Translation    | --> |   Output Adapter     |
+|-------------------- |     |------------------------------|     |----------------------|
+|  - GitHub           |     |  - SBOM Translation*         |     |  - Interlynk         |
+|  - BitBucket*       |     |  - Enrichment*               |     |  - Dependency-Track* |
+|  - Dependency-Track*|     +------------------------------+     |                      |
++---------------------+                                          +-----------------------+
+
+* Coming Soon
 ```
 
-### Create/Move sboms from all github repos in the organization to Interlynk, auto create outgoing projects on interlynk
+## Adapters 
 
-sbommv from-url=<repo-url> to-url=<interlynk-url> interlynk-project-id=<project-id> 
-e.g. sbommv from-url=github.com/interlynk-io to-url=https://api.interlynk.io/lynkapi --auto-create-outgoing-projects
 
-### Create/Move SBOM from github repo to a specified project in interlynk free tier using cdxgen
+### Input Adapters
 
-sbommv from-url=<repo-url> to-url=<interlynk-url> interlynk-project-id=<project-id> 
-e.g. sbommv from-url=github.com/interlynk-io/sbomqs to-url=https://api.interlynk.io/lynkapi --interlynk-project-id=1234  --gen-sbom-using=cdxgen
+#### GitHub
+
+The **GitHub adapter** allows you to extract/download SBOMs from GitHub. The adapter provides the following methods of extracting SBOMs:
+
+- **Release** *(Default)*:  
+  This method looks at the releases for the repository and extracts all the SBOMs that follow the recognized file patterns as described by **CycloneDX** & **SPDX** specs.
+
+- **API**:  
+  This method uses the GitHub API to download **SPDX** SBOM for the repository, if available.
+
+- **Tool**:  
+  This method clones the repository and runs your tool of choice to generate the SBOM.
+
+---
+
+**Command-line Parameters Supported by the Adapter**
+
+- `--in-github-url`: Takes the repository or owner URL for GitHub.  
+- `--in-github-include-repos`: Specifies repositories from which SBOMs should be extracted.  
+- `--in-github-exclude-repos`: Specifies repositories to exclude from SBOM extraction.  
+- `--in-github-method`: Specifies the method of extraction (`release`, `api`, or `tool`).  
+
+---
+
+**Usage Examples**
+
+1. **For the latest release version of `sbomqs` using the release method**:  
+   This will look for the latest release of the repository and check if SBOMs are generated.
+
+   ```bash
+   --in-github-url=https://github.com/interlynk-io/sbomqs
+   ```
+
+2. **For a particular release (`v1.0.0`) of `sbomqs` using the release method**:
+
+   ```bash
+   --in-github-url=https://github.com/interlynk-io/sbomqs@v1.0.0
+   ```
+
+3. **For only certain repositories (`sbomqs`, `sbomasm`) of `interlynk-io` using the API method**:
+
+   ```bash
+   --in-github-url=https://github.com/interlynk-io \
+   --in-github-include-repos=sbomqs,sbomasm \
+   --in-github-method=api
+   ```
+
+4. **To exclude specific repositories (`sbomqs`) from `interlynk-io` using the API method**:
+
+   ```bash
+   --in-github-url=https://github.com/interlynk-io \
+   --in-github-exclude-repos=sbomqs \
+   --in-github-method=api
+   ```
+
+---
+
+
+
+
+
+
+### Output Adapters 
+#### Interlynk
+
+
+### Enrichment Adapters 
+
+### Conversion Adapters
