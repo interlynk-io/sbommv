@@ -93,11 +93,6 @@ func NewClient(g *GitHubAdapter) *Client {
 // filter out the particular provided release asset and
 // extract SBOMs from that
 func (c *Client) FindSBOMs(ctx *tcontext.TransferMetadata) ([]SBOMAsset, error) {
-	// owner, repo, err := ParseGitHubURL(c.RepoURL)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("parsing GitHub URL: %w", err)
-	// }
-
 	logger.LogDebug(ctx.Context, "Fetching GitHub releases", "repo_url", c.RepoURL, "owner", c.Owner, "repo", c.Repo)
 
 	releases, err := c.GetReleases(ctx, c.Owner, c.Repo)
@@ -243,39 +238,6 @@ func (c *Client) DownloadAsset(ctx *tcontext.TransferMetadata, downloadURL strin
 
 	return resp.Body, nil
 }
-
-// // FetchSBOMsFromReleases fetches and downloads SBOMs from GitHub releases
-// func (c *Client) FetchSBOMsFromReleases(ctx *tcontext.TransferMetadata) (map[string][]byte, error) {
-// 	logger.LogDebug(ctx.Context, "Fetching SBOMs from GitHub Releases", "repo", c.RepoURL)
-
-// 	// Step 1: Get All Releases
-// 	sbomAssets, err := c.FindSBOMs(ctx)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("error finding SBOMs in releases: %w", err)
-// 	}
-
-// 	if len(sbomAssets) == 0 {
-// 		return nil, fmt.Errorf("no SBOMs found in repository")
-// 	}
-
-// 	logger.LogDebug(ctx.Context, "Total SBOMs found in the repository", "version", c.Version, "total sboms", len(sbomAssets))
-
-// 	// Step 2: Download Each SBOM
-// 	versionedSBOMs := make(map[string][]byte)
-// 	for _, asset := range sbomAssets {
-// 		sbomData, err := c.DownloadSBOM(ctx, asset)
-// 		if err != nil {
-// 			logger.LogError(ctx.Context, err, "Failed to download SBOM", "file", asset.Name)
-// 			continue
-// 		}
-
-// 		versionedSBOMs[asset.Release] = sbomData
-// 		logger.LogDebug(ctx.Context, "Downloaded SBOM successfully", "version", asset.Release, "file", asset.Name)
-// 	}
-
-// 	// Step 3: Return All Downloaded SBOMs
-// 	return versionedSBOMs, nil
-// }
 
 // DownloadSBOM fetches an SBOM from its download URL
 func (c *Client) DownloadSBOM(ctx *tcontext.TransferMetadata, asset SBOMAsset) ([]byte, error) {
@@ -452,6 +414,11 @@ func (c *Client) FetchSBOMFromAPI(ctx *tcontext.TransferMetadata) ([]byte, error
 	return response.SBOM, nil
 }
 
+func (c *Client) updateRepo(repo string) {
+	c.Repo = repo
+	c.RepoURL = fmt.Sprintf("https://github.com/%s/%s", c.Owner, repo)
+}
+
 func (c *Client) GetAllRepositories(ctx *tcontext.TransferMetadata) ([]string, error) {
 	logger.LogDebug(ctx.Context, "Fetching all repositories for an organization", "name", c.Owner)
 
@@ -494,7 +461,6 @@ func (c *Client) GetAllRepositories(ctx *tcontext.TransferMetadata) ([]string, e
 	if len(repoNames) == 0 {
 		return nil, fmt.Errorf("no repositories found for organization %s", c.Owner)
 	}
-	logger.LogDebug(ctx.Context, "Total number of", "repositories", "value", len(repoNames), "present are", repoNames, "in an Organization", c.Organization)
 
 	return repoNames, nil
 }

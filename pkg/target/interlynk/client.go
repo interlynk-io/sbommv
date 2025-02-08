@@ -93,14 +93,28 @@ func (c *Client) SetProjectID(projectID string) {
 	c.ProjectID = projectID
 }
 
+func (c *Client) FindOrCreateProjectGroup(ctx *tcontext.TransferMetadata, repoName, env string) (string, error) {
+	projectName := fmt.Sprintf("%s", repoName)
+	projectID, err := c.FindProjectGroup(ctx, projectName, env)
+
+	if err != nil {
+		projectID, err = c.CreateProjectGroup(ctx, projectName, env)
+		if err != nil {
+			return "", fmt.Errorf("failed to create project: %w", err)
+		}
+	}
+
+	return projectID, nil
+}
+
 // UploadSBOM uploads a single SBOM from memory to Interlynk
-func (c *Client) UploadSBOM(ctx *tcontext.TransferMetadata, sbomData []byte) error {
+func (c *Client) UploadSBOM(ctx *tcontext.TransferMetadata, projectID string, sbomData []byte) error {
 	if len(sbomData) == 0 {
 		return fmt.Errorf("SBOM data is empty")
 	}
 
 	// Create a context-aware request with appropriate timeout
-	req, err := c.createUploadRequest(ctx, sbomData)
+	req, err := c.createUploadRequest(ctx, projectID, sbomData)
 	if err != nil {
 		return fmt.Errorf("preparing request: %w", err)
 	}
@@ -109,7 +123,7 @@ func (c *Client) UploadSBOM(ctx *tcontext.TransferMetadata, sbomData []byte) err
 	return c.executeUploadRequest(ctx, req)
 }
 
-func (c *Client) createUploadRequest(ctx *tcontext.TransferMetadata, sbomData []byte) (*http.Request, error) {
+func (c *Client) createUploadRequest(ctx *tcontext.TransferMetadata, projectID string, sbomData []byte) (*http.Request, error) {
 	const uploadMutation = `
         mutation uploadSbom($doc: Upload!, $projectId: ID!) {
             sbomUpload(input: { doc: $doc, projectId: $projectId }) {
@@ -119,7 +133,7 @@ func (c *Client) createUploadRequest(ctx *tcontext.TransferMetadata, sbomData []
     `
 
 	// Prepare multipart form data
-	body, writer, err := c.prepareMultipartForm(sbomData, uploadMutation)
+	body, writer, err := c.prepareMultipartForm(projectID, sbomData, uploadMutation)
 	if err != nil {
 		return nil, err
 	}
@@ -139,7 +153,7 @@ func (c *Client) createUploadRequest(ctx *tcontext.TransferMetadata, sbomData []
 	return req, nil
 }
 
-func (c *Client) prepareMultipartForm(sbomData []byte, query string) (*bytes.Buffer, *multipart.Writer, error) {
+func (c *Client) prepareMultipartForm(projectID string, sbomData []byte, query string) (*bytes.Buffer, *multipart.Writer, error) {
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
 
@@ -147,7 +161,7 @@ func (c *Client) prepareMultipartForm(sbomData []byte, query string) (*bytes.Buf
 	operations := map[string]interface{}{
 		"query": strings.TrimSpace(strings.ReplaceAll(query, "\n", " ")),
 		"variables": map[string]interface{}{
-			"projectId": c.ProjectID,
+			"projectId": projectID,
 			"doc":       nil,
 		},
 	}

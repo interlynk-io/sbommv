@@ -15,7 +15,6 @@
 package interlynk
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -25,7 +24,6 @@ import (
 	"github.com/interlynk-io/sbommv/pkg/logger"
 	"github.com/interlynk-io/sbommv/pkg/tcontext"
 	"github.com/interlynk-io/sbommv/pkg/types"
-	"github.com/schollz/progressbar/v3"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -157,41 +155,42 @@ func (i *InterlynkAdapter) uploadSequential(ctx *tcontext.TransferMetadata, sbom
 		ProjectID: i.ProjectID,
 	})
 
-	// Retrieve metadata from context
-	repoURL, _ := ctx.Value("repo_url").(string)
-	repoVersion, _ := ctx.Value("repo_version").(string)
-	totalSBOMs, _ := ctx.Value("total_sboms").(int)
+	// // Retrieve metadata from context
+	// repoURL, _ := ctx.Value("repo_url").(string)
+	// repoVersion, _ := ctx.Value("repo_version").(string)
+	// totalSBOMs, _ := ctx.Value("total_sboms").(int)
 
-	if repoVersion == "" {
-		repoVersion = "all-version"
-	}
+	// if repoVersion == "" {
+	// 	repoVersion = "all-version"
+	// }
 
-	repoName := sanitizeRepoName(repoURL)
+	// repoName := sanitizeRepoName(repoURL)
 
-	// Create project if needed
-	if client.ProjectID == "" {
-		projectName := fmt.Sprintf("%s", repoName)
+	// // Create project if needed
+	// if client.ProjectID == "" {
+	// 	projectName := fmt.Sprintf("%s", repoName)
 
-		projectID, err := client.FindProjectGroup(ctx, projectName, "default")
+	// 	projectID, err := client.FindProjectGroup(ctx, projectName, "default")
 
-		if err != nil {
-			logger.LogDebug(ctx.Context, "Project not found, creating new project", "name", projectName)
-			projectID, err = client.CreateProjectGroup(ctx, projectName, "default")
-			if err != nil {
-				return fmt.Errorf("failed to create project: %w", err)
-			}
-		}
+	// 	if err != nil {
+	// 		logger.LogDebug(ctx.Context, "Project not found, creating new project", "name", projectName)
+	// 		projectID, err = client.CreateProjectGroup(ctx, projectName, "default")
+	// 		if err != nil {
+	// 			return fmt.Errorf("failed to create project: %w", err)
+	// 		}
+	// 	}
 
-		logger.LogDebug(ctx.Context, "Found Project", "name", projectName, "ID", projectID)
-		client.SetProjectID(projectID)
-	}
+	// 	logger.LogDebug(ctx.Context, "Found Project", "name", projectName, "ID", projectID)
+	// 	client.SetProjectID(projectID)
+	// }
 
-	if totalSBOMs == 0 {
-		return errors.New("no SBOMs to upload")
-	}
+	// if totalSBOMs == 0 {
+	// 	return errors.New("no SBOMs to upload")
+	// }
+	//
 
 	// Initialize progress bar
-	bar := progressbar.Default(int64(totalSBOMs), "🚀 Uploading SBOMs")
+	// bar := progressbar.Default(int64(0), "🚀 Uploading SBOMs")
 	errorCount := 0
 	maxRetries := 5
 
@@ -212,22 +211,27 @@ func (i *InterlynkAdapter) uploadSequential(ctx *tcontext.TransferMetadata, sbom
 		}
 		errorCount = 0 // Reset error counter on successful iteration
 
-		logger.LogDebug(ctx.Context, "Uploading SBOM", "repo", sbom.Repo, "version", sbom.Version)
+		logger.LogDebug(ctx.Context, "Uploading SBOM", "repo", sbom.Repo, "version", sbom.Version, "data size", len(sbom.Data))
+
+		projectID, err := client.FindOrCreateProjectGroup(ctx, sbom.Repo, "default")
+		if err != nil {
+			logger.LogError(ctx.Context, err, "Failed to create project", "repo", sbom.Repo)
+			continue
+		}
 
 		// Upload SBOM content (stored in memory)
-		err = client.UploadSBOM(ctx, sbom.Data)
+		err = client.UploadSBOM(ctx, projectID, sbom.Data)
 		if err != nil {
 			logger.LogDebug(ctx.Context, "Failed to upload SBOM", "repo", sbom.Repo, "version", sbom.Version)
 		} else {
 			logger.LogDebug(ctx.Context, "Successfully uploaded SBOM", "repo", sbom.Repo, "version", sbom.Version)
 		}
 
-		// Update progress bar
-		if err := bar.Add(1); err != nil {
-			logger.LogError(ctx.Context, err, "Error updating progress bar")
-		}
+		// // Update progress bar
+		// if err := bar.Add(1); err != nil {
+		// 	logger.LogError(ctx.Context, err, "Error updating progress bar")
+		// }
 	}
-	logger.LogDebug(ctx.Context, "✅ All SBOMs uploaded successfully!")
 
 	return nil
 }

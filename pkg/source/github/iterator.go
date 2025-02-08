@@ -29,7 +29,6 @@ import (
 
 // // GitHubIterator iterates over SBOMs fetched from GitHub (API, Release, Tool)
 type GitHubIterator struct {
-	// ctx        context.Context
 	client     *Client
 	sboms      []*iterator.SBOM // Stores all fetched SBOMs
 	position   int              // Tracks iteration position
@@ -37,15 +36,12 @@ type GitHubIterator struct {
 }
 
 // NewGitHubIterator initializes the iterator based on the GitHub method
-func NewGitHubIterator(ctx *tcontext.TransferMetadata, g *GitHubAdapter) (*GitHubIterator, error) {
-	logger.LogDebug(ctx.Context, "Initializing GitHub Iterator", "repo", g.URL, "method", g.Method)
+func NewGitHubIterator(ctx *tcontext.TransferMetadata, g *GitHubAdapter, repo string) (*GitHubIterator, error) {
+	logger.LogDebug(ctx.Context, "Initializing GitHub Iterator", "repo", g.URL, "method", g.Method, "repo", repo)
 
-	ctx.WithValue("repo_url", g.URL)
-	ctx.WithValue("repo_version", g.Version)
+	g.client.updateRepo(repo)
 
-	// client := NewClient(g.URL, g.Version, string(g.Method))
 	iterator := &GitHubIterator{
-		// ctx:        ctx,
 		client:     g.client,
 		sboms:      []*iterator.SBOM{},
 		binaryPath: g.BinaryPath,
@@ -82,7 +78,6 @@ func NewGitHubIterator(ctx *tcontext.TransferMetadata, g *GitHubAdapter) (*GitHu
 
 // Next returns the next SBOM from the stored list
 func (it *GitHubIterator) Next(ctx context.Context) (*iterator.SBOM, error) {
-	logger.LogDebug(ctx, "Iterating via Next")
 	if it.position >= len(it.sboms) {
 		return nil, io.EOF // No more SBOMs left
 	}
@@ -94,19 +89,15 @@ func (it *GitHubIterator) Next(ctx context.Context) (*iterator.SBOM, error) {
 
 // Fetch SBOM via GitHub API
 func (it *GitHubIterator) fetchSBOMFromAPI(ctx *tcontext.TransferMetadata) error {
-	logger.LogDebug(ctx.Context, "fetchSBOMFromAPI", "repo", it.client.RepoURL)
-
 	sbomData, err := it.client.FetchSBOMFromAPI(ctx)
 	if err != nil {
 		return err
 	}
 
 	it.sboms = append(it.sboms, &iterator.SBOM{
-		Path: "",
-		Data: sbomData,
-		Repo: it.client.RepoURL,
-
-		// github API creates SBOM from the latest version
+		Path:    "",
+		Data:    sbomData,
+		Repo:    fmt.Sprintf("%s/%s", it.client.Owner, it.client.Repo),
 		Version: "latest",
 	})
 	return nil
@@ -114,21 +105,17 @@ func (it *GitHubIterator) fetchSBOMFromAPI(ctx *tcontext.TransferMetadata) error
 
 // Fetch SBOMs from GitHub Releases
 func (it *GitHubIterator) fetchSBOMFromReleases(ctx *tcontext.TransferMetadata) error {
-	logger.LogDebug(ctx.Context, "fetchSBOMFromReleases %s", it.client.RepoURL)
-
 	sbomFiles, err := it.client.GetSBOMs(ctx)
 	if err != nil {
 		return fmt.Errorf("error retrieving SBOMs from releases: %w", err)
 	}
-
-	logger.LogDebug(ctx.Context, "fetchSBOMFromReleases found sboms", len(sbomFiles))
 
 	for version, sbomDataList := range sbomFiles {
 		for _, sbomData := range sbomDataList { // sbomPath is a string (file path)
 			it.sboms = append(it.sboms, &iterator.SBOM{
 				Path:    "", // No file path, storing in memory
 				Data:    sbomData,
-				Repo:    it.client.RepoURL,
+				Repo:    fmt.Sprintf("%s/%s", it.client.Owner, it.client.Repo),
 				Version: version,
 			})
 		}

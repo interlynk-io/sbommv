@@ -173,17 +173,13 @@ func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 func (g *GitHubAdapter) FetchSBOMs(ctx *tcontext.TransferMetadata) (iterator.SBOMIterator, error) {
 	logger.LogDebug(ctx.Context, "Intializing SBOM fetching process")
 
-	if g.Repo != "" {
-		return NewGitHubIterator(ctx, g)
-	}
-
 	// Org Mode: Fetch all repositories
 	repos, err := g.client.GetAllRepositories(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get repositories: %w", err)
 	}
 
-	logger.LogDebug(ctx.Context, "Found %d repos", len(repos))
+	logger.LogDebug(ctx.Context, "Found repos", "number", len(repos))
 
 	// filtering to include/exclude repos
 	repos = g.applyRepoFilters(repos)
@@ -267,7 +263,7 @@ func (g *GitHubAdapter) fetchSBOMsConcurrently(ctx *tcontext.TransferMetadata, r
 			defer wg.Done()
 			g.Repo = repo
 			g.client.Repo = repo
-			iter, err := NewGitHubIterator(ctx, g)
+			iter, err := NewGitHubIterator(ctx, g, repo)
 			if err != nil {
 				logger.LogError(ctx.Context, err, "Failed to fetch SBOMs for repo", "repo", repo)
 				return
@@ -311,7 +307,7 @@ func (g *GitHubAdapter) fetchSBOMsSequentially(ctx *tcontext.TransferMetadata, r
 		logger.LogDebug(ctx.Context, "Fetching SBOMs sequentially", "repo", repo)
 
 		// Fetch SBOMs for the current repository
-		iter, err := NewGitHubIterator(ctx, g)
+		iter, err := NewGitHubIterator(ctx, g, repo)
 		if err != nil {
 			logger.LogError(ctx.Context, err, "Failed to fetch SBOMs for repo", "repo", repo)
 			continue

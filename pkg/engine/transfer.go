@@ -69,13 +69,10 @@ func TransferRun(ctx context.Context, cmd *cobra.Command, config mvtypes.Config)
 	logger.LogDebug(transferCtx.Context, "output adapter instance config", "value", outputAdapterInstance)
 
 	// Fetch SBOMs lazily using the iterator
-	logger.LogDebug(transferCtx.Context, "Fetching SBOMs from input adapter...")
 	sbomIterator, err := inputAdapterInstance.FetchSBOMs(transferCtx)
 	if err != nil {
 		return fmt.Errorf("failed to fetch SBOMs: %w", err)
 	}
-
-	logger.LogDebug(transferCtx.Context, "SBOM fetching started successfully", "sbomIterator", sbomIterator)
 
 	// Dry-Run Mode: Display SBOMs Without Uploading
 	if config.DryRun {
@@ -89,7 +86,6 @@ func TransferRun(ctx context.Context, cmd *cobra.Command, config mvtypes.Config)
 
 	// Process & Upload SBOMs Sequentially
 	if err := outputAdapterInstance.UploadSBOMs(transferCtx, sbomIterator); err != nil {
-		logger.LogError(transferCtx.Context, err, "Failed to output SBOMs")
 		return fmt.Errorf("failed to output SBOMs: %w", err)
 	}
 
