@@ -422,6 +422,10 @@ func (c *Client) updateRepo(repo string) {
 func (c *Client) GetAllRepositories(ctx *tcontext.TransferMetadata) ([]string, error) {
 	logger.LogDebug(ctx.Context, "Fetching all repositories for an organization", "name", c.Owner)
 
+	if c.Repo != "" {
+		return []string{c.Repo}, nil
+	}
+
 	apiURL := fmt.Sprintf("https://api.github.com/orgs/%s/repos", c.Owner)
 
 	logger.LogDebug(ctx.Context, "Constructed API URL for repositories", "value", apiURL)
