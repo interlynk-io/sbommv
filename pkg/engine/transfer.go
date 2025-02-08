@@ -56,7 +56,6 @@ func TransferRun(ctx context.Context, cmd *cobra.Command, config mvtypes.Config)
 
 	// Parse and validate input adapter parameters
 	if err := inputAdapterInstance.ParseAndValidateParams(cmd); err != nil {
-		logger.LogError(transferCtx.Context, err, "Input adapter error")
 		return fmt.Errorf("input adapter error: %w", err)
 	}
 

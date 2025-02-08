@@ -135,6 +135,10 @@ func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 		return fmt.Errorf("invalid GitHub URL format: %w", err)
 	}
 
+	if version != "" && method == "api" {
+		return fmt.Errorf("version flag is not supported for GitHub API method")
+	}
+
 	//Assign extracted values to struct
 	if version == "" {
 		version = "latest"
