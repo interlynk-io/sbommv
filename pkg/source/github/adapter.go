@@ -71,11 +71,11 @@ const (
 // AddCommandParams adds GitHub-specific CLI flags
 func (g *GitHubAdapter) AddCommandParams(cmd *cobra.Command) {
 	cmd.Flags().String("in-github-url", "", "GitHub repository URL")
-	cmd.Flags().String("in-github-method", "release", "GitHub method: release, api, or tool")
+	cmd.Flags().String("in-github-method", "api", "GitHub method: release, api, or tool")
 
 	// Updated to StringSlice to support multiple values (comma-separated)
-	cmd.Flags().StringSlice("in-github-include-repos", nil, "Comma-separated list of repositories to include")
-	cmd.Flags().StringSlice("in-github-exclude-repos", nil, "Comma-separated list of repositories to exclude")
+	cmd.Flags().StringSlice("in-github-include-repos", nil, "Include only these repositories e.g sbomqs,sbomasm")
+	cmd.Flags().StringSlice("in-github-exclude-repos", nil, "Exclude these repositories e.g sbomqs,sbomasm")
 
 	// (Optional) If you plan to fetch **all versions** of a repo
 	// cmd.Flags().Bool("in-github-all-versions", false, "Fetch SBOMs from all versions")
