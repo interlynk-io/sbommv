@@ -107,10 +107,7 @@ func transferSBOM(cmd *cobra.Command, args []string) error {
 
 	logger.LogDebug(ctx, "configuration", "value", config)
 
-	logger.LogDebug(ctx, "Executing SBOM transfer process")
-
 	if err := engine.TransferRun(ctx, cmd, config); err != nil {
-		logger.LogError(ctx, err, "Transfer operation failed")
 		return fmt.Errorf("failed to process engine for transfer cmd: %w", err)
 	}
 
@@ -184,8 +181,8 @@ func customUsageFunc(_ *cobra.Command) string {
 		Usage string
 	}{
 		"interlynk": {
-			{"--out-interlynk-url", "URL for output adapter interlynk (required)"},
-			{"--out-interlynk-project-id", "Project ID for output adapter interlynk (required)"},
+			{"--out-interlynk-url", "URL for output adapter interlynk (optional)"},
+			{"--out-interlynk-project-id", "Project ID for output adapter interlynk (optional)"},
 		},
 	}
 

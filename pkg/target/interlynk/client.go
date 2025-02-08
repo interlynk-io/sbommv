@@ -25,7 +25,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/interlynk-io/sbommv/pkg/logger"
 	"github.com/interlynk-io/sbommv/pkg/tcontext"
 )
 
@@ -234,8 +233,118 @@ func (c *Client) executeUploadRequest(ctx *tcontext.TransferMetadata, req *http.
 	return nil
 }
 
+func (c *Client) FindProjectGroup(ctx *tcontext.TransferMetadata, name string, env string) (string, error) {
+	const findProjectGroupMutation = `
+		query FindProjectGroup($search: String) {
+			  organization {
+			    id
+			    projectGroups(
+			      search: $search
+			    ) {
+			      nodes {
+			        id
+			        name
+			        enabled
+			        projects {
+			          id
+			          name
+			          sbomsCount
+			        }
+			        description
+			        updatedAt
+			      }
+			    }
+			  }
+			}
+    `
+	request := graphQLRequest{
+		Query: findProjectGroupMutation,
+		Variables: map[string]interface{}{
+			"search": name,
+		},
+	}
+
+	body, err := json.Marshal(request)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal GraphQL request: %w", err)
+	}
+
+	if c.ApiURL == "" {
+		c.ApiURL = "https://api.interlynk.io/lynkapi"
+	}
+	req, err := http.NewRequestWithContext(ctx.Context, "POST", c.ApiURL, bytes.NewReader(body))
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.token))
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	var response struct {
+		Data struct {
+			Organization struct {
+				ID            string `json:"id"`
+				ProjectGroups struct {
+					Nodes []struct {
+						ID          string `json:"id"`
+						Name        string `json:"name"`
+						Enabled     bool   `json:"enabled"`
+						Description string `json:"description"`
+						UpdatedAt   string `json:"updatedAt"`
+						Projects    []struct {
+							ID         string `json:"id"`
+							Name       string `json:"name"`
+							SbomsCount int    `json:"sbomsCount"`
+						} `json:"projects"`
+					} `json:"nodes"`
+				} `json:"projectGroups"`
+			} `json:"organization"`
+		} `json:"data"`
+	}
+
+	if err := json.Unmarshal(respBody, &response); err != nil {
+		return "", fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	if len(response.Data.Organization.ProjectGroups.Nodes) == 0 {
+		return "", fmt.Errorf("no project groups found")
+	}
+
+	projectGroupEnvID := ""
+
+	for _, node := range response.Data.Organization.ProjectGroups.Nodes {
+		if node.Name == name {
+			for _, project := range node.Projects {
+				if project.Name == env {
+					projectGroupEnvID = project.ID
+					break
+				}
+			}
+			break
+		}
+	}
+
+	if projectGroupEnvID == "" {
+		return "", fmt.Errorf("no project group found with the specified environment")
+	}
+
+	return projectGroupEnvID, nil
+}
+
 // CreateProjectGroup creates a new project group and returns the default project's ID
-func (c *Client) CreateProjectGroup(ctx *tcontext.TransferMetadata, name, description string, enabled bool) (string, error) {
+func (c *Client) CreateProjectGroup(ctx *tcontext.TransferMetadata, name, env string) (string, error) {
+
 	const createProjectGroupMutation = `
         mutation CreateProjectGroup($name: String!, $desc: String, $enabled: Boolean) {
             projectGroupCreate(
@@ -260,8 +369,8 @@ func (c *Client) CreateProjectGroup(ctx *tcontext.TransferMetadata, name, descri
 		Query: createProjectGroupMutation,
 		Variables: map[string]interface{}{
 			"name":    name,
-			"desc":    description,
-			"enabled": enabled,
+			"desc":    fmt.Sprintf("Project group %s created by sbommv", name),
+			"enabled": true,
 		},
 	}
 
@@ -271,7 +380,7 @@ func (c *Client) CreateProjectGroup(ctx *tcontext.TransferMetadata, name, descri
 	}
 
 	if c.ApiURL == "" {
-		c.ApiURL = "http://localhost:3000/lynkapi"
+		c.ApiURL = "https://api.interlynk.io/lynkapi"
 	}
 	req, err := http.NewRequestWithContext(ctx.Context, "POST", c.ApiURL, bytes.NewReader(body))
 	if err != nil {
@@ -292,8 +401,6 @@ func (c *Client) CreateProjectGroup(ctx *tcontext.TransferMetadata, name, descri
 		return "", fmt.Errorf("failed to read response body: %w", err)
 	}
 
-	logger.LogDebug(ctx.Context, "Raw message body", "response", string(respBody))
-
 	var response struct {
 		Data struct {
 			ProjectGroupCreate struct {
@@ -312,14 +419,22 @@ func (c *Client) CreateProjectGroup(ctx *tcontext.TransferMetadata, name, descri
 		return "", fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
-	if len(response.Data.ProjectGroupCreate.Errors) > 0 {
-		return "", fmt.Errorf("failed to create project group: %s", response.Data.ProjectGroupCreate.Errors[0])
-	}
-
-	// Retrieve the first (default) project's ID
 	if len(response.Data.ProjectGroupCreate.ProjectGroup.Projects) == 0 {
 		return "", fmt.Errorf("no projects found in the created project group")
 	}
 
-	return response.Data.ProjectGroupCreate.ProjectGroup.Projects[0].ID, nil
+	projectID := ""
+
+	for _, project := range response.Data.ProjectGroupCreate.ProjectGroup.Projects {
+		if project.Name == env {
+			projectID = project.ID
+			break
+		}
+	}
+
+	if projectID == "" {
+		return "", fmt.Errorf("no project found with the specified environment")
+	}
+
+	return projectID, nil
 }

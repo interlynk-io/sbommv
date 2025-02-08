@@ -15,6 +15,7 @@
 package interlynk
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -84,7 +85,7 @@ func (i *InterlynkAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 
 	projectID, _ := cmd.Flags().GetString(projectIDFlag)
 	if projectID == "" {
-		fmt.Println("Warning: No project ID provided, a new project will be created")
+		logger.LogDebug(cmd.Context(), "No project ID provided, a new project will be created")
 	}
 
 	token := viper.GetString("INTERLYNK_SECURITY_TOKEN")
@@ -104,7 +105,7 @@ func (i *InterlynkAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 		return fmt.Errorf("Interlynk validation failed: %w", err)
 	}
 
-	fmt.Println("✅ Interlynk system is up and running.")
+	logger.LogDebug(cmd.Context(), "✅ Interlynk system is up and running.")
 
 	return nil
 }
@@ -164,28 +165,35 @@ func (i *InterlynkAdapter) uploadSequential(ctx *tcontext.TransferMetadata, sbom
 	if repoVersion == "" {
 		repoVersion = "all-version"
 	}
-	fmt.Println("repoVersion: ", repoVersion)
-	fmt.Println("totalSBOMs: ", totalSBOMs)
 
 	repoName := sanitizeRepoName(repoURL)
-	fmt.Println("repoName: ", repoName)
 
 	// Create project if needed
 	if client.ProjectID == "" {
-		projectName := fmt.Sprintf("%s-%s", repoName, repoVersion)
-		logger.LogDebug(ctx.Context, "Creating new project", "name", projectName)
+		projectName := fmt.Sprintf("%s", repoName)
 
-		projectID, err := client.CreateProjectGroup(ctx, projectName, "Project for SBOM", true)
+		projectID, err := client.FindProjectGroup(ctx, projectName, "default")
+
 		if err != nil {
-			return fmt.Errorf("failed to create project: %w", err)
+			logger.LogDebug(ctx.Context, "Project not found, creating new project", "name", projectName)
+			projectID, err = client.CreateProjectGroup(ctx, projectName, "default")
+			if err != nil {
+				return fmt.Errorf("failed to create project: %w", err)
+			}
 		}
 
-		logger.LogDebug(ctx.Context, "New project created successfully", "name", projectName)
+		logger.LogDebug(ctx.Context, "Found Project", "name", projectName, "ID", projectID)
 		client.SetProjectID(projectID)
+	}
+
+	if totalSBOMs == 0 {
+		return errors.New("no SBOMs to upload")
 	}
 
 	// Initialize progress bar
 	bar := progressbar.Default(int64(totalSBOMs), "🚀 Uploading SBOMs")
+	errorCount := 0
+	maxRetries := 5
 
 	for {
 		sbom, err := sboms.Next(ctx.Context)
@@ -195,8 +203,14 @@ func (i *InterlynkAdapter) uploadSequential(ctx *tcontext.TransferMetadata, sbom
 		}
 		if err != nil {
 			logger.LogError(ctx.Context, err, "Failed to retrieve SBOM from iterator")
+			errorCount++
+			if errorCount >= maxRetries {
+				logger.LogError(ctx.Context, err, "Exceeded maximum retries, aborting...")
+				break
+			}
 			continue
 		}
+		errorCount = 0 // Reset error counter on successful iteration
 
 		logger.LogDebug(ctx.Context, "Uploading SBOM", "repo", sbom.Repo, "version", sbom.Version)
 
@@ -213,7 +227,7 @@ func (i *InterlynkAdapter) uploadSequential(ctx *tcontext.TransferMetadata, sbom
 			logger.LogError(ctx.Context, err, "Error updating progress bar")
 		}
 	}
-	logger.LogInfo(ctx.Context, "✅ All SBOMs uploaded successfully!")
+	logger.LogDebug(ctx.Context, "✅ All SBOMs uploaded successfully!")
 
 	return nil
 }

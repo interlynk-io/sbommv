@@ -56,15 +56,12 @@ func NewGitHubIterator(ctx *tcontext.TransferMetadata, g *GitHubAdapter) (*GitHu
 
 	switch GitHubMethod(g.Method) {
 	case MethodAPI:
-		logger.LogDebug(ctx.Context, "Github Method", "value", MethodAPI)
 		err = iterator.fetchSBOMFromAPI(ctx)
 
 	case MethodReleases:
-		logger.LogDebug(ctx.Context, "Github Method", "value", MethodReleases)
 		err = iterator.fetchSBOMFromReleases(ctx)
 
 	case MethodTool:
-		logger.LogDebug(ctx.Context, "Github Method", "value", MethodTool)
 		err = iterator.fetchSBOMFromTool(ctx)
 
 	default:
@@ -72,8 +69,7 @@ func NewGitHubIterator(ctx *tcontext.TransferMetadata, g *GitHubAdapter) (*GitHu
 	}
 
 	if err != nil {
-		logger.LogError(ctx.Context, err, "Failed to fetch SBOMs")
-		return nil, err
+		return nil, fmt.Errorf("failed to fetch SBOMs: %w", err)
 	}
 
 	if len(iterator.sboms) == 0 {
@@ -81,7 +77,6 @@ func NewGitHubIterator(ctx *tcontext.TransferMetadata, g *GitHubAdapter) (*GitHu
 	}
 
 	logger.LogDebug(ctx.Context, "Total SBOMs fetched", "count", len(iterator.sboms))
-
 	return iterator, nil
 }
 
@@ -99,7 +94,7 @@ func (it *GitHubIterator) Next(ctx context.Context) (*iterator.SBOM, error) {
 
 // Fetch SBOM via GitHub API
 func (it *GitHubIterator) fetchSBOMFromAPI(ctx *tcontext.TransferMetadata) error {
-	logger.LogDebug(ctx.Context, "Fetching SBOM from GitHub API", "repo", it.client.RepoURL)
+	logger.LogDebug(ctx.Context, "fetchSBOMFromAPI", "repo", it.client.RepoURL)
 
 	sbomData, err := it.client.FetchSBOMFromAPI(ctx)
 	if err != nil {
@@ -119,13 +114,14 @@ func (it *GitHubIterator) fetchSBOMFromAPI(ctx *tcontext.TransferMetadata) error
 
 // Fetch SBOMs from GitHub Releases
 func (it *GitHubIterator) fetchSBOMFromReleases(ctx *tcontext.TransferMetadata) error {
-	logger.LogDebug(ctx.Context, "Fetching SBOMs from GitHub Releases", "repo", it.client.RepoURL)
+	logger.LogDebug(ctx.Context, "fetchSBOMFromReleases %s", it.client.RepoURL)
 
 	sbomFiles, err := it.client.GetSBOMs(ctx)
 	if err != nil {
-		logger.LogError(ctx.Context, err, "Failed to retrieve SBOMs from GitHub releases", "url", it.client.RepoURL, "version", it.client.Version)
 		return fmt.Errorf("error retrieving SBOMs from releases: %w", err)
 	}
+
+	logger.LogDebug(ctx.Context, "fetchSBOMFromReleases found sboms", len(sbomFiles))
 
 	for version, sbomDataList := range sbomFiles {
 		for _, sbomData := range sbomDataList { // sbomPath is a string (file path)
