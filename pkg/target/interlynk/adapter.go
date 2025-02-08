@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 
 	"github.com/interlynk-io/sbommv/pkg/iterator"
 	"github.com/interlynk-io/sbommv/pkg/logger"
@@ -31,17 +30,15 @@ import (
 // InterlynkAdapter manages SBOM uploads to the Interlynk service.
 type InterlynkAdapter struct {
 	// Config fields
-	ProjectID string
-	BaseURL   string
-	ApiKey    string
-	Role      types.AdapterRole
+	ProjectName string
+	ProjectEnv  string
+
+	BaseURL string
+	ApiKey  string
+	Role    types.AdapterRole
 
 	// HTTP client for API requests
-	client *http.Client
-
-	// Repository info
-	RepoURL  string
-	Version  string
+	client   *http.Client
 	settings UploadSettings
 }
 
@@ -60,39 +57,45 @@ type UploadSettings struct {
 
 // AddCommandParams adds GitHub-specific CLI flags
 func (i *InterlynkAdapter) AddCommandParams(cmd *cobra.Command) {
-	cmd.Flags().String("out-interlynk-url", "", "Interlynk API URL")
-	cmd.Flags().String("out-interlynk-project-id", "", "Interlynk Project ID")
+	cmd.Flags().String("out-interlynk-url", "https://api.interlynk.io/lynkapi", "Interlynk API URL")
+	cmd.Flags().String("out-interlynk-project-name", "", "Interlynk Project Name")
+	cmd.Flags().String("out-interlynk-project-env", "default", "Interlynk Project Environment")
+	cmd.Flags().String("in-interlynk-url", "https://api.interlynk.io/lynkapi", "Interlynk API URL")
+	cmd.Flags().String("in-interlynk-project-name", "", "Interlynk Project Name")
+	cmd.Flags().String("in-interlynk-project-env", "default", "Interlynk Project Environment")
 }
 
 // ParseAndValidateParams validates the GitHub adapter params
 func (i *InterlynkAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
-	var urlFlag, projectIDFlag string
+	var urlFlag, projectNameFlag, projectEnvFlag string
 
 	if i.Role == types.InputAdapter {
 		urlFlag = "in-interlynk-url"
-		projectIDFlag = "in-interlynk-project-id"
+		projectNameFlag = "in-interlynk-project-name"
+		projectEnvFlag = "in-interlynk-project-env"
 	} else {
 		urlFlag = "out-interlynk-url"
-		projectIDFlag = "out-interlynk-project-id"
+		projectNameFlag = "out-interlynk-project-name"
+		projectEnvFlag = "out-interlynk-project-env"
 	}
 
 	url, _ := cmd.Flags().GetString(urlFlag)
-	if url == "" {
-		return fmt.Errorf("missing or invalid flag: %s", urlFlag)
-	}
-
-	projectID, _ := cmd.Flags().GetString(projectIDFlag)
-	if projectID == "" {
-		logger.LogDebug(cmd.Context(), "No project ID provided, a new project will be created")
-	}
+	projectName, _ := cmd.Flags().GetString(projectNameFlag)
+	projectEnv, _ := cmd.Flags().GetString(projectEnvFlag)
 
 	token := viper.GetString("INTERLYNK_SECURITY_TOKEN")
 	if token == "" {
 		return fmt.Errorf("INTERLYNK_SECURITY_TOKEN environment variable is required")
 	}
 
-	i.BaseURL = url
-	i.ProjectID = projectID
+	if url == "" {
+		i.BaseURL = "https://api.interlynk.io/lynkapi"
+	} else {
+		i.BaseURL = url
+	}
+
+	i.ProjectName = projectName
+	i.ProjectEnv = projectEnv
 	i.ApiKey = token
 	i.settings = UploadSettings{
 		ProcessingMode: UploadSequential,
@@ -150,47 +153,12 @@ func (i *InterlynkAdapter) uploadSequential(ctx *tcontext.TransferMetadata, sbom
 
 	// Initialize Interlynk API client
 	client := NewClient(Config{
-		Token:     i.ApiKey,
-		APIURL:    i.BaseURL,
-		ProjectID: i.ProjectID,
+		Token:       i.ApiKey,
+		APIURL:      i.BaseURL,
+		ProjectName: i.ProjectName,
+		ProjectEnv:  i.ProjectEnv,
 	})
 
-	// // Retrieve metadata from context
-	// repoURL, _ := ctx.Value("repo_url").(string)
-	// repoVersion, _ := ctx.Value("repo_version").(string)
-	// totalSBOMs, _ := ctx.Value("total_sboms").(int)
-
-	// if repoVersion == "" {
-	// 	repoVersion = "all-version"
-	// }
-
-	// repoName := sanitizeRepoName(repoURL)
-
-	// // Create project if needed
-	// if client.ProjectID == "" {
-	// 	projectName := fmt.Sprintf("%s", repoName)
-
-	// 	projectID, err := client.FindProjectGroup(ctx, projectName, "default")
-
-	// 	if err != nil {
-	// 		logger.LogDebug(ctx.Context, "Project not found, creating new project", "name", projectName)
-	// 		projectID, err = client.CreateProjectGroup(ctx, projectName, "default")
-	// 		if err != nil {
-	// 			return fmt.Errorf("failed to create project: %w", err)
-	// 		}
-	// 	}
-
-	// 	logger.LogDebug(ctx.Context, "Found Project", "name", projectName, "ID", projectID)
-	// 	client.SetProjectID(projectID)
-	// }
-
-	// if totalSBOMs == 0 {
-	// 	return errors.New("no SBOMs to upload")
-	// }
-	//
-
-	// Initialize progress bar
-	// bar := progressbar.Default(int64(0), "🚀 Uploading SBOMs")
 	errorCount := 0
 	maxRetries := 5
 
@@ -213,7 +181,7 @@ func (i *InterlynkAdapter) uploadSequential(ctx *tcontext.TransferMetadata, sbom
 
 		logger.LogDebug(ctx.Context, "Uploading SBOM", "repo", sbom.Repo, "version", sbom.Version, "data size", len(sbom.Data))
 
-		projectID, err := client.FindOrCreateProjectGroup(ctx, sbom.Repo, "default")
+		projectID, err := client.FindOrCreateProjectGroup(ctx, sbom.Repo)
 		if err != nil {
 			logger.LogError(ctx.Context, err, "Failed to create project", "repo", sbom.Repo)
 			continue
@@ -226,20 +194,7 @@ func (i *InterlynkAdapter) uploadSequential(ctx *tcontext.TransferMetadata, sbom
 		} else {
 			logger.LogDebug(ctx.Context, "Successfully uploaded SBOM", "repo", sbom.Repo, "version", sbom.Version)
 		}
-
-		// // Update progress bar
-		// if err := bar.Add(1); err != nil {
-		// 	logger.LogError(ctx.Context, err, "Error updating progress bar")
-		// }
 	}
 
 	return nil
-}
-
-func sanitizeRepoName(repoURL string) string {
-	repoParts := strings.Split(repoURL, "/")
-	if len(repoParts) < 2 {
-		return "unknown"
-	}
-	return repoParts[len(repoParts)-1]
 }

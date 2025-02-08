@@ -54,17 +54,19 @@ const (
 
 // Client handles interactions with the Interlynk API
 type Client struct {
-	ApiURL    string
-	token     string
-	client    *http.Client
-	ProjectID string
+	ApiURL      string
+	token       string
+	client      *http.Client
+	ProjectName string
+	ProjectEnv  string
 }
 
 // Config holds the configuration for the Interlynk client
 type Config struct {
 	APIURL      string
 	Token       string
-	ProjectID   string
+	ProjectName string
+	ProjectEnv  string
 	Timeout     time.Duration
 	MaxAttempts int
 }
@@ -79,28 +81,40 @@ func NewClient(config Config) *Client {
 	}
 
 	return &Client{
-		ApiURL:    config.APIURL,
-		token:     config.Token,
-		ProjectID: config.ProjectID,
+		ApiURL:      config.APIURL,
+		token:       config.Token,
+		ProjectName: config.ProjectName,
+		ProjectEnv:  config.ProjectEnv,
 		client: &http.Client{
 			Timeout: config.Timeout,
 		},
 	}
 }
 
-// SetProjectID updates the project ID for the client
-func (c *Client) SetProjectID(projectID string) {
-	c.ProjectID = projectID
-}
+func (c *Client) FindOrCreateProjectGroup(ctx *tcontext.TransferMetadata, repoName string) (string, error) {
+	projectName := ""
+	if c.ProjectName != "" {
+		projectName = c.ProjectName
+	} else {
+		projectName = fmt.Sprintf("%s", repoName)
+	}
 
-func (c *Client) FindOrCreateProjectGroup(ctx *tcontext.TransferMetadata, repoName, env string) (string, error) {
-	projectName := fmt.Sprintf("%s", repoName)
+	env := ""
+	if c.ProjectEnv != "" {
+		env = c.ProjectEnv
+	} else {
+		env = "default"
+	}
+
 	projectID, err := c.FindProjectGroup(ctx, projectName, env)
-
 	if err != nil {
-		projectID, err = c.CreateProjectGroup(ctx, projectName, env)
-		if err != nil {
-			return "", fmt.Errorf("failed to create project: %w", err)
+		if c.ProjectName != "" {
+			return "", fmt.Errorf("failed to find project: %w", err)
+		} else {
+			projectID, err = c.CreateProjectGroup(ctx, projectName, env)
+			if err != nil {
+				return "", fmt.Errorf("failed to create project: %w", err)
+			}
 		}
 	}
 
