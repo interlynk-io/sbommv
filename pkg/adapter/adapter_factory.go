@@ -44,7 +44,7 @@ type Adapter interface {
 
 // NewAdapter initializes and returns the correct adapter
 func NewAdapter(ctx *tcontext.TransferMetadata, adapterType string, role types.AdapterRole) (Adapter, error) {
-	logger.LogInfo(ctx.Context, "Initializing adapter", "adapterType", adapterType)
+	logger.LogDebug(ctx.Context, "Initializing adapter", "adapterType", adapterType)
 
 	switch types.AdapterType(adapterType) {
 

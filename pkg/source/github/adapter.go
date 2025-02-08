@@ -125,6 +125,9 @@ func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 	}
 
 	token := viper.GetString("GITHUB_TOKEN")
+	if token == "" {
+		logger.LogDebug(cmd.Context(), "GitHub Token not found in environment")
+	}
 
 	// Parse URL into owner, repo, and version
 	owner, repo, version, err := utils.ParseGithubURL(githubURL)
@@ -132,13 +135,18 @@ func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 		return fmt.Errorf("invalid GitHub URL format: %w", err)
 	}
 
-	// // Set version to "latest" if empty
-	if version == "" {
-		version = "latest"
+	if version != "" && method == "api" {
+		return fmt.Errorf("version flag is not supported for GitHub API method")
 	}
 
-	// Assign extracted values to struct
-	g.URL = githubURL
+	//Assign extracted values to struct
+	if version == "" {
+		version = "latest"
+		g.URL = githubURL
+	} else {
+		g.URL = fmt.Sprintf("https://github.com/%s/%s", owner, repo)
+	}
+
 	g.Owner = owner
 	g.Repo = repo
 	g.Version = version
@@ -165,17 +173,13 @@ func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 func (g *GitHubAdapter) FetchSBOMs(ctx *tcontext.TransferMetadata) (iterator.SBOMIterator, error) {
 	logger.LogDebug(ctx.Context, "Intializing SBOM fetching process")
 
-	if g.Repo != "" {
-		return NewGitHubIterator(ctx, g)
-	}
-
 	// Org Mode: Fetch all repositories
 	repos, err := g.client.GetAllRepositories(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get repositories: %w", err)
 	}
 
-	// logger.LogDebug(ctx.Context, "Listing repos of organization", "values", repos)
+	logger.LogDebug(ctx.Context, "Found repos", "number", len(repos))
 
 	// filtering to include/exclude repos
 	repos = g.applyRepoFilters(repos)
@@ -186,21 +190,16 @@ func (g *GitHubAdapter) FetchSBOMs(ctx *tcontext.TransferMetadata) (iterator.SBO
 
 	logger.LogDebug(ctx.Context, "Listing repos of organization after filtering", "values", repos)
 
-	processingMode := "parallel"
+	processingMode := FetchSequential
 	var sbomIterator iterator.SBOMIterator
 
 	switch ProcessingMode(processingMode) {
-
 	case FetchParallel:
 		sbomIterator, err = g.fetchSBOMsConcurrently(ctx, repos)
-
 	case FetchSequential:
 		sbomIterator, err = g.fetchSBOMsSequentially(ctx, repos)
-
 	default:
-		fmt.Println("Unsupported Processing Mode !!")
 		return nil, fmt.Errorf("Unsupported Processing Mode !!")
-
 	}
 
 	if err != nil {
@@ -264,28 +263,21 @@ func (g *GitHubAdapter) fetchSBOMsConcurrently(ctx *tcontext.TransferMetadata, r
 			defer wg.Done()
 			g.Repo = repo
 			g.client.Repo = repo
-			iter, err := NewGitHubIterator(ctx, g)
+			iter, err := NewGitHubIterator(ctx, g, repo)
 			if err != nil {
 				logger.LogError(ctx.Context, err, "Failed to fetch SBOMs for repo", "repo", repo)
 				return
 			}
 			for {
-				fmt.Println("BEFORE")
 				sbom, err := iter.Next(ctx.Context)
 				if err == io.EOF {
 					break
 				}
-				fmt.Println("1. BEFORE")
-
 				if err != nil {
 					logger.LogError(ctx.Context, err, "Error reading SBOM for", "repo", repo)
 					break
 				}
-				fmt.Println("2. BEFORE")
-
 				sbomsChan <- sbom
-				fmt.Println("AFTER")
-
 			}
 		}(repo)
 	}
@@ -312,10 +304,10 @@ func (g *GitHubAdapter) fetchSBOMsSequentially(ctx *tcontext.TransferMetadata, r
 	for _, repo := range repos {
 		g.Repo = repo // Set current repository
 
-		logger.LogInfo(ctx.Context, "Fetching SBOMs sequentially", "repo", repo)
+		logger.LogDebug(ctx.Context, "Fetching SBOMs sequentially", "repo", repo)
 
 		// Fetch SBOMs for the current repository
-		iter, err := NewGitHubIterator(ctx, g)
+		iter, err := NewGitHubIterator(ctx, g, repo)
 		if err != nil {
 			logger.LogError(ctx.Context, err, "Failed to fetch SBOMs for repo", "repo", repo)
 			continue

@@ -29,7 +29,6 @@ import (
 
 // // GitHubIterator iterates over SBOMs fetched from GitHub (API, Release, Tool)
 type GitHubIterator struct {
-	// ctx        context.Context
 	client     *Client
 	sboms      []*iterator.SBOM // Stores all fetched SBOMs
 	position   int              // Tracks iteration position
@@ -37,15 +36,12 @@ type GitHubIterator struct {
 }
 
 // NewGitHubIterator initializes the iterator based on the GitHub method
-func NewGitHubIterator(ctx *tcontext.TransferMetadata, g *GitHubAdapter) (*GitHubIterator, error) {
-	logger.LogDebug(ctx.Context, "Initializing GitHub Iterator", "repo", g.URL, "method", g.Method)
+func NewGitHubIterator(ctx *tcontext.TransferMetadata, g *GitHubAdapter, repo string) (*GitHubIterator, error) {
+	logger.LogDebug(ctx.Context, "Initializing GitHub Iterator", "repo", g.URL, "method", g.Method, "repo", repo)
 
-	ctx.WithValue("repo_url", g.URL)
-	ctx.WithValue("repo_version", g.Version)
+	g.client.updateRepo(repo)
 
-	// client := NewClient(g.URL, g.Version, string(g.Method))
 	iterator := &GitHubIterator{
-		// ctx:        ctx,
 		client:     g.client,
 		sboms:      []*iterator.SBOM{},
 		binaryPath: g.BinaryPath,
@@ -56,15 +52,12 @@ func NewGitHubIterator(ctx *tcontext.TransferMetadata, g *GitHubAdapter) (*GitHu
 
 	switch GitHubMethod(g.Method) {
 	case MethodAPI:
-		logger.LogDebug(ctx.Context, "Github Method", "value", MethodAPI)
 		err = iterator.fetchSBOMFromAPI(ctx)
 
 	case MethodReleases:
-		logger.LogDebug(ctx.Context, "Github Method", "value", MethodReleases)
 		err = iterator.fetchSBOMFromReleases(ctx)
 
 	case MethodTool:
-		logger.LogDebug(ctx.Context, "Github Method", "value", MethodTool)
 		err = iterator.fetchSBOMFromTool(ctx)
 
 	default:
@@ -72,8 +65,7 @@ func NewGitHubIterator(ctx *tcontext.TransferMetadata, g *GitHubAdapter) (*GitHu
 	}
 
 	if err != nil {
-		logger.LogError(ctx.Context, err, "Failed to fetch SBOMs")
-		return nil, err
+		return nil, fmt.Errorf("failed to fetch SBOMs: %w", err)
 	}
 
 	if len(iterator.sboms) == 0 {
@@ -81,13 +73,11 @@ func NewGitHubIterator(ctx *tcontext.TransferMetadata, g *GitHubAdapter) (*GitHu
 	}
 
 	logger.LogDebug(ctx.Context, "Total SBOMs fetched", "count", len(iterator.sboms))
-
 	return iterator, nil
 }
 
 // Next returns the next SBOM from the stored list
 func (it *GitHubIterator) Next(ctx context.Context) (*iterator.SBOM, error) {
-	logger.LogDebug(ctx, "Iterating via Next")
 	if it.position >= len(it.sboms) {
 		return nil, io.EOF // No more SBOMs left
 	}
@@ -99,19 +89,15 @@ func (it *GitHubIterator) Next(ctx context.Context) (*iterator.SBOM, error) {
 
 // Fetch SBOM via GitHub API
 func (it *GitHubIterator) fetchSBOMFromAPI(ctx *tcontext.TransferMetadata) error {
-	logger.LogDebug(ctx.Context, "Fetching SBOM from GitHub API", "repo", it.client.RepoURL)
-
 	sbomData, err := it.client.FetchSBOMFromAPI(ctx)
 	if err != nil {
 		return err
 	}
 
 	it.sboms = append(it.sboms, &iterator.SBOM{
-		Path: "",
-		Data: sbomData,
-		Repo: it.client.RepoURL,
-
-		// github API creates SBOM from the latest version
+		Path:    "",
+		Data:    sbomData,
+		Repo:    fmt.Sprintf("%s/%s", it.client.Owner, it.client.Repo),
 		Version: "latest",
 	})
 	return nil
@@ -119,11 +105,8 @@ func (it *GitHubIterator) fetchSBOMFromAPI(ctx *tcontext.TransferMetadata) error
 
 // Fetch SBOMs from GitHub Releases
 func (it *GitHubIterator) fetchSBOMFromReleases(ctx *tcontext.TransferMetadata) error {
-	logger.LogDebug(ctx.Context, "Fetching SBOMs from GitHub Releases", "repo", it.client.RepoURL)
-
 	sbomFiles, err := it.client.GetSBOMs(ctx)
 	if err != nil {
-		logger.LogError(ctx.Context, err, "Failed to retrieve SBOMs from GitHub releases", "url", it.client.RepoURL, "version", it.client.Version)
 		return fmt.Errorf("error retrieving SBOMs from releases: %w", err)
 	}
 
@@ -132,7 +115,7 @@ func (it *GitHubIterator) fetchSBOMFromReleases(ctx *tcontext.TransferMetadata) 
 			it.sboms = append(it.sboms, &iterator.SBOM{
 				Path:    "", // No file path, storing in memory
 				Data:    sbomData,
-				Repo:    it.client.RepoURL,
+				Repo:    fmt.Sprintf("%s/%s", it.client.Owner, it.client.Repo),
 				Version: version,
 			})
 		}
