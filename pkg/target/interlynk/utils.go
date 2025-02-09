@@ -19,14 +19,13 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"strings"
 )
 
 // ValidateInterlynkConnection chesks whether Interlynk ssytem is up and running
 func ValidateInterlynkConnection(url, token string) error {
 	ctx := context.Background()
 
-	baseURL, err := extractBaseURL(url)
+	baseURL, err := genHealthzUrl(url)
 	if err != nil {
 		return fmt.Errorf("invalid URL format: %w", err)
 	}
@@ -60,15 +59,11 @@ func ValidateInterlynkConnection(url, token string) error {
 	return nil
 }
 
-func extractBaseURL(rawURL string) (string, error) {
+func genHealthzUrl(rawURL string) (string, error) {
 	parsedURL, err := url.Parse(rawURL)
 	if err != nil {
 		return "", err
 	}
 
-	// construct base URL (protocol + host)
-	baseURL := fmt.Sprintf("%s://%s", parsedURL.Scheme, parsedURL.Host)
-
-	// ensure it always ends with a single "/"
-	return strings.TrimRight(baseURL, "/") + "/", nil
+	return fmt.Sprintf("%s://%s/healthz", parsedURL.Scheme, parsedURL.Host), nil
 }
