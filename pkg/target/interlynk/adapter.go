@@ -169,10 +169,10 @@ func (i *InterlynkAdapter) uploadSequential(ctx *tcontext.TransferMetadata, sbom
 			break
 		}
 		if err != nil {
-			logger.LogError(ctx.Context, err, "Failed to retrieve SBOM from iterator")
+			logger.LogInfo(ctx.Context, "Failed to retrieve SBOM from iterator", err)
 			errorCount++
 			if errorCount >= maxRetries {
-				logger.LogError(ctx.Context, err, "Exceeded maximum retries, aborting...")
+				logger.LogInfo(ctx.Context, "Exceeded maximum retries", err)
 				break
 			}
 			continue
@@ -183,14 +183,14 @@ func (i *InterlynkAdapter) uploadSequential(ctx *tcontext.TransferMetadata, sbom
 
 		projectID, err := client.FindOrCreateProjectGroup(ctx, sbom.Repo)
 		if err != nil {
-			logger.LogError(ctx.Context, err, "Failed to create project", "repo", sbom.Repo)
+			logger.LogInfo(ctx.Context, "error", err)
 			continue
 		}
 
 		// Upload SBOM content (stored in memory)
 		err = client.UploadSBOM(ctx, projectID, sbom.Data)
 		if err != nil {
-			logger.LogDebug(ctx.Context, "Failed to upload SBOM", "repo", sbom.Repo, "version", sbom.Version)
+			logger.LogInfo(ctx.Context, "Failed to upload SBOM", "repo", sbom.Repo, "version", sbom.Version)
 		} else {
 			logger.LogDebug(ctx.Context, "Successfully uploaded SBOM", "repo", sbom.Repo, "version", sbom.Version)
 		}
