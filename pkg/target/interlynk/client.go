@@ -109,11 +109,11 @@ func (c *Client) FindOrCreateProjectGroup(ctx *tcontext.TransferMetadata, repoNa
 	projectID, err := c.FindProjectGroup(ctx, projectName, env)
 	if err != nil {
 		if c.ProjectName != "" {
-			return "", fmt.Errorf("failed to find project: %w", err)
+			return "", fmt.Errorf("failed to find project: %s or env %s", projectName, env)
 		} else {
 			projectID, err = c.CreateProjectGroup(ctx, projectName, env)
 			if err != nil {
-				return "", fmt.Errorf("failed to create project: %w", err)
+				return "", fmt.Errorf("failed to create project: %s or env %s ", projectName, env)
 			}
 		}
 	}
