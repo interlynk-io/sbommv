@@ -60,9 +60,6 @@ func (i *InterlynkAdapter) AddCommandParams(cmd *cobra.Command) {
 	cmd.Flags().String("out-interlynk-url", "https://api.interlynk.io/lynkapi", "Interlynk API URL")
 	cmd.Flags().String("out-interlynk-project-name", "", "Interlynk Project Name")
 	cmd.Flags().String("out-interlynk-project-env", "default", "Interlynk Project Environment")
-	cmd.Flags().String("in-interlynk-url", "https://api.interlynk.io/lynkapi", "Interlynk API URL")
-	cmd.Flags().String("in-interlynk-project-name", "", "Interlynk Project Name")
-	cmd.Flags().String("in-interlynk-project-env", "default", "Interlynk Project Environment")
 }
 
 // ParseAndValidateParams validates the GitHub adapter params
