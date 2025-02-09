@@ -8,13 +8,13 @@ sbommv is designed to allow transfer sboms across systems. The tool supports inp
 
 **Examples**
 
-1. **Transfer SBOM from the latest version of sbomqs to interlynk platform**:
-  This will look for the latest release of the repository and check if SBOMs are generated, if found it will create a new project with the repo-name in interlynk and upload it. 
+1. **Generate & Transfer SBOM's for all repositories in Github org of Interlynk to interlynk SBOM' platform**:
+   Generate & Transfer SBOM's from all repositories in the interlynk github organization using github apis, and transfer them to interlynk. If interlynk platform does not contain projects it will create them.
 
    ```bash
    export GITHUB_TOKEN=ghp_klgJBxKukyaoWA******
    export INTERLYNK_SECURITY_TOKEN=lynk_api******
-   sbommv transfer --in-github-url=https://github.com/interlynk-io/sbomqs --out-interlynk-url=https://api.interlynk.io/lynkapi
+   sbommv transfer --input-adapter=github --in-github-url="https://github.com/interlynk-io" --output-adapter=interlynk --out-interlynk-url="http://localhost:3000/lynkapi"
    ```
 
 2. **DRY RUN: Transfer SBOM from the latest version of sbomqs to interlynk platform**:
@@ -23,7 +23,7 @@ sbommv is designed to allow transfer sboms across systems. The tool supports inp
    ```bash
    export GITHUB_TOKEN=ghp_klgJBxKukyaoWA******
    export INTERLYNK_SECURITY_TOKEN=lynk_api******
-   sbommv transfer --in-github-url=https://github.com/interlynk-io/sbomqs --out-interlynk-url=https://api.interlynk.io/lynkapi --dry-run
+   sbommv transfer --input-adapter=github  --in-github-url=https://github.com/interlynk-io/sbomqs --in-github-method="release" --output-adapter=interlynk  --out-interlynk-url=https://api.interlynk.io/lynkapi --dry-run
    ```
 
 
@@ -34,7 +34,8 @@ sbommv is designed to allow transfer sboms across systems. The tool supports inp
 |-------------------- |     |------------------------------|     |----------------------|
 |  - GitHub           |     |  - SBOM Translation*         |     |  - Interlynk         |
 |  - BitBucket*       |     |  - Enrichment*               |     |  - Dependency-Track* |
-|  - Dependency-Track*|     +------------------------------+     |                      |
+|  - Dependency-Track*|     +------------------------------+     |  - Folder*           |
+|  - Folder*          |                                          |                      |
 +---------------------+                                          +-----------------------+
 
 * Coming Soon
@@ -49,10 +50,10 @@ sbommv is designed to allow transfer sboms across systems. The tool supports inp
 
 The **GitHub adapter** allows you to extract/download SBOMs from GitHub. The adapter provides the following methods of extracting SBOMs:
 
-- **Release** *(Default)*:  
+- **Release**:  
   This method looks at the releases for the repository and extracts all the SBOMs that follow the recognized file patterns as described by **CycloneDX** & **SPDX** specs.
 
-- **API**:  
+- **API** *(Default)*:  
   This method uses the GitHub API to download **SPDX** SBOM for the repository, if available.
 
 - **Tool**:  
@@ -76,41 +77,75 @@ The **GitHub adapter** allows you to extract/download SBOMs from GitHub. The ada
 
    ```bash
    --in-github-url=https://github.com/interlynk-io/sbomqs
+   --in-github-method="release"
    ```
 
 2. **For a particular release (`v1.0.0`) of `sbomqs` using the release method**:
 
    ```bash
    --in-github-url=https://github.com/interlynk-io/sbomqs@v1.0.0
+   --in-github-method="release"
    ```
 
 3. **For only certain repositories (`sbomqs`, `sbomasm`) of `interlynk-io` using the API method**:
 
    ```bash
    --in-github-url=https://github.com/interlynk-io \
-   --in-github-include-repos=sbomqs,sbomasm \
-   --in-github-method=api
+   --in-github-include-repos=sbomqs,sbomasm 
    ```
 
 4. **To exclude specific repositories (`sbomqs`) from `interlynk-io` using the API method**:
 
    ```bash
    --in-github-url=https://github.com/interlynk-io \
-   --in-github-exclude-repos=sbomqs \
-   --in-github-method=api
+   --in-github-exclude-repos=sbomqs 
+   ```
+
+4. **All repositories from `interlynk-io` using the API method**:
+
+   ```bash
+   --in-github-url=https://github.com/interlynk-io 
    ```
 
 ---
 
 
-
-
-
-
 ### Output Adapters 
+
 #### Interlynk
 
+The **Interlynk adapter** allows you to upload SBOMs to Interlynk Enterprise Platform. If no repository name is specified, it will auto-create projects & the env on the platform.
+To access this platform `INTERLYNK_SECURITY_TOKEN`, will be required. 
 
+---
+
+**Command-line Parameters Supported by the Adapter**
+
+- `--out-interlynk-url` [Optional]: URL for the interlynk service. Defaults to `https://api.interlynk.io/lynkapi`  
+- `--out-interlynk-project-name` [Optional]:  Name of the project to upload the SBOM to, this is optional, if not-provided then it auto-creates it. 
+- --out-interlynk-project-env` [Optional]: Defaults to the "default" env.   
+
+---
+
+**Usage Examples**
+
+1. **Upload SBOMs to a particular project**:  
+
+   ```bash
+   --out-interlynk-project-name=abc
+   ```
+
+2. **Upload SBOMs to a particular project and env**:  
+
+   ```bash
+   --out-interlynk-project-name=abc
+   --out-interlynk-project-env=production
+   ```
+   
 ### Enrichment Adapters 
+## License 
 
 ### Conversion Adapters
+## SPDX -> CDX 
+
+## CDX -> SPDX
