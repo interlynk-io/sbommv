@@ -32,7 +32,7 @@ var SupportedTools = map[string]string{
 }
 
 func GenerateSBOM(ctx *tcontext.TransferMetadata, repoDir, binaryPath string) (string, error) {
-	logger.LogDebug(ctx.Context, "Initializing SBOM generation with Syft")
+	logger.LogDebug(ctx.Context, "Generating SBOM using Syft", "repo_dir", repoDir)
 
 	// Ensure Syft binary is executable
 	if err := os.Chmod(binaryPath, 0o755); err != nil {
