@@ -195,3 +195,10 @@ func (i *InterlynkAdapter) uploadSequential(ctx *tcontext.TransferMetadata, sbom
 
 	return nil
 }
+
+// DryRun for Output Adapter: Displays all SBOMs that to be uploaded by output adapter
+func (i *InterlynkAdapter) DryRun(ctx *tcontext.TransferMetadata, iterator iterator.SBOMIterator) error {
+	logger.LogDebug(ctx.Context, "Dry-run mode: Displaying SBOMs fetched from output adapter")
+	// TODO: Need to add core functionality
+	return nil
+}

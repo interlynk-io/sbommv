@@ -40,6 +40,9 @@ type Adapter interface {
 
 	// Outputs SBOMs (uploading)
 	UploadSBOMs(ctx *tcontext.TransferMetadata, iterator iterator.SBOMIterator) error
+
+	// Dry-Run: to be used to display fetched and uploaded SBOMs by input and output adapter respectively.
+	DryRun(ctx *tcontext.TransferMetadata, iterator iterator.SBOMIterator) error
 }
 
 // NewAdapter initializes and returns the correct adapter

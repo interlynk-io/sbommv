@@ -53,6 +53,8 @@ type SBOMProcessor struct {
 }
 
 // NewSBOMProcessor creates a new SBOM processor
+// TODO: outputDir will be used to save files in it
+// TODO: verbose will be used to o/p sbom content on stdout
 func NewSBOMProcessor(outputDir string, verbose bool) *SBOMProcessor {
 	return &SBOMProcessor{
 		// outputdir: represent writing all sbom files inside directory

@@ -23,6 +23,7 @@ import (
 
 	"github.com/interlynk-io/sbommv/pkg/iterator"
 	"github.com/interlynk-io/sbommv/pkg/logger"
+	"github.com/interlynk-io/sbommv/pkg/sbom"
 	"github.com/interlynk-io/sbommv/pkg/tcontext"
 	"github.com/interlynk-io/sbommv/pkg/types"
 	"github.com/interlynk-io/sbommv/pkg/utils"
@@ -340,4 +341,49 @@ func (g *GitHubAdapter) fetchSBOMsSequentially(ctx *tcontext.TransferMetadata, r
 	return &GitHubIterator{
 		sboms: sbomList,
 	}, nil
+}
+
+// DryRun for Input Adapter: Displays retrieved SBOMs without uploading
+func (g *GitHubAdapter) DryRun(ctx *tcontext.TransferMetadata, iterator iterator.SBOMIterator) error {
+	logger.LogDebug(ctx.Context, "Dry-run mode: Displaying SBOMs fetched from input adapter")
+
+	var outputDir string
+	var verbose bool
+
+	processor := sbom.NewSBOMProcessor(outputDir, verbose)
+	sbomCount := 0
+	fmt.Println()
+
+	for {
+		sbom, err := iterator.Next(ctx.Context)
+		if err == io.EOF {
+			break // No more SBOMs
+		}
+		if err != nil {
+			logger.LogError(ctx.Context, err, "Error retrieving SBOM from iterator")
+			continue
+		}
+
+		doc, err := processor.ProcessSBOMs(sbom.Data, sbom.Repo, sbom.Path)
+		if err != nil {
+			logger.LogError(ctx.Context, err, "Failed to process SBOM")
+			continue
+		}
+
+		// If outputDir is provided, save the SBOM file
+		if outputDir != "" {
+			if err := processor.WriteSBOM(doc, sbom.Repo); err != nil {
+				logger.LogError(ctx.Context, err, "Failed to write SBOM to output directory")
+			}
+		}
+
+		sbomCount++
+		fmt.Printf("Repo: %s | Format: %s | SpecVersion: %s | Filename: %s \n", sbom.Repo, doc.Format, doc.SpecVersion, doc.Filename)
+
+		// logger.LogInfo(ctx.Context, fmt.Sprintf("%d. Repo: %s | Format: %s | SpecVersion: %s | Filename: %s",
+		// 	sbomCount, sbom.Repo, doc.Format, doc.SpecVersion, doc.Filename))
+	}
+
+	logger.LogDebug(ctx.Context, "Dry-run mode completed for input adapter", "total_sboms", sbomCount)
+	return nil
 }
