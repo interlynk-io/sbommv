@@ -125,7 +125,7 @@ func dryMode(ctx context.Context, iterator iterator.SBOMIterator, outputDir stri
 		}
 
 		sbomCount++
-		fmt.Printf("%d. Repo: %s | Format: %s | SpecVersion: %s | Filename: %s \n", sbomCount, sbom.Repo, doc.Format, doc.SpecVersion, doc.Filename)
+		fmt.Printf("Repo: %s | Format: %s | SpecVersion: %s | Filename: %s \n", sbom.Repo, doc.Format, doc.SpecVersion, doc.Filename)
 	}
 
 	logger.LogDebug(ctx, "Dry-run mode completed", "total_sboms_processed", sbomCount)
