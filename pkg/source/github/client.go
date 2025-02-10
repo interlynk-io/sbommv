@@ -72,6 +72,7 @@ type Client struct {
 	Repo         string
 	Version      string
 	Method       string
+	Branch       string
 	token        string
 }
 
@@ -85,6 +86,7 @@ func NewClient(g *GitHubAdapter) *Client {
 		Method:     g.Method,
 		Owner:      g.Owner,
 		Repo:       g.Repo,
+		Branch:     g.Branch,
 	}
 }
 

@@ -22,6 +22,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/interlynk-io/sbommv/pkg/logger"
 )
 
 func GetBinaryPath() (string, error) {
@@ -87,7 +89,8 @@ func CloneRepoWithGit(ctx context.Context, repoURL, targetDir string) error {
 		return fmt.Errorf("git clone failed: %w", err)
 	}
 
-	fmt.Println("✅ Repository successfully cloned using Git.")
+	logger.LogDebug(ctx, "Repository successfully cloned using git", "repo", repoURL)
+
 	return nil
 }
 
