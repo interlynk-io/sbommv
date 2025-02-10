@@ -130,7 +130,7 @@ func (it *GitHubIterator) fetchSBOMFromTool(ctx *tcontext.TransferMetadata) erro
 	repoDir := filepath.Join(os.TempDir(), fmt.Sprintf("%s-%s", it.client.Repo, it.client.Version))
 	defer os.RemoveAll(repoDir)
 
-	if err := CloneRepoWithGit(ctx, it.client.RepoURL, repoDir); err != nil {
+	if err := CloneRepoWithGit(ctx, it.client.RepoURL, it.client.Branch, repoDir); err != nil {
 		return fmt.Errorf("failed to clone the repository: %w", err)
 	}
 
@@ -149,12 +149,12 @@ func (it *GitHubIterator) fetchSBOMFromTool(ctx *tcontext.TransferMetadata) erro
 		return fmt.Errorf("generate SBOM with zero file data: %w", err)
 	}
 
-	// store data
 	it.sboms = append(it.sboms, &iterator.SBOM{
 		Path:    "",
 		Data:    sbomBytes,
 		Repo:    fmt.Sprintf("%s/%s", it.client.Owner, it.client.Repo),
 		Version: it.client.Version,
+		Branch:  it.client.Branch,
 	})
 	logger.LogDebug(ctx.Context, "SBOM successfully stored in memory", "repository", it.client.RepoURL)
 	return nil

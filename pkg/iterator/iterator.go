@@ -25,6 +25,7 @@ type SBOM struct {
 	Data    []byte // SBOM data stored in memory (nil if using Path)
 	Repo    string // Repository URL (helps track multi-repo processing)
 	Version string // Version of the SBOM (e.g., "latest" or "v1.2.3")
+	Branch  string // github repo main, master, or any specific branch
 }
 
 // SBOMIterator provides a way to lazily fetch SBOMs one by one

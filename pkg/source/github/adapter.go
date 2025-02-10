@@ -72,6 +72,7 @@ const (
 func (g *GitHubAdapter) AddCommandParams(cmd *cobra.Command) {
 	cmd.Flags().String("in-github-url", "", "GitHub repository URL")
 	cmd.Flags().String("in-github-method", "api", "GitHub method: release, api, or tool")
+	cmd.Flags().String("in-github-branch", "", "Github repository branch")
 
 	// Updated to StringSlice to support multiple values (comma-separated)
 	cmd.Flags().StringSlice("in-github-include-repos", nil, "Include only these repositories e.g sbomqs,sbomasm")
@@ -83,13 +84,14 @@ func (g *GitHubAdapter) AddCommandParams(cmd *cobra.Command) {
 
 // ParseAndValidateParams validates the GitHub adapter params
 func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
-	var urlFlag, methodFlag, includeFlag, excludeFlag string
+	var urlFlag, methodFlag, includeFlag, excludeFlag, githubBranchFlag string
 
 	if g.Role == types.InputAdapter {
 		urlFlag = "in-github-url"
 		methodFlag = "in-github-method"
 		includeFlag = "in-github-include-repos"
 		excludeFlag = "in-github-exclude-repos"
+		githubBranchFlag = "in-github-branch"
 	}
 
 	// Extract GitHub URL
@@ -102,6 +104,8 @@ func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 	if method != "release" && method != "api" && method != "tool" {
 		return fmt.Errorf("missing or invalid flag: %s", methodFlag)
 	}
+
+	branch, _ := cmd.Flags().GetString(githubBranchFlag)
 
 	includeRepos, _ := cmd.Flags().GetStringSlice(includeFlag)
 	excludeRepos, _ := cmd.Flags().GetStringSlice(excludeFlag)
@@ -139,7 +143,7 @@ func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 		return fmt.Errorf("version flag is not supported for GitHub API method")
 	}
 
-	//Assign extracted values to struct
+	// Assign extracted values to struct
 	if version == "" {
 		version = "latest"
 		g.URL = githubURL
@@ -149,6 +153,7 @@ func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 
 	g.Owner = owner
 	g.Repo = repo
+	g.Branch = branch
 	g.Version = version
 	g.Method = method
 	g.GithubToken = token
@@ -160,6 +165,7 @@ func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 	logger.LogDebug(cmd.Context(), "Parsed GitHub parameters",
 		"url", g.URL,
 		"owner", g.Owner,
+		"branch", g.Branch,
 		"repo", g.Repo,
 		"version", g.Version,
 		"include_repos", g.IncludeRepos,

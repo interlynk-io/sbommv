@@ -76,7 +76,7 @@ func GenerateSBOM(ctx *tcontext.TransferMetadata, repoDir, binaryPath string) (s
 }
 
 // CloneRepoWithGit clones a GitHub repository using the Git command-line tool.
-func CloneRepoWithGit(ctx *tcontext.TransferMetadata, repoURL, targetDir string) error {
+func CloneRepoWithGit(ctx *tcontext.TransferMetadata, repoURL, branch, targetDir string) error {
 	// Ensure Git is installed
 	if _, err := exec.LookPath("git"); err != nil {
 		return fmt.Errorf("git is not installed, install Git or use --method=api")
@@ -85,7 +85,18 @@ func CloneRepoWithGit(ctx *tcontext.TransferMetadata, repoURL, targetDir string)
 	fmt.Println("🚀 Cloning repository using Git:", repoURL)
 
 	// Run `git clone --depth=1` for faster shallow cloning
-	cmd := exec.CommandContext(ctx.Context, "git", "clone", "--depth=1", repoURL, targetDir)
+	var cmd *exec.Cmd
+
+	if branch == "" {
+		// clones the default branch
+		logger.LogDebug(ctx.Context, "Repository to be cloned for", "branch", "default")
+		cmd = exec.CommandContext(ctx.Context, "git", "clone", "--depth=1", repoURL, targetDir)
+	} else {
+		logger.LogDebug(ctx.Context, "Repository to be cloned for", "branch", branch)
+		// clones the specific branch
+		cmd = exec.CommandContext(ctx.Context, "git", "clone", "--depth=1", "--branch", branch, repoURL, targetDir)
+	}
+
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
@@ -93,6 +104,6 @@ func CloneRepoWithGit(ctx *tcontext.TransferMetadata, repoURL, targetDir string)
 		return fmt.Errorf("git clone failed: %w", err)
 	}
 
-	fmt.Println("✅ Repository successfully cloned using Git.")
+	logger.LogDebug(ctx.Context, "Repository successfully cloned", "repo", repoURL, "branch", branch)
 	return nil
 }
