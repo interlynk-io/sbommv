@@ -82,7 +82,7 @@ func (i *InterlynkAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 
 	token := viper.GetString("INTERLYNK_SECURITY_TOKEN")
 	if token == "" {
-		return fmt.Errorf("INTERLYNK_SECURITY_TOKEN environment variable is required")
+		return fmt.Errorf("missing INTERLYNK_SECURITY_TOKEN: authentication required")
 	}
 
 	if url == "" {
@@ -103,7 +103,7 @@ func (i *InterlynkAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 		return fmt.Errorf("Interlynk validation failed: %w", err)
 	}
 
-	logger.LogDebug(cmd.Context(), "✅ Interlynk system is up and running.")
+	logger.LogDebug(cmd.Context(), "Interlynk system is up and running.")
 
 	return nil
 }

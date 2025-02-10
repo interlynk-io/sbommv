@@ -20,7 +20,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/interlynk-io/sbommv/pkg/iterator"
 	"github.com/interlynk-io/sbommv/pkg/logger"
@@ -124,39 +123,39 @@ func (it *GitHubIterator) fetchSBOMFromReleases(ctx *tcontext.TransferMetadata) 
 	return nil
 }
 
-// Fetch SBOM by running a tool (Syft)
 func (it *GitHubIterator) fetchSBOMFromTool(ctx *tcontext.TransferMetadata) error {
-	logger.LogDebug(ctx.Context, "Generating SBOM using tool", "repository", it.client.RepoURL)
+	logger.LogDebug(ctx.Context, "Generating SBOM using Tool", "repository", it.client.RepoURL)
 
 	// Clone the repository
-	repoDir := filepath.Join(os.TempDir(), fmt.Sprintf("sbommv_%d", time.Now().UnixNano()))
+	repoDir := filepath.Join(os.TempDir(), fmt.Sprintf("%s-%s", it.client.Repo, it.client.Version))
 	defer os.RemoveAll(repoDir)
 
 	if err := CloneRepoWithGit(ctx, it.client.RepoURL, repoDir); err != nil {
-		return fmt.Errorf("failed to clone repository: %w", err)
+		return fmt.Errorf("failed to clone the repository: %w", err)
 	}
 
-	// Generate SBOM
-	sbomFile, err := GenerateSBOM(ctx, repoDir, it.binaryPath)
+	// Generate SBOM and save in memory
+	sbomData, err := GenerateSBOM(ctx, repoDir, it.binaryPath)
 	if err != nil {
 		return fmt.Errorf("failed to generate SBOM: %w", err)
 	}
 
-	// Ensure the "sboms" directory exists
-	sbomDir := "sboms"
-	if err := os.MkdirAll(sbomDir, 0o755); err != nil {
-		return fmt.Errorf("failed to create SBOM output directory: %w", err)
+	sbomBytes, err := os.ReadFile(sbomData)
+	if err != nil {
+		return fmt.Errorf("failed to read SBOM: %w", err)
 	}
 
-	// Move SBOM to final location
-	sbomFilePath := fmt.Sprintf("%s/github_tool_sbom_%s.json", sbomDir, sanitizeRepoName(it.client.RepoURL))
-	if err := os.Rename(sbomFile, sbomFilePath); err != nil {
-		return fmt.Errorf("failed to move SBOM file: %w", err)
+	if len(sbomBytes) == 0 {
+		return fmt.Errorf("generate SBOM with zero file data: %w", err)
 	}
 
+	// store data
 	it.sboms = append(it.sboms, &iterator.SBOM{
-		Path: sbomFilePath,
-		Data: nil, // SBOM stored in file, no need for in-memory data
+		Path:    "",
+		Data:    sbomBytes,
+		Repo:    fmt.Sprintf("%s/%s", it.client.Owner, it.client.Repo),
+		Version: it.client.Version,
 	})
+	logger.LogDebug(ctx.Context, "SBOM successfully stored in memory", "repository", it.client.RepoURL)
 	return nil
 }
