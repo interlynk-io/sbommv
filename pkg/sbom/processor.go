@@ -15,6 +15,7 @@
 package sbom
 
 import (
+	"context"
 	"encoding/json"
 	"encoding/xml"
 	"errors"
@@ -22,6 +23,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/interlynk-io/sbommv/pkg/logger"
 )
 
 // SBOMFormat represents supported SBOM document formats
@@ -60,36 +63,14 @@ func NewSBOMProcessor(outputDir string, verbose bool) *SBOMProcessor {
 	}
 }
 
-// ProcessSBOMs processes multiple SBOM files
-func (p *SBOMProcessor) ProcessSBOMs(filenames []string) ([]SBOMDocument, error) {
-	var documents []SBOMDocument
-	var errs []error
-
-	for _, filename := range filenames {
-		doc, err := p.ProcessSBOM(filename)
-		if err != nil {
-			errs = append(errs, fmt.Errorf("processing %s: %w", filename, err))
-			continue
-		}
-		documents = append(documents, doc)
-	}
-
-	if len(errs) > 0 {
-		return documents, fmt.Errorf("encountered %d errors: %v", len(errs), errs[0])
-	}
-
-	return documents, nil
-}
-
-// ProcessSBOM processes a single SBOM file
-func (p *SBOMProcessor) ProcessSBOM(filename string) (SBOMDocument, error) {
-	content, err := os.ReadFile(filename)
-	if err != nil {
-		return SBOMDocument{}, fmt.Errorf("reading file: %w", err)
+// ProcessSBOMFromBytes processes an SBOM directly from memory
+func (p *SBOMProcessor) ProcessSBOMs(content []byte, repoName string) (SBOMDocument, error) {
+	if len(content) == 0 {
+		return SBOMDocument{}, errors.New("empty SBOM content")
 	}
 
 	doc := SBOMDocument{
-		Filename: filename,
+		Filename: fmt.Sprintf("%s.sbom.json", repoName), // Use repo name as filename
 		Content:  content,
 	}
 
@@ -98,14 +79,31 @@ func (p *SBOMProcessor) ProcessSBOM(filename string) (SBOMDocument, error) {
 		return doc, fmt.Errorf("detecting format: %w", err)
 	}
 
-	// Write processed document if output directory is specified
-	if p.outputDir != "" {
-		if err := p.writeProcessedSBOM(doc); err != nil {
-			return doc, fmt.Errorf("writing output: %w", err)
-		}
+	return doc, nil
+}
+
+// WriteSBOM writes an SBOM to the output directory
+func (p *SBOMProcessor) WriteSBOM(doc SBOMDocument, repoName string) error {
+	if p.outputDir == "" {
+		return nil // No output directory specified, skip writing
 	}
 
-	return doc, nil
+	// Construct full path: sboms/<org>/<repo>.sbom.json
+	outputPath := filepath.Join(p.outputDir, repoName+".sbom.json")
+	outputDir := filepath.Dir(outputPath) // Extract directory path
+
+	// Ensure all parent directories exist
+	if err := os.MkdirAll(outputDir, 0o755); err != nil {
+		return fmt.Errorf("creating output directory: %w", err)
+	}
+
+	// Write SBOM file
+	if err := os.WriteFile(outputPath, doc.Content, 0o644); err != nil {
+		return fmt.Errorf("writing SBOM file: %w", err)
+	}
+
+	logger.LogDebug(context.Background(), "SBOM successfully written", "path", outputPath)
+	return nil
 }
 
 // detectAndParse detects the SBOM format and parses its content
@@ -134,15 +132,6 @@ func (p *SBOMProcessor) detectAndParse(doc *SBOMDocument) error {
 
 	doc.Format = FormatUnknown
 	return errors.New("unknown SBOM format")
-}
-
-func (p *SBOMProcessor) writeProcessedSBOM(doc SBOMDocument) error {
-	if err := os.MkdirAll(p.outputDir, 0o755); err != nil {
-		return fmt.Errorf("creating output directory: %w", err)
-	}
-
-	outPath := filepath.Join(p.outputDir, filepath.Base(doc.Filename))
-	return os.WriteFile(outPath, doc.Content, 0o644)
 }
 
 // Helper functions to detect formats
