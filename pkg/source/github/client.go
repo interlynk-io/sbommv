@@ -23,7 +23,6 @@ import (
 
 	"github.com/interlynk-io/sbommv/pkg/logger"
 	"github.com/interlynk-io/sbommv/pkg/tcontext"
-	"github.com/schollz/progressbar/v3"
 )
 
 type downloadWork struct {
@@ -290,7 +289,7 @@ func (c *Client) downloadSBOMs(ctx *tcontext.TransferMetadata, sboms []SBOMAsset
 	)
 
 	// Initialize progress bar
-	bar := progressbar.Default(int64(len(sboms)), "📥 Fetching SBOMs")
+	// bar := progressbar.Default(int64(len(sboms)), "📥 Fetching SBOMs")
 
 	// Process each SBOM
 	for _, sbom := range sboms {
@@ -322,12 +321,12 @@ func (c *Client) downloadSBOMs(ctx *tcontext.TransferMetadata, sboms []SBOMAsset
 			mu.Unlock()
 
 			logger.LogDebug(ctx.Context, "SBOM fetched and stored in memory", "name", sbom.Name)
-			_ = bar.Add(1) // Update progress bar
+			// _ = bar.Add(1) // Update progress bar
 		}(sbom)
 	}
 
 	wg.Wait()
-	_ = bar.Finish() // Close progress bar on completion
+	// _ = bar.Finish() // Close progress bar on completion
 
 	if len(errors) > 0 {
 		return nil, fmt.Errorf("encountered %d download errors: %v", len(errors), errors[0])
