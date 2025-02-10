@@ -110,7 +110,7 @@ func (i *InterlynkAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 
 // FetchSBOMs retrieves SBOMs lazily
 func (i *InterlynkAdapter) FetchSBOMs(ctx *tcontext.TransferMetadata) (iterator.SBOMIterator, error) {
-	return nil, fmt.Errorf("GitHub adapter does not support SBOM uploading")
+	return nil, fmt.Errorf("Interlynk adapter does not support SBOM Fetching")
 }
 
 func (i *InterlynkAdapter) UploadSBOMs(ctx *tcontext.TransferMetadata, iterator iterator.SBOMIterator) error {
