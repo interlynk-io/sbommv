@@ -78,7 +78,7 @@ func TransferRun(ctx context.Context, cmd *cobra.Command, config mvtypes.Config)
 	if config.DryRun {
 		logger.LogDebug(transferCtx.Context, "Dry-run mode enabled: Displaying retrieved SBOMs", "values", config.DryRun)
 
-		if err := dryMode(transferCtx.Context, sbomIterator); err != nil {
+		if err := dryMode(transferCtx.Context, sbomIterator, ""); err != nil {
 			return fmt.Errorf("failed to execute dry-run mode: %v", err)
 		}
 		return nil
@@ -93,35 +93,39 @@ func TransferRun(ctx context.Context, cmd *cobra.Command, config mvtypes.Config)
 	return nil
 }
 
-func dryMode(ctx context.Context, iterator iterator.SBOMIterator) error {
-	logger.LogDebug(ctx, "Dry-run mode enabled. Preparing to print SBOM details.")
+func dryMode(ctx context.Context, iterator iterator.SBOMIterator, outputDir string) error {
+	logger.LogDebug(ctx, "Dry-run mode enabled. Preparing to display SBOM details.")
 
-	processor := sbom.NewSBOMProcessor("", false)
+	processor := sbom.NewSBOMProcessor(outputDir, false) // No need for output directory in dry-run mode
 	sbomCount := 0
-
-	logger.LogDebug(ctx, "Processing SBOMs in dry-run mode")
 
 	for {
 		sbom, err := iterator.Next(ctx)
 		if err == io.EOF {
-			break // no more sboms
+			break // No more SBOMs
 		}
-
 		if err != nil {
 			logger.LogError(ctx, err, "Error retrieving SBOM from iterator")
 			continue
 		}
 
-		logger.LogDebug(ctx, "Processing SBOM file", "path", sbom.Path)
+		logger.LogDebug(ctx, "Processing SBOM from memory", "repo", sbom.Repo, "version", sbom.Version)
 
-		doc, err := processor.ProcessSBOM(sbom.Path)
+		doc, err := processor.ProcessSBOMs(sbom.Data, sbom.Repo)
 		if err != nil {
-			logger.LogError(ctx, err, "Failed to process SBOM", "path", sbom.Path)
+			logger.LogError(ctx, err, "Failed to process SBOM")
 			continue
 		}
 
+		// If outputDir is provided, save the SBOM file
+		if outputDir != "" {
+			if err := processor.WriteSBOM(doc, sbom.Repo); err != nil {
+				logger.LogError(ctx, err, "Failed to write SBOM to output directory")
+			}
+		}
+
 		sbomCount++
-		logger.LogDebug(ctx, "%d. File: %s | Format: %s | SpecVersion: %s\n", sbomCount, doc.Filename, doc.Format, doc.SpecVersion)
+		logger.LogDebug(ctx, fmt.Sprintf("%d. Repo: %s | Format: %s | SpecVersion: %s", sbomCount, sbom.Repo, doc.Format, doc.SpecVersion))
 	}
 
 	logger.LogDebug(ctx, "Dry-run mode completed", "total_sboms_processed", sbomCount)
