@@ -96,7 +96,7 @@ func TransferRun(ctx context.Context, cmd *cobra.Command, config mvtypes.Config)
 func dryMode(ctx context.Context, iterator iterator.SBOMIterator, outputDir string) error {
 	logger.LogDebug(ctx, "Dry-run mode enabled. Preparing to display SBOM details.")
 
-	processor := sbom.NewSBOMProcessor(outputDir, false) // No need for output directory in dry-run mode
+	processor := sbom.NewSBOMProcessor(outputDir, true) // No need for output directory in dry-run mode
 	sbomCount := 0
 
 	for {
@@ -111,7 +111,7 @@ func dryMode(ctx context.Context, iterator iterator.SBOMIterator, outputDir stri
 
 		logger.LogDebug(ctx, "Processing SBOM from memory", "repo", sbom.Repo, "version", sbom.Version)
 
-		doc, err := processor.ProcessSBOMs(sbom.Data, sbom.Repo)
+		doc, err := processor.ProcessSBOMs(sbom.Data, sbom.Repo, sbom.Path)
 		if err != nil {
 			logger.LogError(ctx, err, "Failed to process SBOM")
 			continue
@@ -125,7 +125,7 @@ func dryMode(ctx context.Context, iterator iterator.SBOMIterator, outputDir stri
 		}
 
 		sbomCount++
-		logger.LogDebug(ctx, fmt.Sprintf("%d. Repo: %s | Format: %s | SpecVersion: %s", sbomCount, sbom.Repo, doc.Format, doc.SpecVersion))
+		fmt.Printf("%d. Repo: %s | Format: %s | SpecVersion: %s | Filename: %s \n", sbomCount, sbom.Repo, doc.Format, doc.SpecVersion, doc.Filename)
 	}
 
 	logger.LogDebug(ctx, "Dry-run mode completed", "total_sboms_processed", sbomCount)

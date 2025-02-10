@@ -64,13 +64,17 @@ func NewSBOMProcessor(outputDir string, verbose bool) *SBOMProcessor {
 }
 
 // ProcessSBOMFromBytes processes an SBOM directly from memory
-func (p *SBOMProcessor) ProcessSBOMs(content []byte, repoName string) (SBOMDocument, error) {
+func (p *SBOMProcessor) ProcessSBOMs(content []byte, repoName, filePath string) (SBOMDocument, error) {
 	if len(content) == 0 {
 		return SBOMDocument{}, errors.New("empty SBOM content")
 	}
+	if filePath == "" {
+		filePath = "N/A"
+	}
 
 	doc := SBOMDocument{
-		Filename: fmt.Sprintf("%s.sbom.json", repoName), // Use repo name as filename
+		// Filename: fmt.Sprintf("%s.sbom.json", repoName), // Use repo name as filename
+		Filename: filePath,
 		Content:  content,
 	}
 

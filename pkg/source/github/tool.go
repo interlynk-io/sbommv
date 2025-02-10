@@ -15,7 +15,9 @@
 package github
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"strings"
@@ -81,8 +83,7 @@ func CloneRepoWithGit(ctx *tcontext.TransferMetadata, repoURL, branch, targetDir
 	if _, err := exec.LookPath("git"); err != nil {
 		return fmt.Errorf("git is not installed, install Git or use --method=api")
 	}
-
-	fmt.Println("🚀 Cloning repository using Git:", repoURL)
+	logger.LogDebug(ctx.Context, "🚀 Cloning repository using Git", "repo", repoURL)
 
 	// Run `git clone --depth=1` for faster shallow cloning
 	var cmd *exec.Cmd
@@ -91,14 +92,16 @@ func CloneRepoWithGit(ctx *tcontext.TransferMetadata, repoURL, branch, targetDir
 		// clones the default branch
 		logger.LogDebug(ctx.Context, "Repository to be cloned for", "branch", "default")
 		cmd = exec.CommandContext(ctx.Context, "git", "clone", "--depth=1", repoURL, targetDir)
+
 	} else {
 		logger.LogDebug(ctx.Context, "Repository to be cloned for", "branch", branch)
 		// clones the specific branch
 		cmd = exec.CommandContext(ctx.Context, "git", "clone", "--depth=1", "--branch", branch, repoURL, targetDir)
 	}
 
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	var stderr bytes.Buffer
+	cmd.Stdout = io.Discard // Suppress standard output
+	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("git clone failed: %w", err)

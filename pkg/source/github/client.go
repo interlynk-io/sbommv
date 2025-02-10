@@ -60,7 +60,12 @@ type SBOMAsset struct {
 
 // VersionedSBOMs maps versions to their respective SBOMs in that version
 // type VersionedSBOMs map[string][]string
-type VersionedSBOMs map[string][][]byte
+type VersionedSBOMs map[string][]SBOMData
+
+type SBOMData struct {
+	Content  []byte
+	Filename string
+}
 
 // Client interacts with the GitHub API
 type Client struct {
@@ -317,9 +322,13 @@ func (c *Client) downloadSBOMs(ctx *tcontext.TransferMetadata, sboms []SBOMAsset
 				return
 			}
 
-			// Store SBOM content in memory
+			versionedSBOM := SBOMData{
+				Content:  sbomData,
+				Filename: sbom.Name,
+			}
+
 			mu.Lock()
-			versionedSBOMs[sbom.Release] = append(versionedSBOMs[sbom.Release], sbomData)
+			versionedSBOMs[sbom.Release] = append(versionedSBOMs[sbom.Release], versionedSBOM)
 			mu.Unlock()
 
 			logger.LogDebug(ctx.Context, "SBOM fetched and stored in memory", "name", sbom.Name)
