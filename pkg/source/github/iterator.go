@@ -112,8 +112,8 @@ func (it *GitHubIterator) fetchSBOMFromReleases(ctx *tcontext.TransferMetadata) 
 	for version, sbomDataList := range sbomFiles {
 		for _, sbomData := range sbomDataList { // sbomPath is a string (file path)
 			it.sboms = append(it.sboms, &iterator.SBOM{
-				Path:    "", // No file path, storing in memory
-				Data:    sbomData,
+				Path:    sbomData.Filename,
+				Data:    sbomData.Content,
 				Repo:    fmt.Sprintf("%s/%s", it.client.Owner, it.client.Repo),
 				Version: version,
 			})
