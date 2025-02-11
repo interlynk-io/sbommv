@@ -23,6 +23,7 @@ import (
 
 	"github.com/interlynk-io/sbommv/pkg/iterator"
 	"github.com/interlynk-io/sbommv/pkg/logger"
+	"github.com/interlynk-io/sbommv/pkg/sbom"
 	"github.com/interlynk-io/sbommv/pkg/tcontext"
 	"github.com/interlynk-io/sbommv/pkg/types"
 	"github.com/interlynk-io/sbommv/pkg/utils"
@@ -315,7 +316,7 @@ func (g *GitHubAdapter) fetchSBOMsSequentially(ctx *tcontext.TransferMetadata, r
 		// Fetch SBOMs for the current repository
 		iter, err := NewGitHubIterator(ctx, g, repo)
 		if err != nil {
-			logger.LogError(ctx.Context, err, "Failed to fetch SBOMs for repo", "repo", repo)
+			fmt.Printf("\nFailed to fetch SBOMs for repo %s", repo)
 			continue
 		}
 
@@ -340,4 +341,64 @@ func (g *GitHubAdapter) fetchSBOMsSequentially(ctx *tcontext.TransferMetadata, r
 	return &GitHubIterator{
 		sboms: sbomList,
 	}, nil
+}
+
+// DryRun for Input Adapter: Displays all fetched SBOMs from input adapter
+func (g *GitHubAdapter) DryRun(ctx *tcontext.TransferMetadata, iterator iterator.SBOMIterator) error {
+	logger.LogDebug(ctx.Context, "Dry-run mode: Displaying SBOMs fetched from input adapter")
+
+	var outputDir string
+	var verbose bool
+
+	processor := sbom.NewSBOMProcessor(outputDir, verbose)
+	sbomCount := 0
+	fmt.Println()
+	fmt.Printf("📦 Details of all Fetched SBOMs by Input Adapter\n")
+
+	for {
+
+		sbom, err := iterator.Next(ctx.Context)
+		if err == io.EOF {
+			break // No more SBOMs
+		}
+		if err != nil {
+			logger.LogError(ctx.Context, err, "Error retrieving SBOM from iterator")
+			continue
+		}
+		// Update processor with current SBOM data
+		processor.Update(sbom.Data, sbom.Repo, sbom.Path)
+
+		doc, err := processor.ProcessSBOMs()
+		if err != nil {
+			logger.LogError(ctx.Context, err, "Failed to process SBOM")
+			continue
+		}
+
+		// If outputDir is provided, save the SBOM file
+		if outputDir != "" {
+			if err := processor.WriteSBOM(doc, sbom.Repo); err != nil {
+				logger.LogError(ctx.Context, err, "Failed to write SBOM to output directory")
+			}
+		}
+
+		// Print SBOM content if verbose mode is enabled
+		if verbose {
+			fmt.Println("\n-------------------- 📜 SBOM Content --------------------")
+			fmt.Printf("📂 Filename: %s\n", doc.Filename)
+			fmt.Printf("📦 Format: %s | SpecVersion: %s\n\n", doc.Format, doc.SpecVersion)
+			fmt.Println(string(doc.Content))
+			fmt.Println("------------------------------------------------------")
+			fmt.Println()
+		}
+
+		sbomCount++
+		fmt.Printf(" - 📁 Repo: %s | Format: %s | SpecVersion: %s | Filename: %s \n", sbom.Repo, doc.Format, doc.SpecVersion, doc.Filename)
+
+		// logger.LogInfo(ctx.Context, fmt.Sprintf("%d. Repo: %s | Format: %s | SpecVersion: %s | Filename: %s",
+		// 	sbomCount, sbom.Repo, doc.Format, doc.SpecVersion, doc.Filename))
+	}
+	fmt.Printf("📊 Total SBOMs are: %d\n", sbomCount)
+
+	logger.LogDebug(ctx.Context, "Dry-run mode completed for input adapter", "total_sboms", sbomCount)
+	return nil
 }

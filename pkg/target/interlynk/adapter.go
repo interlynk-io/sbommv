@@ -18,9 +18,11 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/interlynk-io/sbommv/pkg/iterator"
 	"github.com/interlynk-io/sbommv/pkg/logger"
+	"github.com/interlynk-io/sbommv/pkg/sbom"
 	"github.com/interlynk-io/sbommv/pkg/tcontext"
 	"github.com/interlynk-io/sbommv/pkg/types"
 	"github.com/spf13/cobra"
@@ -194,4 +196,88 @@ func (i *InterlynkAdapter) uploadSequential(ctx *tcontext.TransferMetadata, sbom
 	}
 
 	return nil
+}
+
+// // DryRun for Output Adapter: Displays all SBOMs that to be uploaded by output adapter
+// func (i *InterlynkAdapter) DryRun(ctx *tcontext.TransferMetadata, iterator iterator.SBOMIterator) error {
+// 	logger.LogDebug(ctx.Context, "Dry-run mode: Displaying SBOMs fetched from output adapter")
+// 	// TODO: Need to add core functionality
+// 	return nil
+// }
+
+// DryRunUpload simulates SBOM upload to Interlynk without actually performing the upload
+// DryRunUpload simulates SBOM upload to Interlynk without actual data transfer.
+func (i *InterlynkAdapter) DryRun(ctx *tcontext.TransferMetadata, sbomIterator iterator.SBOMIterator) error {
+	logger.LogDebug(ctx.Context, "🔄 Dry-Run Mode: Simulating Upload to Interlynk...")
+
+	// Step 1: Validate Interlynk Connection
+	err := ValidateInterlynkConnection(i.BaseURL, i.ApiKey)
+	if err != nil {
+		return fmt.Errorf("interlynk validation failed: %w", err)
+	}
+
+	// Step 2: Initialize SBOM Processor
+	processor := sbom.NewSBOMProcessor("", false)
+
+	// Step 3: Organize SBOMs into Projects
+	projectSBOMs := make(map[string][]sbom.SBOMDocument)
+	totalSBOMs := 0
+	uniqueFormats := make(map[string]struct{})
+
+	for {
+		sbom, err := sbomIterator.Next(ctx.Context)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			logger.LogError(ctx.Context, err, "Error retrieving SBOM from iterator")
+			continue
+		}
+
+		// Update processor with current SBOM data
+		processor.Update(sbom.Data, sbom.Repo, sbom.Path)
+
+		// Process SBOM to extract metadata
+		doc, err := processor.ProcessSBOMs()
+		if err != nil {
+			logger.LogError(ctx.Context, err, "Failed to process SBOM")
+			continue
+		}
+
+		// Identify project name (repo-version)
+		projectKey := fmt.Sprintf("%s-%s", sbom.Repo, sbom.Version)
+		projectSBOMs[projectKey] = append(projectSBOMs[projectKey], doc)
+		totalSBOMs++
+		uniqueFormats[string(doc.Format)] = struct{}{}
+	}
+
+	// Step 4: Print Dry-Run Summary
+	fmt.Println("")
+	fmt.Printf("📦 Interlynk API Endpoint: %s/vendor/products/upload\n", i.BaseURL)
+	fmt.Printf("📂 Project Groups Total: %d\n", len(projectSBOMs))
+	fmt.Printf("📊 Total SBOMs to be Uploaded: %d\n", totalSBOMs)
+	fmt.Printf("📦 INTERLYNK_SECURITY_TOKEN is valid\n")
+	fmt.Printf("📦 Unique Formats: %s\n", formatSetToString(uniqueFormats))
+	fmt.Println()
+
+	// Step 5: Print Project Details
+	for project, sboms := range projectSBOMs {
+		fmt.Printf("📌 **Project: %s** → %d SBOMs\n", project, len(sboms))
+		for _, doc := range sboms {
+			fmt.Printf("   - 📁  | Format: %s | SpecVersion: %s | Size: %d KB | Filename: %s\n",
+				doc.Format, doc.SpecVersion, len(doc.Content)/1024, doc.Filename)
+		}
+	}
+
+	fmt.Println("\n✅ **Dry-run completed**. No data was uploaded to Interlynk.")
+	return nil
+}
+
+// formatSetToString converts a map of unique formats to a comma-separated string
+func formatSetToString(formatSet map[string]struct{}) string {
+	var formats []string
+	for format := range formatSet {
+		formats = append(formats, format)
+	}
+	return strings.Join(formats, ", ")
 }

@@ -24,7 +24,6 @@ import (
 	"github.com/interlynk-io/sbommv/pkg/iterator"
 	"github.com/interlynk-io/sbommv/pkg/logger"
 	"github.com/interlynk-io/sbommv/pkg/mvtypes"
-	"github.com/interlynk-io/sbommv/pkg/sbom"
 	"github.com/interlynk-io/sbommv/pkg/tcontext"
 	"github.com/interlynk-io/sbommv/pkg/types"
 	"github.com/spf13/cobra"
@@ -74,13 +73,37 @@ func TransferRun(ctx context.Context, cmd *cobra.Command, config mvtypes.Config)
 		return fmt.Errorf("failed to fetch SBOMs: %w", err)
 	}
 
-	// Dry-Run Mode: Display SBOMs Without Uploading
 	if config.DryRun {
 		logger.LogDebug(transferCtx.Context, "Dry-run mode enabled: Displaying retrieved SBOMs", "values", config.DryRun)
 
-		if err := dryMode(transferCtx.Context, sbomIterator, ""); err != nil {
-			return fmt.Errorf("failed to execute dry-run mode: %v", err)
+		// Step 1: Store SBOMs in memory (avoid consuming iterator)
+		var sboms []*iterator.SBOM
+		for {
+			sbom, err := sbomIterator.Next(transferCtx.Context)
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				logger.LogError(transferCtx.Context, err, "Error retrieving SBOM from iterator")
+				continue
+			}
+			sboms = append(sboms, sbom)
 		}
+		fmt.Println()
+
+		fmt.Println("-----------------------------------------🌐 INPUT ADAPTER DRY-RUN OUTPUT 🌐-----------------------------------------")
+		// Step 2: Use stored SBOMs for input dry-run
+		if err := inputAdapterInstance.DryRun(transferCtx, iterator.NewMemoryIterator(sboms)); err != nil {
+			return fmt.Errorf("failed to execute dry-run mode for input adapter: %v", err)
+		}
+		fmt.Println()
+		fmt.Println("-----------------------------------------🌐 OUTPUT ADAPTER DRY-RUN OUTPUT 🌐-----------------------------------------")
+
+		// Step 3: Use the same stored SBOMs for output dry-run
+		if err := outputAdapterInstance.DryRun(transferCtx, iterator.NewMemoryIterator(sboms)); err != nil {
+			return fmt.Errorf("failed to execute dry-run mode for output adapter: %v", err)
+		}
+
 		return nil
 	}
 
@@ -90,44 +113,5 @@ func TransferRun(ctx context.Context, cmd *cobra.Command, config mvtypes.Config)
 	}
 
 	logger.LogDebug(ctx, "SBOM transfer process completed successfully ✅")
-	return nil
-}
-
-func dryMode(ctx context.Context, iterator iterator.SBOMIterator, outputDir string) error {
-	logger.LogDebug(ctx, "Dry-run mode enabled. Preparing to display SBOM details.")
-
-	processor := sbom.NewSBOMProcessor(outputDir, true) // No need for output directory in dry-run mode
-	sbomCount := 0
-
-	for {
-		sbom, err := iterator.Next(ctx)
-		if err == io.EOF {
-			break // No more SBOMs
-		}
-		if err != nil {
-			logger.LogError(ctx, err, "Error retrieving SBOM from iterator")
-			continue
-		}
-
-		logger.LogDebug(ctx, "Processing SBOM from memory", "repo", sbom.Repo, "version", sbom.Version)
-
-		doc, err := processor.ProcessSBOMs(sbom.Data, sbom.Repo, sbom.Path)
-		if err != nil {
-			logger.LogError(ctx, err, "Failed to process SBOM")
-			continue
-		}
-
-		// If outputDir is provided, save the SBOM file
-		if outputDir != "" {
-			if err := processor.WriteSBOM(doc, sbom.Repo); err != nil {
-				logger.LogError(ctx, err, "Failed to write SBOM to output directory")
-			}
-		}
-
-		sbomCount++
-		fmt.Printf("%d. Repo: %s | Format: %s | SpecVersion: %s | Filename: %s \n", sbomCount, sbom.Repo, doc.Format, doc.SpecVersion, doc.Filename)
-	}
-
-	logger.LogDebug(ctx, "Dry-run mode completed", "total_sboms_processed", sbomCount)
 	return nil
 }

@@ -68,7 +68,9 @@ func NewGitHubIterator(ctx *tcontext.TransferMetadata, g *GitHubAdapter, repo st
 	}
 
 	if len(iterator.sboms) == 0 {
-		return nil, fmt.Errorf("no SBOMs found for repository")
+		fmt.Printf("no SBOMs found for repository")
+		return nil, nil
+		// return nil, fmt.Errorf("no SBOMs found for repository")
 	}
 
 	logger.LogDebug(ctx.Context, "Total SBOMs fetched", "count", len(iterator.sboms))

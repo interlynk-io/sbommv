@@ -16,9 +16,14 @@ package sbom
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
+
+	"github.com/interlynk-io/sbommv/pkg/logger"
 )
 
 // PrettyPrintSBOM prints an SBOM in formatted JSON
@@ -40,4 +45,28 @@ func PrettyPrintSBOM(w io.Writer, Content []byte) error {
 	// Write the formatted JSON
 	_, err := w.Write(buf.Bytes())
 	return err
+}
+
+// WriteSBOM writes an SBOM to the output directory
+func (p *SBOMProcessor) WriteSBOM(doc SBOMDocument, repoName string) error {
+	if p.outputDir == "" {
+		return nil // No output directory specified, skip writing
+	}
+
+	// Construct full path: sboms/<org>/<repo>.sbom.json
+	outputPath := filepath.Join(p.outputDir, repoName+".sbom.json")
+	outputDir := filepath.Dir(outputPath) // Extract directory path
+
+	// Ensure all parent directories exist
+	if err := os.MkdirAll(outputDir, 0o755); err != nil {
+		return fmt.Errorf("creating output directory: %w", err)
+	}
+
+	// Write SBOM file
+	if err := os.WriteFile(outputPath, doc.Content, 0o644); err != nil {
+		return fmt.Errorf("writing SBOM file: %w", err)
+	}
+
+	logger.LogDebug(context.Background(), "SBOM successfully written", "path", outputPath)
+	return nil
 }
