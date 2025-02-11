@@ -343,7 +343,7 @@ func (g *GitHubAdapter) fetchSBOMsSequentially(ctx *tcontext.TransferMetadata, r
 	}, nil
 }
 
-// DryRun for Input Adapter: Displays retrieved SBOMs without uploading
+// DryRun for Input Adapter: Displays all fetched SBOMs from input adapter
 func (g *GitHubAdapter) DryRun(ctx *tcontext.TransferMetadata, iterator iterator.SBOMIterator) error {
 	logger.LogDebug(ctx.Context, "Dry-run mode: Displaying SBOMs fetched from input adapter")
 
@@ -353,6 +353,7 @@ func (g *GitHubAdapter) DryRun(ctx *tcontext.TransferMetadata, iterator iterator
 	processor := sbom.NewSBOMProcessor(outputDir, verbose)
 	sbomCount := 0
 	fmt.Println()
+	fmt.Printf("📦 Details of all Fetched SBOMs by Input Adapter\n")
 
 	for {
 		sbom, err := iterator.Next(ctx.Context)
@@ -378,11 +379,12 @@ func (g *GitHubAdapter) DryRun(ctx *tcontext.TransferMetadata, iterator iterator
 		}
 
 		sbomCount++
-		fmt.Printf("Repo: %s | Format: %s | SpecVersion: %s | Filename: %s \n", sbom.Repo, doc.Format, doc.SpecVersion, doc.Filename)
+		fmt.Printf(" - 📁 Repo: %s | Format: %s | SpecVersion: %s | Filename: %s \n", sbom.Repo, doc.Format, doc.SpecVersion, doc.Filename)
 
 		// logger.LogInfo(ctx.Context, fmt.Sprintf("%d. Repo: %s | Format: %s | SpecVersion: %s | Filename: %s",
 		// 	sbomCount, sbom.Repo, doc.Format, doc.SpecVersion, doc.Filename))
 	}
+	fmt.Printf("📊 Total SBOMs are: %d\n", sbomCount)
 
 	logger.LogDebug(ctx.Context, "Dry-run mode completed for input adapter", "total_sboms", sbomCount)
 	return nil

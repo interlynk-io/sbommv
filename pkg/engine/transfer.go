@@ -18,8 +18,10 @@ package engine
 import (
 	"context"
 	"fmt"
+	"io"
 
 	adapter "github.com/interlynk-io/sbommv/pkg/adapter"
+	"github.com/interlynk-io/sbommv/pkg/iterator"
 	"github.com/interlynk-io/sbommv/pkg/logger"
 	"github.com/interlynk-io/sbommv/pkg/mvtypes"
 	"github.com/interlynk-io/sbommv/pkg/tcontext"
@@ -71,13 +73,37 @@ func TransferRun(ctx context.Context, cmd *cobra.Command, config mvtypes.Config)
 		return fmt.Errorf("failed to fetch SBOMs: %w", err)
 	}
 
-	// Dry-Run Mode: Display SBOMs Without Uploading
 	if config.DryRun {
 		logger.LogDebug(transferCtx.Context, "Dry-run mode enabled: Displaying retrieved SBOMs", "values", config.DryRun)
 
-		if err := inputAdapterInstance.DryRun(transferCtx, sbomIterator); err != nil {
-			return fmt.Errorf("failed to execute dry-run mode: %v", err)
+		// Step 1: Store SBOMs in memory (avoid consuming iterator)
+		var sboms []*iterator.SBOM
+		for {
+			sbom, err := sbomIterator.Next(transferCtx.Context)
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				logger.LogError(transferCtx.Context, err, "Error retrieving SBOM from iterator")
+				continue
+			}
+			sboms = append(sboms, sbom)
 		}
+		fmt.Println()
+
+		fmt.Println("-----------------------------------------🌐 INPUT ADAPTER DRY-RUN OUTPUT 🌐-----------------------------------------")
+		// Step 2: Use stored SBOMs for input dry-run
+		if err := inputAdapterInstance.DryRun(transferCtx, iterator.NewMemoryIterator(sboms)); err != nil {
+			return fmt.Errorf("failed to execute dry-run mode for input adapter: %v", err)
+		}
+		fmt.Println()
+		fmt.Println("-----------------------------------------🌐 OUTPUT ADAPTER DRY-RUN OUTPUT 🌐-----------------------------------------")
+
+		// Step 3: Use the same stored SBOMs for output dry-run
+		if err := outputAdapterInstance.DryRun(transferCtx, iterator.NewMemoryIterator(sboms)); err != nil {
+			return fmt.Errorf("failed to execute dry-run mode for output adapter: %v", err)
+		}
+
 		return nil
 	}
 
