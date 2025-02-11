@@ -316,7 +316,7 @@ func (g *GitHubAdapter) fetchSBOMsSequentially(ctx *tcontext.TransferMetadata, r
 		// Fetch SBOMs for the current repository
 		iter, err := NewGitHubIterator(ctx, g, repo)
 		if err != nil {
-			logger.LogError(ctx.Context, err, "Failed to fetch SBOMs for repo", "repo", repo)
+			fmt.Printf("\nFailed to fetch SBOMs for repo %s", repo)
 			continue
 		}
 

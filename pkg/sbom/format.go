@@ -15,10 +15,13 @@
 package sbom
 
 import (
+	"bytes"
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
 	"strings"
+
+	"github.com/interlynk-io/sbomasm/pkg/detect"
 )
 
 // Format-specific structs for basic parsing
@@ -43,69 +46,63 @@ type spdxJSON struct {
 	Relationships []any  `json:"relationships"`
 }
 
-func (p *SBOMProcessor) detectJSONFormat(content []byte) (SBOMFormat, bool) {
-	// Try CycloneDX
-	var cdx cycloneDXJSON
-	if err := json.Unmarshal(content, &cdx); err == nil {
-		if strings.EqualFold(cdx.BOMFormat, "CycloneDX") {
-			return FormatCycloneDXJSON, true
-		}
+func (p *SBOMProcessor) detectAndParse(doc *SBOMDocument) error {
+	// Convert SBOM content whih is in byte to an `io.ReadSeek
+	sbomReader := bytes.NewReader(doc.Content)
+
+	// Use sbomasms Detect function
+	specFormat, fileFormat, err := detect.Detect(sbomReader)
+	if err != nil {
+		return fmt.Errorf("failed to detect SBOM format: %w", err)
 	}
 
-	// Try SPDX
-	var spdx spdxJSON
-	if err := json.Unmarshal(content, &spdx); err == nil {
-		if strings.HasPrefix(spdx.SPDXID, "SPDXRef-") {
-			return FormatSPDXJSON, true
-		}
-	}
+	// ✅ Map detected format to our SBOMFormat type
+	switch specFormat {
 
-	return FormatUnknown, false
+	case detect.SBOMSpecSPDX:
+		if fileFormat == detect.FileFormatJSON {
+			doc.Format = FormatSPDXJSON
+		} else if fileFormat == detect.FileFormatTagValue {
+			doc.Format = FormatSPDXTag
+		} else if fileFormat == detect.FileFormatYAML {
+			doc.Format = FormatSPDXYAML
+		}
+	case detect.SBOMSpecCDX:
+		if fileFormat == detect.FileFormatJSON {
+			doc.Format = FormatCycloneDXJSON
+		} else if fileFormat == detect.FileFormatXML {
+			doc.Format = FormatCycloneDXXML
+		}
+	default:
+		doc.Format = FormatUnknown
+		return fmt.Errorf("unknown SBOM format")
+	}
+	return p.parseSBOMContent(doc)
 }
 
-func (p *SBOMProcessor) detectXMLFormat(content []byte) (SBOMFormat, bool) {
-	var cdx cycloneDXXML
-	if err := xml.Unmarshal(content, &cdx); err == nil {
-		return FormatCycloneDXXML, true
-	}
-	return FormatUnknown, false
-}
-
-func (p *SBOMProcessor) parseJSONContent(doc *SBOMDocument) error {
+func (p *SBOMProcessor) parseSBOMContent(doc *SBOMDocument) error {
 	switch doc.Format {
-	case FormatCycloneDXJSON:
+	case FormatCycloneDXJSON, FormatCycloneDXXML:
 		var cdx cycloneDXJSON
-		if err := json.Unmarshal(doc.Content, &cdx); err != nil {
-			return fmt.Errorf("parsing CycloneDX JSON: %w", err)
+		if err := json.Unmarshal(doc.Content, &cdx); err == nil {
+			doc.SpecVersion = cdx.SpecVersion
 		}
-		doc.SpecVersion = cdx.SpecVersion
-
-	case FormatSPDXJSON:
+	case FormatSPDXJSON, FormatSPDXYAML:
 		var spdx spdxJSON
-		if err := json.Unmarshal(doc.Content, &spdx); err != nil {
-			return fmt.Errorf("parsing SPDX JSON: %w", err)
+		if err := json.Unmarshal(doc.Content, &spdx); err == nil {
+			doc.SpecVersion = spdx.SpecVersion
 		}
-		doc.SpecVersion = spdx.SpecVersion
-	}
-	return nil
-}
 
-func (p *SBOMProcessor) parseXMLContent(doc *SBOMDocument) error {
-	var cdx cycloneDXXML
-	if err := xml.Unmarshal(doc.Content, &cdx); err != nil {
-		return fmt.Errorf("parsing CycloneDX XML: %w", err)
-	}
-	doc.SpecVersion = cdx.SpecVersion
-	return nil
-}
-
-func (p *SBOMProcessor) parseSPDXTagContent(doc *SBOMDocument) error {
-	lines := strings.Split(string(doc.Content), "\n")
-	for _, line := range lines {
-		if strings.HasPrefix(line, "SPDXVersion:") {
-			doc.SpecVersion = strings.TrimSpace(strings.TrimPrefix(line, "SPDXVersion:"))
-			break
+	case FormatSPDXTag:
+		lines := strings.Split(string(doc.Content), "\n")
+		for _, line := range lines {
+			if strings.HasPrefix(line, "SPDXVersion:") {
+				doc.SpecVersion = strings.TrimSpace(strings.TrimPrefix(line, "SPDXVersion:"))
+				break
+			}
 		}
+	default:
+		return fmt.Errorf("unsupported SBOM format for parsing: %s", doc.Format)
 	}
 	return nil
 }
