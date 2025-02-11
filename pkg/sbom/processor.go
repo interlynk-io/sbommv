@@ -50,6 +50,9 @@ type SBOMDocument struct {
 type SBOMProcessor struct {
 	outputDir string
 	verbose   bool
+	data      []byte
+	repo      string
+	path      string
 }
 
 // NewSBOMProcessor creates a new SBOM processor
@@ -65,19 +68,25 @@ func NewSBOMProcessor(outputDir string, verbose bool) *SBOMProcessor {
 	}
 }
 
+func (p *SBOMProcessor) Update(content []byte, repoName, filePath string) {
+	p.data = content
+	p.repo = repoName
+	p.path = filePath
+}
+
 // ProcessSBOMFromBytes processes an SBOM directly from memory
-func (p *SBOMProcessor) ProcessSBOMs(content []byte, repoName, filePath string) (SBOMDocument, error) {
-	if len(content) == 0 {
+func (p *SBOMProcessor) ProcessSBOMs() (SBOMDocument, error) {
+	if len(p.data) == 0 {
 		return SBOMDocument{}, errors.New("empty SBOM content")
 	}
-	if filePath == "" {
-		filePath = "N/A"
+	if p.path == "" {
+		p.path = "N/A"
 	}
 
 	doc := SBOMDocument{
 		// Filename: fmt.Sprintf("%s.sbom.json", repoName), // Use repo name as filename
-		Filename: filePath,
-		Content:  content,
+		Filename: p.path,
+		Content:  p.data,
 	}
 
 	// Detect format and parse content

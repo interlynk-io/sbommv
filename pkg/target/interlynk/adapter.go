@@ -234,8 +234,11 @@ func (i *InterlynkAdapter) DryRun(ctx *tcontext.TransferMetadata, sbomIterator i
 			continue
 		}
 
+		// Update processor with current SBOM data
+		processor.Update(sbom.Data, sbom.Repo, sbom.Path)
+
 		// Process SBOM to extract metadata
-		doc, err := processor.ProcessSBOMs(sbom.Data, sbom.Repo, sbom.Path)
+		doc, err := processor.ProcessSBOMs()
 		if err != nil {
 			logger.LogError(ctx.Context, err, "Failed to process SBOM")
 			continue

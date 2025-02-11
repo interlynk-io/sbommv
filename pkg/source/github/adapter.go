@@ -356,6 +356,7 @@ func (g *GitHubAdapter) DryRun(ctx *tcontext.TransferMetadata, iterator iterator
 	fmt.Printf("📦 Details of all Fetched SBOMs by Input Adapter\n")
 
 	for {
+
 		sbom, err := iterator.Next(ctx.Context)
 		if err == io.EOF {
 			break // No more SBOMs
@@ -364,8 +365,10 @@ func (g *GitHubAdapter) DryRun(ctx *tcontext.TransferMetadata, iterator iterator
 			logger.LogError(ctx.Context, err, "Error retrieving SBOM from iterator")
 			continue
 		}
+		// Update processor with current SBOM data
+		processor.Update(sbom.Data, sbom.Repo, sbom.Path)
 
-		doc, err := processor.ProcessSBOMs(sbom.Data, sbom.Repo, sbom.Path)
+		doc, err := processor.ProcessSBOMs()
 		if err != nil {
 			logger.LogError(ctx.Context, err, "Failed to process SBOM")
 			continue
@@ -376,6 +379,16 @@ func (g *GitHubAdapter) DryRun(ctx *tcontext.TransferMetadata, iterator iterator
 			if err := processor.WriteSBOM(doc, sbom.Repo); err != nil {
 				logger.LogError(ctx.Context, err, "Failed to write SBOM to output directory")
 			}
+		}
+
+		// Print SBOM content if verbose mode is enabled
+		if verbose {
+			fmt.Println("\n-------------------- 📜 SBOM Content --------------------")
+			fmt.Printf("📂 Filename: %s\n", doc.Filename)
+			fmt.Printf("📦 Format: %s | SpecVersion: %s\n\n", doc.Format, doc.SpecVersion)
+			fmt.Println(string(doc.Content))
+			fmt.Println("------------------------------------------------------")
+			fmt.Println()
 		}
 
 		sbomCount++
