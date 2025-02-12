@@ -52,11 +52,9 @@ func init() {
 
 	// Input adapter flags
 	transferCmd.Flags().String("input-adapter", "", "input adapter type (github)")
-	transferCmd.MarkFlagRequired("input-adapter")
 
 	// Output adapter flags
 	transferCmd.Flags().String("output-adapter", "", "output adapter type (interlynk)")
-	transferCmd.MarkFlagRequired("output-adapter")
 
 	transferCmd.Flags().BoolP("dry-run", "", false, "enable dry run mode")
 
@@ -81,7 +79,7 @@ func registerAdapterFlags(cmd *cobra.Command) {
 
 func transferSBOM(cmd *cobra.Command, args []string) error {
 	// Suppress automatic usage message for non-flag errors
-	cmd.SilenceUsage = true
+	cmd.SilenceUsage = false
 
 	// Initialize logger based on debug flag
 	debug, _ := cmd.Flags().GetBool("debug")
@@ -94,8 +92,8 @@ func transferSBOM(cmd *cobra.Command, args []string) error {
 	// Parse config
 	config, err := parseConfig(cmd)
 	if err != nil {
-		logger.LogError(ctx, err, "Invalid configuration")
-		return fmt.Errorf("invalid configuration: %w", err)
+		// logger.LogError(ctx, err, "Invalid configuration")
+		return err
 	}
 
 	logger.LogDebug(ctx, "configuration", "value", config)
@@ -118,16 +116,34 @@ func transferSBOM(cmd *cobra.Command, args []string) error {
 
 func parseConfig(cmd *cobra.Command) (mvtypes.Config, error) {
 	inputType, _ := cmd.Flags().GetString("input-adapter")
-	if inputType == "" {
-		return mvtypes.Config{}, fmt.Errorf("missing flag: input-adapter")
-	}
 	outputType, _ := cmd.Flags().GetString("output-adapter")
-	if inputType == "" {
-		return mvtypes.Config{}, fmt.Errorf("missing flag: input-adapter")
-	}
-
 	dr, _ := cmd.Flags().GetBool("dry-run")
 
+	validInputAdapter := map[string]bool{"github": true}
+	validOutputAdapter := map[string]bool{"interlynk": true}
+
+	// Custom validation for required flags
+	missingFlags := []string{}
+	if inputType == "" {
+		missingFlags = append(missingFlags, "--input-adapter")
+	}
+
+	if outputType == "" {
+		missingFlags = append(missingFlags, "--output-adapter")
+	}
+
+	// Show error message if required flags are missing
+	if len(missingFlags) > 0 {
+		return mvtypes.Config{}, fmt.Errorf("missing required flags: %v\n\nUse 'sbommv transfer --help' for usage details.", missingFlags)
+	}
+
+	if !validInputAdapter[inputType] {
+		return mvtypes.Config{}, fmt.Errorf("input adapter must be one of type: github")
+	}
+
+	if !validOutputAdapter[outputType] {
+		return mvtypes.Config{}, fmt.Errorf("output adapter must be one of type: interlynk")
+	}
 	config := mvtypes.Config{
 		SourceType:      inputType,
 		DestinationType: outputType,
