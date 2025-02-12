@@ -164,3 +164,21 @@ func ParseGithubURL(githubURL string) (owner, repo, version string, err error) {
 	}
 	return owner, repo, version, nil
 }
+
+// isValidURL checks if the given string is a valid URL
+func IsValidURL(input string) bool {
+	parsedURL, err := url.ParseRequestURI(input)
+	if err != nil {
+		return false
+	}
+
+	// Ensure it has a scheme (http or https) and a valid host
+	if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
+		return false
+	}
+	if parsedURL.Host == "" {
+		return false
+	}
+
+	return true
+}

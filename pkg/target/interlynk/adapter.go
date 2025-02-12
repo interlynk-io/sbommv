@@ -25,6 +25,7 @@ import (
 	"github.com/interlynk-io/sbommv/pkg/sbom"
 	"github.com/interlynk-io/sbommv/pkg/tcontext"
 	"github.com/interlynk-io/sbommv/pkg/types"
+	"github.com/interlynk-io/sbommv/pkg/utils"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -64,9 +65,11 @@ func (i *InterlynkAdapter) AddCommandParams(cmd *cobra.Command) {
 	cmd.Flags().String("out-interlynk-project-env", "default", "Interlynk Project Environment")
 }
 
-// ParseAndValidateParams validates the GitHub adapter params
+// ParseAndValidateParams validates the Interlynk adapter params
 func (i *InterlynkAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 	var urlFlag, projectNameFlag, projectEnvFlag string
+	var missingFlags []string
+	var invalidFlags []string
 
 	if i.Role == types.InputAdapter {
 		urlFlag = "in-interlynk-url"
@@ -78,35 +81,58 @@ func (i *InterlynkAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 		projectEnvFlag = "out-interlynk-project-env"
 	}
 
+	// Get flags
 	url, _ := cmd.Flags().GetString(urlFlag)
 	projectName, _ := cmd.Flags().GetString(projectNameFlag)
 	projectEnv, _ := cmd.Flags().GetString(projectEnvFlag)
 
+	// Check if INTERLYNK_SECURITY_TOKEN is set
 	token := viper.GetString("INTERLYNK_SECURITY_TOKEN")
 	if token == "" {
 		return fmt.Errorf("missing INTERLYNK_SECURITY_TOKEN: authentication required")
 	}
 
-	if url == "" {
-		i.BaseURL = "https://api.interlynk.io/lynkapi"
-	} else {
-		i.BaseURL = url
+	// Validate Interlynk URL
+	if !utils.IsValidURL(url) {
+		invalidFlags = append(invalidFlags, fmt.Sprintf("invalid Interlynk API URL format: %s", url))
 	}
 
-	i.ProjectName = projectName
-	i.ProjectEnv = projectEnv
-	i.ApiKey = token
-	i.settings = UploadSettings{
-		ProcessingMode: UploadSequential,
+	// // Validate project name
+	// if projectNameFlag != "" && strings.TrimSpace(projectName) == "" {
+	// 	invalidFlags = append(invalidFlags, "project name cannot be empty")
+	// }
+
+	// Restrict `--out-interlynk-project-env` to only allowed values
+	allowedEnvs := map[string]bool{"default": true, "development": true, "production": true}
+	if !allowedEnvs[projectEnv] {
+		invalidFlags = append(invalidFlags, fmt.Sprintf("invalid project environment: %s (allowed values: default, development, production)", projectEnv))
 	}
 
-	// 🔹 Validate Interlynk connection before proceeding
-	if err := ValidateInterlynkConnection(i.BaseURL, i.ApiKey); err != nil {
+	// Validate Interlynk connectivity before proceeding
+	if err := ValidateInterlynkConnection(url, token); err != nil {
 		return fmt.Errorf("Interlynk validation failed: %w", err)
 	}
 
-	logger.LogDebug(cmd.Context(), "Interlynk system is up and running.")
+	// Show missing/invalid flags
+	if len(missingFlags) > 0 {
+		return fmt.Errorf("missing output adapter required flags: %v\n\nUse 'sbommv transfer --help' for usage details.", missingFlags)
+	}
+	if len(invalidFlags) > 0 {
+		return fmt.Errorf("invalid output adapter flag usage:\n- %s\n\nUse 'sbommv transfer --help' for correct usage.", strings.Join(invalidFlags, "\n- "))
+	}
 
+	// Assign values to struct
+	i.BaseURL = url
+	i.ProjectName = projectName
+	i.ProjectEnv = projectEnv
+	i.ApiKey = token
+	i.settings = UploadSettings{ProcessingMode: UploadSequential}
+
+	logger.LogDebug(cmd.Context(), "Interlynk parameters validated and assigned",
+		"url", i.BaseURL,
+		"project_name", i.ProjectName,
+		"project_env", i.ProjectEnv,
+	)
 	return nil
 }
 
@@ -180,7 +206,7 @@ func (i *InterlynkAdapter) uploadSequential(ctx *tcontext.TransferMetadata, sbom
 
 		logger.LogDebug(ctx.Context, "Uploading SBOM", "repo", sbom.Repo, "version", sbom.Version, "data size", len(sbom.Data))
 
-		projectID, err := client.FindOrCreateProjectGroup(ctx, sbom.Repo)
+		projectID, err := client.FindOrCreateProjectGroup(ctx, sbom.Repo, sbom.Version)
 		if err != nil {
 			logger.LogInfo(ctx.Context, "error", err)
 			continue
@@ -253,7 +279,7 @@ func (i *InterlynkAdapter) DryRun(ctx *tcontext.TransferMetadata, sbomIterator i
 
 	// Step 4: Print Dry-Run Summary
 	fmt.Println("")
-	fmt.Printf("📦 Interlynk API Endpoint: %s/vendor/products/upload\n", i.BaseURL)
+	fmt.Printf("📦 Interlynk API Endpoint: %s\n", i.BaseURL)
 	fmt.Printf("📂 Project Groups Total: %d\n", len(projectSBOMs))
 	fmt.Printf("📊 Total SBOMs to be Uploaded: %d\n", totalSBOMs)
 	fmt.Printf("📦 INTERLYNK_SECURITY_TOKEN is valid\n")

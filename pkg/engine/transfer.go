@@ -91,13 +91,13 @@ func TransferRun(ctx context.Context, cmd *cobra.Command, config mvtypes.Config)
 		}
 		fmt.Println()
 
-		fmt.Println("-----------------------------------------🌐 INPUT ADAPTER DRY-RUN OUTPUT 🌐-----------------------------------------")
+		fmt.Println("-----------------🌐 INPUT ADAPTER DRY-RUN OUTPUT 🌐-----------------")
 		// Step 2: Use stored SBOMs for input dry-run
 		if err := inputAdapterInstance.DryRun(transferCtx, iterator.NewMemoryIterator(sboms)); err != nil {
 			return fmt.Errorf("failed to execute dry-run mode for input adapter: %v", err)
 		}
 		fmt.Println()
-		fmt.Println("-----------------------------------------🌐 OUTPUT ADAPTER DRY-RUN OUTPUT 🌐-----------------------------------------")
+		fmt.Println("-----------------🌐 OUTPUT ADAPTER DRY-RUN OUTPUT 🌐-----------------")
 
 		// Step 3: Use the same stored SBOMs for output dry-run
 		if err := outputAdapterInstance.DryRun(transferCtx, iterator.NewMemoryIterator(sboms)); err != nil {

@@ -85,7 +85,11 @@ func (g *GitHubAdapter) AddCommandParams(cmd *cobra.Command) {
 
 // ParseAndValidateParams validates the GitHub adapter params
 func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
-	var urlFlag, methodFlag, includeFlag, excludeFlag, githubBranchFlag string
+	var (
+		urlFlag, methodFlag, includeFlag, excludeFlag, githubBranchFlag string
+		missingFlags                                                    []string
+		invalidFlags                                                    []string
+	)
 
 	if g.Role == types.InputAdapter {
 		urlFlag = "in-github-url"
@@ -98,18 +102,40 @@ func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 	// Extract GitHub URL
 	githubURL, _ := cmd.Flags().GetString(urlFlag)
 	if githubURL == "" {
-		return fmt.Errorf("missing or invalid flag: %s", urlFlag)
+		missingFlags = append(missingFlags, "--"+urlFlag)
 	}
 
+	validMethods := map[string]bool{"release": true, "api": true, "tool": true}
+
+	// Extract GitHub method
 	method, _ := cmd.Flags().GetString(methodFlag)
-	if method != "release" && method != "api" && method != "tool" {
-		return fmt.Errorf("missing or invalid flag: %s", methodFlag)
+	if !validMethods[method] {
+		invalidFlags = append(invalidFlags, fmt.Sprintf("%s=%s (must be one of: release, api, tool)", methodFlag, method))
 	}
 
+	// Extract branch (only valid for "tool" method)
 	branch, _ := cmd.Flags().GetString(githubBranchFlag)
+	if branch != "" && method != "tool" {
+		invalidFlags = append(invalidFlags, fmt.Sprintf("%s is only supported for --in-github-method=tool, whereas it's not supported for --in-github-method=api and --in-github-method=release", githubBranchFlag))
+	}
 
 	includeRepos, _ := cmd.Flags().GetStringSlice(includeFlag)
 	excludeRepos, _ := cmd.Flags().GetStringSlice(excludeFlag)
+
+	// Validate include & exclude repos cannot be used together
+	if len(includeRepos) > 0 && len(excludeRepos) > 0 {
+		invalidFlags = append(invalidFlags, fmt.Sprintf("Cannot use both %s and %s together", includeFlag, excludeFlag))
+	}
+
+	// Validate required flags
+	if len(missingFlags) > 0 {
+		return fmt.Errorf("missing input adapter required flags: %v\n\nUse 'sbommv transfer --help' for usage details.", missingFlags)
+	}
+
+	// Validate incorrect flag usage
+	if len(invalidFlags) > 0 {
+		return fmt.Errorf("invalid input adapter flag usage:\n- %s\n\nUse 'sbommv transfer --help' for correct usage.", strings.Join(invalidFlags, "\n- "))
+	}
 
 	g.IncludeRepos = includeRepos
 	g.ExcludeRepos = excludeRepos
@@ -392,7 +418,7 @@ func (g *GitHubAdapter) DryRun(ctx *tcontext.TransferMetadata, iterator iterator
 		}
 
 		sbomCount++
-		fmt.Printf(" - 📁 Repo: %s | Format: %s | SpecVersion: %s | Filename: %s \n", sbom.Repo, doc.Format, doc.SpecVersion, doc.Filename)
+		fmt.Printf(" - 📁 Repo: %s-%s | Format: %s | SpecVersion: %s | Filename: %s \n", sbom.Repo, sbom.Version, doc.Format, doc.SpecVersion, doc.Filename)
 
 		// logger.LogInfo(ctx.Context, fmt.Sprintf("%d. Repo: %s | Format: %s | SpecVersion: %s | Filename: %s",
 		// 	sbomCount, sbom.Repo, doc.Format, doc.SpecVersion, doc.Filename))
