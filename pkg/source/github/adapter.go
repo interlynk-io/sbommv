@@ -71,7 +71,7 @@ const (
 
 // AddCommandParams adds GitHub-specific CLI flags
 func (g *GitHubAdapter) AddCommandParams(cmd *cobra.Command) {
-	cmd.Flags().String("in-github-url", "", "GitHub repository URL")
+	cmd.Flags().String("in-github-url", "", "GitHub organization or repository URL")
 	cmd.Flags().String("in-github-method", "api", "GitHub method: release, api, or tool")
 	cmd.Flags().String("in-github-branch", "", "Github repository branch")
 
@@ -105,6 +105,24 @@ func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 		missingFlags = append(missingFlags, "--"+urlFlag)
 	}
 
+	includeRepos, _ := cmd.Flags().GetStringSlice(includeFlag)
+	excludeRepos, _ := cmd.Flags().GetStringSlice(excludeFlag)
+
+	// Validate GitHub URL to determine if it's an org or repo
+	owner, repo, version, err := utils.ParseGithubURL(githubURL)
+	if err != nil {
+		return fmt.Errorf("invalid GitHub URL format: %w", err)
+	}
+
+	// If repo is present (i.e., single repo URL), filtering flags should NOT be used
+	if repo != "" {
+		if len(includeRepos) > 0 || len(excludeRepos) > 0 {
+			return fmt.Errorf(
+				"Filtering flags (--in-github-include-repos / --in-github-exclude-repos) can only be used with an organization URL(i.e. https://github.com/<organization>), not a single repository(i.e https://github.com/<organization>/<repo>)",
+			)
+		}
+	}
+
 	validMethods := map[string]bool{"release": true, "api": true, "tool": true}
 
 	// Extract GitHub method
@@ -116,11 +134,8 @@ func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 	// Extract branch (only valid for "tool" method)
 	branch, _ := cmd.Flags().GetString(githubBranchFlag)
 	if branch != "" && method != "tool" {
-		invalidFlags = append(invalidFlags, fmt.Sprintf("%s is only supported for --in-github-method=tool, whereas it's not supported for --in-github-method=api and --in-github-method=release", githubBranchFlag))
+		invalidFlags = append(invalidFlags, fmt.Sprintf("--%s is only supported for --in-github-method=tool, whereas it's not supported for --in-github-method=api and --in-github-method=release", githubBranchFlag))
 	}
-
-	includeRepos, _ := cmd.Flags().GetStringSlice(includeFlag)
-	excludeRepos, _ := cmd.Flags().GetStringSlice(excludeFlag)
 
 	// Validate include & exclude repos cannot be used together
 	if len(includeRepos) > 0 && len(excludeRepos) > 0 {
@@ -134,7 +149,7 @@ func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 
 	// Validate incorrect flag usage
 	if len(invalidFlags) > 0 {
-		return fmt.Errorf("invalid input adapter flag usage:\n- %s\n\nUse 'sbommv transfer --help' for correct usage.", strings.Join(invalidFlags, "\n- "))
+		return fmt.Errorf("invalid input adapter flag usage:\n %s\n\nUse 'sbommv transfer --help' for correct usage.", strings.Join(invalidFlags, "\n "))
 	}
 
 	g.IncludeRepos = includeRepos
@@ -158,12 +173,6 @@ func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 	token := viper.GetString("GITHUB_TOKEN")
 	if token == "" {
 		logger.LogDebug(cmd.Context(), "GitHub Token not found in environment")
-	}
-
-	// Parse URL into owner, repo, and version
-	owner, repo, version, err := utils.ParseGithubURL(githubURL)
-	if err != nil {
-		return fmt.Errorf("invalid GitHub URL format: %w", err)
 	}
 
 	if version != "" && method == "api" {

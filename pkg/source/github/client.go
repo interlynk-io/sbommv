@@ -78,7 +78,7 @@ type Client struct {
 	Version      string
 	Method       string
 	Branch       string
-	token        string
+	Token        string
 }
 
 // NewClient initializes a GitHub client
@@ -92,6 +92,7 @@ func NewClient(g *GitHubAdapter) *Client {
 		Owner:      g.Owner,
 		Repo:       g.Repo,
 		Branch:     g.Branch,
+		Token:      g.GithubToken,
 	}
 }
 
@@ -132,7 +133,7 @@ func (c *Client) FindSBOMs(ctx *tcontext.TransferMetadata) ([]SBOMAsset, error) 
 // filterReleases filters releases based on version input
 func (c *Client) filterReleases(releases []Release, version string) []Release {
 	if version == "" {
-		// Return all releases
+		// Return all refilterReleasesleases
 		return releases
 	}
 	if version == "latest" {
@@ -382,8 +383,8 @@ func (c *Client) FetchSBOMFromAPI(ctx *tcontext.TransferMetadata) ([]byte, error
 	}
 
 	// Add authentication only if a token is provided
-	if c.token != "" {
-		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.token))
+	if c.Token != "" {
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.Token))
 	}
 
 	// Set required headers
