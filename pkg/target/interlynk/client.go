@@ -91,12 +91,12 @@ func NewClient(config Config) *Client {
 	}
 }
 
-func (c *Client) FindOrCreateProjectGroup(ctx *tcontext.TransferMetadata, repoName string) (string, error) {
+func (c *Client) FindOrCreateProjectGroup(ctx *tcontext.TransferMetadata, repoName, repoVersion string) (string, error) {
 	projectName := ""
 	if c.ProjectName != "" {
-		projectName = c.ProjectName
+		projectName = c.ProjectName + "-" + repoVersion
 	} else {
-		projectName = fmt.Sprintf("%s", repoName)
+		projectName = fmt.Sprintf("%s-%s", repoName, repoVersion)
 	}
 
 	env := ""
@@ -372,7 +372,6 @@ func (c *Client) FindProjectGroup(ctx *tcontext.TransferMetadata, name string, e
 
 // CreateProjectGroup creates a new project group and returns the default project's ID
 func (c *Client) CreateProjectGroup(ctx *tcontext.TransferMetadata, name, env string) (string, error) {
-
 	const createProjectGroupMutation = `
         mutation CreateProjectGroup($name: String!, $desc: String, $enabled: Boolean) {
             projectGroupCreate(
