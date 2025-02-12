@@ -91,12 +91,12 @@ func NewClient(config Config) *Client {
 	}
 }
 
-func (c *Client) FindOrCreateProjectGroup(ctx *tcontext.TransferMetadata, repoName, repoVersion string) (string, error) {
+func (c *Client) FindOrCreateProjectGroup(ctx *tcontext.TransferMetadata, repoName string) (string, error) {
 	projectName := ""
 	if c.ProjectName != "" {
-		projectName = c.ProjectName + "-" + repoVersion
+		projectName = c.ProjectName
 	} else {
-		projectName = fmt.Sprintf("%s-%s", repoName, repoVersion)
+		projectName = fmt.Sprintf("%s", repoName)
 	}
 
 	env := ""

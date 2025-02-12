@@ -206,7 +206,7 @@ func (i *InterlynkAdapter) uploadSequential(ctx *tcontext.TransferMetadata, sbom
 
 		logger.LogDebug(ctx.Context, "Uploading SBOM", "repo", sbom.Repo, "version", sbom.Version, "data size", len(sbom.Data))
 
-		projectID, err := client.FindOrCreateProjectGroup(ctx, sbom.Repo, sbom.Version)
+		projectID, err := client.FindOrCreateProjectGroup(ctx, sbom.Repo)
 		if err != nil {
 			logger.LogInfo(ctx.Context, "error", err)
 			continue
