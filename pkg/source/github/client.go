@@ -122,7 +122,7 @@ func (c *Client) FindSBOMs(ctx *tcontext.TransferMetadata) ([]SBOMAsset, error) 
 	sboms := c.extractSBOMs(targetReleases)
 
 	if len(sboms) == 0 {
-		fmt.Printf("No SBOM files found for repository %s/%s", c.Owner, c.Repo)
+		logger.LogInfo(ctx.Context, "No SBOM files found for", "repo", c.Repo, "owner", c.Owner)
 		return nil, nil
 	}
 	logger.LogDebug(ctx.Context, "Successfully retrieved SBOMs", "total_sboms", len(sboms), "repo_url", c.RepoURL)
