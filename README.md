@@ -1,10 +1,24 @@
-# sbommv
+# `sbommv`: Sbom transfers made easy
 
-sbommv - Your primary tool to transfer SBOM's between different systems.
+[![Go Reference](https://pkg.go.dev/badge/github.com/interlynk-io/sbommv.svg)](https://pkg.go.dev/github.com/interlynk-io/sbommv)
+[![Go Report Card](https://goreportcard.com/badge/github.com/interlynk-io/sbommv)](https://goreportcard.com/report/github.com/interlynk-io/sbommv)
+![GitHub all releases](https://img.shields.io/github/downloads/interlynk-io/sbommv/total)
 
-sbommv is designed to allow transfer sboms across systems. The tool supports input, translation, enrichment & output adapters which allow it to be extensible in the future. Input adapters are responsbile to interface with services and provide various methods to extract sboms. The output adapters handles all the complexity related to uploading sboms. 
+`sbommv` is your primary tool to transfer SBOM's between different systems.It is designed to allow transfer sboms across systems. The tool supports input, translation, enrichment & output adapters which allow it to be extensible in the future. Input adapters are responsbile to interface with services and provide various methods to extract sboms. The output adapters handles all the complexity related to uploading sboms. 
 
-## Why sbommv? The Motivation Behind Its Creation
+```console
+brew tap interlynk-io/interlynk
+brew install sbommv
+```
+
+Other [installation options](#installation).
+
+# SBOM Platform - Free Tier
+
+Our SBOM Automation Platform has a new free tier that provides a comprehensive solution to manage SBOMs (Software Bill of Materials) effortlessly. From centralized SBOM storage, built-in SBOM editor, continuous vulnerability mapping and assessment, and support for organizational policies, all while ensuring compliance and enhancing software supply chain security using integrated SBOM quality scores. The free tier is ideal for small teams. [Sign up](https://app.interlynk.io/)
+
+
+## Why sbommv
 
 ### The Problem: Managing SBOMs Across Systems
 
@@ -165,10 +179,66 @@ To access this platform `INTERLYNK_SECURITY_TOKEN`, will be required.
    --out-interlynk-project-env=production
    ```
 
-## License 
+# Installation
 
-### Conversion Adapters
+## Using Prebuilt binaries
 
-## SPDX -> CDX 
+```console
+https://github.com/interlynk-io/sbommv/releases
+```
 
-## CDX -> SPDX
+## Using Homebrew
+
+```console
+brew tap interlynk-io/interlynk
+brew install sbommv
+```
+
+## Using Go install
+
+```console
+go install github.com/interlynk-io/sbommv@latest
+```
+
+## Using repo
+
+This approach involves cloning the repo and building it.
+
+1. Clone the repo `git clone git@github.com:interlynk-io/sbommv.git`
+2. `cd` into `sbommv` folder
+3. make; make build
+4. To test if the build was successful run the following command `./build/sbommv version`
+
+# Contributions
+
+We look forward to your contributions, below are a few guidelines on how to submit them
+
+- Fork the repo
+- Create your feature/bug branch (`git checkout -b feature/bug`)
+- Commit your changes (`git commit -aSm "awesome new feature"`) - commits must be signed
+- Push your changes (`git push origin feature/new-feature`)
+- Create a new pull-request
+
+# Other Open Source Software tools for SBOMs
+- [SBOM Quality Score](https://github.com/interlynk-io/sbomqs) - Quality & Compliance tool
+- [SBOM Assembler](https://github.com/interlynk-io/sbomasm) - A tool to compose a single SBOM by combining other SBOMs or parts of them
+- [SBOM Quality Score](https://github.com/interlynk-io/sbomqs) - A tool for evaluating the quality and completeness of SBOMs
+- [SBOM Search Tool](https://github.com/interlynk-io/sbomagr) - A tool to grep style semantic search in SBOMs
+- [SBOM Explorer](https://github.com/interlynk-io/sbomex) - A tool for discovering and downloading SBOMs from a public repository
+
+# Contact
+
+We appreciate all feedback. The best ways to get in touch with us:
+
+- ❓& 🅰️ [Slack](https://join.slack.com/t/sbomqa/shared_invite/zt-2jzq1ttgy-4IGzOYBEtHwJdMyYj~BACA)
+- :phone: [Live Chat](https://www.interlynk.io/#hs-chat-open)
+- 📫 [Email Us](mailto:hello@interlynk.io)
+- 🐛 [Report a bug or enhancement](https://github.com/interlynk-io/sbomex/issues)
+- :x: [Follow us on X](https://twitter.com/InterlynkIo)
+
+# Stargazers
+
+If you like this project, please support us by starring it.
+
+[![Stargazers](https://starchart.cc/interlynk-io/sbommv.svg)](https://starchart.cc/interlynk-io/sbommv)
+
