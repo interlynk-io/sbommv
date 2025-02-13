@@ -2,19 +2,35 @@
 
 sbommv - Your primary tool to transfer SBOM's between different systems.
 
-## Summary
-
 sbommv is designed to allow transfer sboms across systems. The tool supports input, translation, enrichment & output adapters which allow it to be extensible in the future. Input adapters are responsbile to interface with services and provide various methods to extract sboms. The output adapters handles all the complexity related to uploading sboms. 
+
+## Why sbommv? The Motivation Behind Its Creation
+
+### The Problem: Managing SBOMs Across Systems
+
+A Software Bill of Materials (SBOM) plays a crucial role in software supply chain security, compliance, and vulnerability management. However, organizations face a key challenge: **How do you efficiently move SBOMs between different systems?**.
+
+There are two major categories of systems dealing with SBOMs: SBOM Sources (Input Systems) and SBOM Consumers (Output Systems). Manually fetching SBOMs from input systems and uploading them to output systems is: Time-consuming, Error-prone and Difficult to scale.
+
+### The Solution: Automating SBOM Transfers(sbommv)
+
+sbommv is designed to move SBOMs between systems effortlessly. It provides: **Input Adapters**(Fetch SBOMs from different sources) and **Output Adapters**(Upload SBOMs to analysis and security platforms). Currently sbommv support **github** as a input adapter and **interlynk** as aoutput adapter.
+
+## How sbommv Works ?
+
+- Extract SBOMs from Input Systems (GitHub, package registries, etc.)
+- Transform or Enrich SBOMs (Future capabilities for format conversion, enrichment)
+- Send SBOMs to Output Systems (Security tools, SBOM repositories, compliance platforms)
 
 **Examples**
 
-1. **Generate & Transfer SBOM's for all repositories in Github org of Interlynk to interlynk SBOM' platform**:
-   Generate & Transfer SBOM's from all repositories in the interlynk github organization using github apis, and transfer them to interlynk. If interlynk platform does not contain projects it will create them.
+1. **Generate & Transfer SBOM's for all repositories in Github org of `interlynk-io` to Interlynk SBOM's platform**:
+   Generate & Transfer SBOM's from all repositories in the interlynk-io github organization using github apis, and transfer them to interlynk. If interlynk platform does not contain projects it will create them.
 
    ```bash
-   export GITHUB_TOKEN=ghp_klgJBxKukyaoWA******
-   export INTERLYNK_SECURITY_TOKEN=lynk_api******
-   sbommv transfer --input-adapter=github --in-github-url="https://github.com/interlynk-io" --output-adapter=interlynk --out-interlynk-url="http://localhost:3000/lynkapi"
+   $ export GITHUB_TOKEN=ghp_klgJBxKukyaoWA******
+   $ export INTERLYNK_SECURITY_TOKEN=lynk_api******
+   $ sbommv transfer --input-adapter=github --in-github-url="https://github.com/interlynk-io" --output-adapter=interlynk --out-interlynk-url="http://localhost:3000/lynkapi"
    ```
 
 2. **DRY RUN: Transfer SBOM from the latest version of sbomqs to interlynk platform**:
@@ -26,8 +42,15 @@ sbommv is designed to allow transfer sboms across systems. The tool supports inp
    sbommv transfer --input-adapter=github  --in-github-url=https://github.com/interlynk-io/sbomqs --in-github-method="release" --output-adapter=interlynk  --out-interlynk-url=https://api.interlynk.io/lynkapi --dry-run
    ```
 
+## What's next 🚀 ??
 
-## Data Flow 
+- [Getting started](https://github.com/interlynk-io/sbommv/blob/main/docs/getting_started.md) with sbommv.
+- Try out more [examples](https://github.com/interlynk-io/sbommv/blob/main/docs/examples.md)
+- Detailed CLI command and it's flag [usage](https://github.com/interlynk-io/sbommv/blob/main/docs/flag_usage.md)
+- More about [Input and Output adapters](https://github.com/interlynk-io/sbommv/blob/main/docs/adapters.md)
+
+## Data Flow
+
 ```
 +---------------------+     +------------------------------+     +----------------------+
 |    Input Adapter    | --> |    Enrichment/Translation    | --> |   Output Adapter     |
@@ -141,11 +164,11 @@ To access this platform `INTERLYNK_SECURITY_TOKEN`, will be required.
    --out-interlynk-project-name=abc
    --out-interlynk-project-env=production
    ```
-   
-### Enrichment Adapters 
+
 ## License 
 
 ### Conversion Adapters
+
 ## SPDX -> CDX 
 
 ## CDX -> SPDX

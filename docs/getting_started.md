@@ -19,8 +19,8 @@ Before getting started, ensure you have:
 ### Install sbommv via Homebrew (Recommended for macOS & Linux)
 
 ```bash
-brew tap interlynk-io/sbommv
-brew install sbommv
+$ brew tap interlynk-io/sbommv
+$ brew install sbommv
 ```
 
 ### Install sbommv via Binary (Linux/macOS/Windows)
@@ -28,20 +28,20 @@ brew install sbommv
 Download the latest release from: [SBOMMV Releases](https://github.com/interlynk-io/sbommv/releases)  
 
 ```bash
-# Example for Linux (AMD64)
-wget https://github.com/interlynk-io/sbommv/releases/latest/download/sbommv-linux-amd64
-chmod +x sbommv-linux-amd64
-mv sbommv-linux-amd64 /usr/local/bin/sbommv
-sbommv help
+$ wget https://github.com/interlynk-io/sbommv/releases/latest/download/sbommv-linux-amd64
+$ chmod +x sbommv-linux-amd64
+$ sudo mv sbommv-linux-amd64 /usr/local/bin/sbommv
+$ sbommv help
 ```
 
 ### **Build from Source (For Developers)**  
 
 ```bash
-git clone https://github.com/interlynk-io/sbommv.git
-cd sbommv
-make build
-./build/sbommv help
+$ git clone https://github.com/interlynk-io/sbommv.git
+$ cd sbommv
+$ make build
+$ ./build/sbommv help
+$ sudo mv ./build/sbommv /usr/local/bin
 ```
 
 Now, you have installed sbommv, now let's configure interlynk.
@@ -68,7 +68,7 @@ If you are using **Interlynk as the output adapter**, authentication setup is **
 
   ![Interlynk Homepage](image-2.png)  
 
-- On the **right sidebar**, click on **Products**. By default, a product named **"Demo Product"** will be available. All SBOMs will be uploaded to newly created products.  
+- On the **right sidebar**, click on **Products**. By default, a product named **Demo Product** will be available. All SBOMs will be uploaded to newly created products.  
 
 ### b. Generate a Security Token → [Get Token](https://app.interlynk.io/vendor/settings?tab=security%20tokens)  
 
