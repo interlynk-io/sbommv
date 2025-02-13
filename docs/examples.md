@@ -24,7 +24,7 @@ Once SBOMs are fetched, they are uploaded to Interlynk. To use Interlynk, you ne
 
 1. [Create an Interlynk account](https://app.interlynk.io/auth).
 2. Generate an INTERLYNK_SECURITY_TOKEN from [here](https://app.interlynk.io/vendor/settings?tab=security%20tokens).
-3. Export the token** before running `sbommv`
+3. Export the token before running `sbommv`
     ```bash
     export INTERLYNK_SECURITY_TOKEN="lynk_test_EV2DxRfCfn4wdM8FVaiGkb6ny3KgSJ7JE5zT"
     ```
@@ -43,7 +43,7 @@ sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigst
 ```
 
 - **What this does**:
-  - Fetches SBOMs from the latest release of the repository sigstore/cosign
+  - Fetches SBOMs from the latest release of the repository `sigstore/cosign`
   - And prints the feched SBOMs as well as SBOMs to be uploaded on Interlynk
   
 - **NOTE**:
@@ -65,7 +65,7 @@ sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigst
 ```
 
 - **What this does**:
-  - Fetches SBOMs from GitHub’s dependency graph API for the repository sigstore/cosign
+  - Fetches SBOMs from GitHub’s dependency graph API for the repository `sigstore/cosign`
   - Uploads them to Interlynk
 
 **NOTE**:
@@ -83,7 +83,7 @@ sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigst
 
 - **What this does**:
   - Clones the repository
-  - Generates an SBOM using Syft for the repository sigstore/cosign
+  - Generates an SBOM using Syft for the repository `sigstore/cosign`
   - Uploads them to Interlynk
 
 **NOTE**:
@@ -100,7 +100,7 @@ sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigst
 
 - **What this does**:
   - Clones the main branch instead of the default branch.
-  - Generates an SBOM using Syft for the repository sigstore/cosign
+  - Generates an SBOM using Syft for the repository `sigstore/cosign`
   - Uploads them to Interlynk
 
 **NOTE**:
@@ -228,7 +228,7 @@ sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigst
 
 NOTE:
 
-- Project `cosign-project` must be present in the Interlynk
+- Project `cosign-dev` must be present in the Interlynk
 
 ## Conclusion
 
