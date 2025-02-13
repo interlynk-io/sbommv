@@ -39,20 +39,29 @@ Now let's dive into various use cases and examples.
 
 ```bash
 sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigstore/cosign" \
-                --output-adapter=interlynk --out-interlynk-url="https://api.interlynk.io/lynkapi"
+                --in-github-method=release --output-adapter=interlynk --out-interlynk-url="https://api.interlynk.io/lynkapi" --dry-run
 ```
 
 - **What this does**:
   - Fetches SBOMs from the latest release of the repository sigstore/cosign
-  - Uploads them to Interlynk
+  - And prints the feched SBOMs as well as SBOMs to be uploaded on Interlynk
+  
+- **NOTE**:
+  - `dry-run` method display the preview of the SBOMs to be uploaded, project to be created on Interlynk.
+  - remove the `dry-run` flag, to process with uploading part.
 
-### 1.2 GitHub API Method (Dependency Graph)
+```bash
+sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigstore/cosign" \
+                --in-github-method=release --output-adapter=interlynk --out-interlynk-url="https://api.interlynk.io/lynkapi"
+```
+
+### 1.2 GitHub API Method (Dependency Graph): default method
 
 #### Fetch SBOMs using the GitHub API and upload to Interlynk
 
 ```bash
 sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigstore/cosign" \
-                --in-github-method=api --output-adapter=interlynk --out-interlynk-url="https://api.interlynk.io/lynkapi"
+                 --output-adapter=interlynk --out-interlynk-url="https://api.interlynk.io/lynkapi"
 ```
 
 - **What this does**:
@@ -152,7 +161,7 @@ sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigst
 
 ```bash
 sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigstore" \
-                --in-github-method=api --in-github-include-repos=cosign,rekor \
+                --in-github-include-repos=cosign,rekor \
                 --output-adapter=interlynk --out-interlynk-url="https://api.interlynk.io/lynkapi"
 ```
 
@@ -166,7 +175,7 @@ sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigst
 
 ```bash
 sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigstore" \
-                --in-github-method=api --in-github-exclude-repos=docs \
+                --in-github-exclude-repos=docs \
                 --output-adapter=interlynk --out-interlynk-url="https://api.interlynk.io/lynkapi"
 ```
 
