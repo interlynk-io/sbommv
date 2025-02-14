@@ -312,9 +312,13 @@ func (g *GitHubAdapter) fetchSBOMsConcurrently(ctx *tcontext.TransferMetadata, r
 			defer wg.Done()
 			g.Repo = repo
 			g.client.Repo = repo
-			iter, err := NewGitHubIterator(ctx, g, repo)
+
+			iter := NewGitHubIterator(ctx, g, repo)
+
+			// Fetch SBOMs separately
+			err := iter.HandleSBOMFetchingViaIterator(ctx, GitHubMethod(g.Method))
 			if err != nil {
-				logger.LogError(ctx.Context, err, "Failed to fetch SBOMs for repo", "repo", repo)
+				logger.LogDebug(ctx.Context, "Failed to fetch SBOMs for repo", "repo", repo)
 				return
 			}
 			for {
@@ -355,8 +359,10 @@ func (g *GitHubAdapter) fetchSBOMsSequentially(ctx *tcontext.TransferMetadata, r
 
 		logger.LogDebug(ctx.Context, "Fetching SBOMs sequentially", "repo", repo)
 
-		// Fetch SBOMs for the current repository
-		iter, err := NewGitHubIterator(ctx, g, repo)
+		iter := NewGitHubIterator(ctx, g, repo)
+
+		// Fetch SBOMs separately
+		err := iter.HandleSBOMFetchingViaIterator(ctx, GitHubMethod(g.Method))
 		if err != nil {
 			logger.LogInfo(ctx.Context, "Failed to fetch SBOMs for", "repo", repo)
 			continue

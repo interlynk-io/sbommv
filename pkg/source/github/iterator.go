@@ -34,47 +34,52 @@ type GitHubIterator struct {
 	binaryPath string
 }
 
-// NewGitHubIterator initializes the iterator based on the GitHub method
-func NewGitHubIterator(ctx *tcontext.TransferMetadata, g *GitHubAdapter, repo string) (*GitHubIterator, error) {
+// NewGitHubIterator initializes and returns a new GitHubIterator instance
+func NewGitHubIterator(ctx *tcontext.TransferMetadata, g *GitHubAdapter, repo string) *GitHubIterator {
 	logger.LogDebug(ctx.Context, "Initializing GitHub Iterator", "repo", g.URL, "method", g.Method, "repo", repo)
 
 	g.client.updateRepo(repo)
 
-	iterator := &GitHubIterator{
+	// Create and return the iterator instance without fetching SBOMs
+	return &GitHubIterator{
 		client:     g.client,
 		sboms:      []*iterator.SBOM{},
 		binaryPath: g.BinaryPath,
 	}
+}
 
-	// Fetch SBOMs based on method
+// FetchSBOMs fetches SBOMs for the given GitHubIterator instance
+func (it *GitHubIterator) HandleSBOMFetchingViaIterator(ctx *tcontext.TransferMetadata, method GitHubMethod) error {
+	logger.LogDebug(ctx.Context, "Fetching SBOMs using GitHub Iterator", "repo", it.client.Repo, "method", method)
+
 	var err error
 
-	switch GitHubMethod(g.Method) {
+	switch GitHubMethod(method) {
 	case MethodAPI:
-		err = iterator.fetchSBOMFromAPI(ctx)
+		err = it.fetchSBOMFromAPI(ctx)
 
 	case MethodReleases:
-		err = iterator.fetchSBOMFromReleases(ctx)
+		err = it.fetchSBOMFromReleases(ctx)
 
 	case MethodTool:
-		err = iterator.fetchSBOMFromTool(ctx)
+		err = it.fetchSBOMFromTool(ctx)
 
 	default:
-		return nil, fmt.Errorf("unsupported GitHub method: %s", g.Method)
+		return fmt.Errorf("unsupported GitHub method: %s", method)
 	}
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch SBOMs: %w", err)
+		return fmt.Errorf("failed to fetch SBOMs: %w", err)
 	}
 
-	if len(iterator.sboms) == 0 {
+	if len(it.sboms) == 0 {
 		fmt.Printf("no SBOMs found for repository")
-		return nil, nil
-		// return nil, fmt.Errorf("no SBOMs found for repository")
+		return nil
 	}
 
-	logger.LogDebug(ctx.Context, "Total SBOMs fetched", "count", len(iterator.sboms))
-	return iterator, nil
+	logger.LogDebug(ctx.Context, "Total SBOMs fetched for ", "repo", it.client.Repo, "count", len(it.sboms))
+
+	return err
 }
 
 // Next returns the next SBOM from the stored list
