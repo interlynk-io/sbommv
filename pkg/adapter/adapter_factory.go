@@ -20,6 +20,7 @@ import (
 
 	"github.com/interlynk-io/sbommv/pkg/iterator"
 	"github.com/interlynk-io/sbommv/pkg/logger"
+	"github.com/interlynk-io/sbommv/pkg/mvtypes"
 	"github.com/interlynk-io/sbommv/pkg/source/github"
 	"github.com/interlynk-io/sbommv/pkg/target/interlynk"
 	"github.com/interlynk-io/sbommv/pkg/tcontext"
@@ -45,19 +46,47 @@ type Adapter interface {
 	DryRun(ctx *tcontext.TransferMetadata, iterator iterator.SBOMIterator) error
 }
 
-// NewAdapter initializes and returns the correct adapter
-func NewAdapter(ctx *tcontext.TransferMetadata, adapterType string, role types.AdapterRole) (Adapter, error) {
-	logger.LogDebug(ctx.Context, "Initializing adapter", "adapterType", adapterType)
+// NewAdapter initializes and returns the correct adapters (both input & output)
+func NewAdapter(ctx *tcontext.TransferMetadata, config mvtypes.Config) (map[types.AdapterRole]Adapter, error) {
+	adapters := make(map[types.AdapterRole]Adapter)
 
-	switch types.AdapterType(adapterType) {
+	// Initialize Input Adapter
+	if config.SourceType != "" {
+		logger.LogDebug(ctx.Context, "Initializing Input Adapter", "adapterType", config.SourceType)
 
-	case types.GithubAdapterType:
-		return &github.GitHubAdapter{Role: role}, nil
+		switch types.AdapterType(config.SourceType) {
 
-	case types.InterlynkAdapterType:
-		return &interlynk.InterlynkAdapter{Role: role}, nil
+		case types.GithubAdapterType:
+			adapters[types.InputAdapterRole] = &github.GitHubAdapter{Role: types.InputAdapterRole}
 
-	default:
-		return nil, fmt.Errorf("unsupported adapter type: %s", adapterType)
+		case types.InterlynkAdapterType:
+			adapters[types.InputAdapterRole] = &interlynk.InterlynkAdapter{Role: types.InputAdapterRole}
+
+		default:
+			return nil, fmt.Errorf("unsupported input adapter type: %s", config.SourceType)
+		}
 	}
+
+	// Initialize Output Adapter
+	if config.DestinationType != "" {
+		logger.LogDebug(ctx.Context, "Initializing Output Adapter", "adapterType", config.DestinationType)
+
+		switch types.AdapterType(config.DestinationType) {
+
+		case types.GithubAdapterType:
+			adapters[types.OutputAdapterRole] = &github.GitHubAdapter{Role: types.OutputAdapterRole}
+
+		case types.InterlynkAdapterType:
+			adapters[types.OutputAdapterRole] = &interlynk.InterlynkAdapter{Role: types.OutputAdapterRole}
+
+		default:
+			return nil, fmt.Errorf("unsupported output adapter type: %s", config.DestinationType)
+		}
+	}
+
+	if len(adapters) == 0 {
+		return nil, fmt.Errorf("no valid adapters found")
+	}
+
+	return adapters, nil
 }

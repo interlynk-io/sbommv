@@ -91,12 +91,19 @@ func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 		invalidFlags                                                    []string
 	)
 
-	if g.Role == types.InputAdapter {
+	switch g.Role {
+	case types.InputAdapterRole:
 		urlFlag = "in-github-url"
 		methodFlag = "in-github-method"
 		includeFlag = "in-github-include-repos"
 		excludeFlag = "in-github-exclude-repos"
 		githubBranchFlag = "in-github-branch"
+
+	case types.OutputAdapterRole:
+		return fmt.Errorf("The GitHub adapter doesn't support output adapter functionalities.")
+
+	default:
+		return fmt.Errorf("The adapter is neither an input type nor an output type")
 	}
 
 	// Extract GitHub URL

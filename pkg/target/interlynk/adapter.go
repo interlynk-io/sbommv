@@ -71,14 +71,18 @@ func (i *InterlynkAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 	var missingFlags []string
 	var invalidFlags []string
 
-	if i.Role == types.InputAdapter {
-		urlFlag = "in-interlynk-url"
-		projectNameFlag = "in-interlynk-project-name"
-		projectEnvFlag = "in-interlynk-project-env"
-	} else {
+	switch i.Role {
+
+	case types.InputAdapterRole:
+		return fmt.Errorf("The Interlynk adapter doesn't support input adapter functionalities.")
+
+	case types.OutputAdapterRole:
 		urlFlag = "out-interlynk-url"
 		projectNameFlag = "out-interlynk-project-name"
 		projectEnvFlag = "out-interlynk-project-env"
+
+	default:
+		return fmt.Errorf("The adapter is neither an input type nor an output type")
 	}
 
 	// Get flags
