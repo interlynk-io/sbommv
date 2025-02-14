@@ -18,8 +18,8 @@ package types
 type AdapterRole string
 
 const (
-	InputAdapter  AdapterRole = "input"
-	OutputAdapter AdapterRole = "output"
+	InputAdapterRole  AdapterRole = "input"
+	OutputAdapterRole AdapterRole = "output"
 )
 
 type AdapterType string

@@ -91,12 +91,19 @@ func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 		invalidFlags                                                    []string
 	)
 
-	if g.Role == types.InputAdapter {
+	switch g.Role {
+	case types.InputAdapterRole:
 		urlFlag = "in-github-url"
 		methodFlag = "in-github-method"
 		includeFlag = "in-github-include-repos"
 		excludeFlag = "in-github-exclude-repos"
 		githubBranchFlag = "in-github-branch"
+
+	case types.OutputAdapterRole:
+		return fmt.Errorf("The GitHub adapter doesn't support output adapter functionalities.")
+
+	default:
+		return fmt.Errorf("The adapter is neither an input type nor an output type")
 	}
 
 	// Extract GitHub URL
@@ -207,6 +214,7 @@ func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 		"include_repos", g.IncludeRepos,
 		"exclude_repos", g.ExcludeRepos,
 		"method", g.Method,
+		"token", g.GithubToken,
 	)
 	return nil
 }
@@ -305,9 +313,13 @@ func (g *GitHubAdapter) fetchSBOMsConcurrently(ctx *tcontext.TransferMetadata, r
 			defer wg.Done()
 			g.Repo = repo
 			g.client.Repo = repo
-			iter, err := NewGitHubIterator(ctx, g, repo)
+
+			iter := NewGitHubIterator(ctx, g, repo)
+
+			// Fetch SBOMs separately
+			err := iter.HandleSBOMFetchingViaIterator(ctx, GitHubMethod(g.Method))
 			if err != nil {
-				logger.LogError(ctx.Context, err, "Failed to fetch SBOMs for repo", "repo", repo)
+				logger.LogDebug(ctx.Context, "Failed to fetch SBOMs for repo", "repo", repo)
 				return
 			}
 			for {
@@ -348,8 +360,10 @@ func (g *GitHubAdapter) fetchSBOMsSequentially(ctx *tcontext.TransferMetadata, r
 
 		logger.LogDebug(ctx.Context, "Fetching SBOMs sequentially", "repo", repo)
 
-		// Fetch SBOMs for the current repository
-		iter, err := NewGitHubIterator(ctx, g, repo)
+		iter := NewGitHubIterator(ctx, g, repo)
+
+		// Fetch SBOMs separately
+		err := iter.HandleSBOMFetchingViaIterator(ctx, GitHubMethod(g.Method))
 		if err != nil {
 			logger.LogInfo(ctx.Context, "Failed to fetch SBOMs for", "repo", repo)
 			continue
@@ -427,7 +441,7 @@ func (g *GitHubAdapter) DryRun(ctx *tcontext.TransferMetadata, iterator iterator
 		}
 
 		sbomCount++
-		fmt.Printf(" - 📁 Repo: %s-%s | Format: %s | SpecVersion: %s | Filename: %s \n", sbom.Repo, sbom.Version, doc.Format, doc.SpecVersion, doc.Filename)
+		fmt.Printf(" - 📁 Repo: %s | Format: %s | SpecVersion: %s | Filename: %s \n", sbom.Repo, doc.Format, doc.SpecVersion, doc.Filename)
 
 		// logger.LogInfo(ctx.Context, fmt.Sprintf("%d. Repo: %s | Format: %s | SpecVersion: %s | Filename: %s",
 		// 	sbomCount, sbom.Repo, doc.Format, doc.SpecVersion, doc.Filename))

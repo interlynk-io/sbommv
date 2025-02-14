@@ -447,6 +447,14 @@ func (c *Client) GetAllRepositories(ctx *tcontext.TransferMetadata) ([]string, e
 		return nil, fmt.Errorf("creating request: %w", err)
 	}
 
+	// Add authentication only if a token is provided
+	if c.Token != "" {
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.Token))
+	}
+
+	// Set required headers
+	req.Header.Set("Accept", "application/vnd.github.v3+json")
+
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("fetching repositories: %w", err)
