@@ -275,7 +275,7 @@ func (i *InterlynkAdapter) DryRun(ctx *tcontext.TransferMetadata, sbomIterator i
 		}
 
 		// Identify project name (repo-version)
-		projectKey := fmt.Sprintf("%s-%s", sbom.Repo, sbom.Version)
+		projectKey := fmt.Sprintf("%s", sbom.Repo)
 		projectSBOMs[projectKey] = append(projectSBOMs[projectKey], doc)
 		totalSBOMs++
 		uniqueFormats[string(doc.Format)] = struct{}{}

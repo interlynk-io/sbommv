@@ -214,6 +214,7 @@ func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 		"include_repos", g.IncludeRepos,
 		"exclude_repos", g.ExcludeRepos,
 		"method", g.Method,
+		"token", g.GithubToken,
 	)
 	return nil
 }
@@ -440,7 +441,7 @@ func (g *GitHubAdapter) DryRun(ctx *tcontext.TransferMetadata, iterator iterator
 		}
 
 		sbomCount++
-		fmt.Printf(" - 📁 Repo: %s-%s | Format: %s | SpecVersion: %s | Filename: %s \n", sbom.Repo, sbom.Version, doc.Format, doc.SpecVersion, doc.Filename)
+		fmt.Printf(" - 📁 Repo: %s | Format: %s | SpecVersion: %s | Filename: %s \n", sbom.Repo, doc.Format, doc.SpecVersion, doc.Filename)
 
 		// logger.LogInfo(ctx.Context, fmt.Sprintf("%d. Repo: %s | Format: %s | SpecVersion: %s | Filename: %s",
 		// 	sbomCount, sbom.Repo, doc.Format, doc.SpecVersion, doc.Filename))
