@@ -20,6 +20,7 @@ import (
 
 	"github.com/interlynk-io/sbommv/pkg/engine"
 	ifolder "github.com/interlynk-io/sbommv/pkg/source/folder"
+	ofolder "github.com/interlynk-io/sbommv/pkg/target/folder"
 
 	"github.com/interlynk-io/sbommv/pkg/source/github"
 	"github.com/interlynk-io/sbommv/pkg/target/interlynk"
@@ -71,7 +72,6 @@ func registerAdapterFlags(cmd *cobra.Command) {
 	githubAdapter := &github.GitHubAdapter{}
 	githubAdapter.AddCommandParams(cmd)
 
-	// Register Folder Adapter Flags
 	// Register Input Folder Adapter Flags
 	folderInputAdapter := &ifolder.FolderAdapter{}
 	folderInputAdapter.AddCommandParams(cmd)
@@ -79,6 +79,10 @@ func registerAdapterFlags(cmd *cobra.Command) {
 	// Register Interlynk Adapter Flags
 	interlynkAdapter := &interlynk.InterlynkAdapter{}
 	interlynkAdapter.AddCommandParams(cmd)
+
+	// Register Output Folder Adapter Flags
+	folderOutputAdapter := &ofolder.FolderAdapter{}
+	folderOutputAdapter.AddCommandParams(cmd)
 
 	// similarly for all other Adapters
 }
@@ -117,7 +121,7 @@ func parseConfig(cmd *cobra.Command) (types.Config, error) {
 	dr, _ := cmd.Flags().GetBool("dry-run")
 
 	validInputAdapter := map[string]bool{"github": true, "folder": true}
-	validOutputAdapter := map[string]bool{"interlynk": true}
+	validOutputAdapter := map[string]bool{"interlynk": true, "folder": true}
 
 	// Custom validation for required flags
 	missingFlags := []string{}

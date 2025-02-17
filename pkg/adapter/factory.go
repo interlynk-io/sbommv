@@ -20,7 +20,9 @@ import (
 
 	"github.com/interlynk-io/sbommv/pkg/iterator"
 	"github.com/interlynk-io/sbommv/pkg/logger"
-	"github.com/interlynk-io/sbommv/pkg/source/folder"
+	ofolder "github.com/interlynk-io/sbommv/pkg/target/folder"
+
+	ifolder "github.com/interlynk-io/sbommv/pkg/source/folder"
 	"github.com/interlynk-io/sbommv/pkg/source/github"
 	"github.com/interlynk-io/sbommv/pkg/target/interlynk"
 	"github.com/interlynk-io/sbommv/pkg/tcontext"
@@ -60,7 +62,7 @@ func NewAdapter(ctx *tcontext.TransferMetadata, config types.Config) (map[types.
 			adapters[types.InputAdapterRole] = &github.GitHubAdapter{Role: types.InputAdapterRole}
 
 		case types.FolderAdapterType:
-			adapters[types.InputAdapterRole] = &folder.FolderAdapter{Role: types.InputAdapterRole}
+			adapters[types.InputAdapterRole] = &ifolder.FolderAdapter{Role: types.InputAdapterRole}
 
 		case types.InterlynkAdapterType:
 			adapters[types.InputAdapterRole] = &interlynk.InterlynkAdapter{Role: types.InputAdapterRole}
@@ -76,8 +78,8 @@ func NewAdapter(ctx *tcontext.TransferMetadata, config types.Config) (map[types.
 
 		switch types.AdapterType(config.DestinationType) {
 
-		case types.GithubAdapterType:
-			adapters[types.OutputAdapterRole] = &github.GitHubAdapter{Role: types.OutputAdapterRole}
+		case types.FolderAdapterType:
+			adapters[types.OutputAdapterRole] = &ofolder.FolderAdapter{Role: types.OutputAdapterRole}
 
 		case types.InterlynkAdapterType:
 			adapters[types.OutputAdapterRole] = &interlynk.InterlynkAdapter{Role: types.OutputAdapterRole}

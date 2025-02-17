@@ -46,7 +46,6 @@ func (f *FolderAdapter) fetchSBOMsSequentially(ctx *tcontext.TransferMetadata) (
 		if info.IsDir() && !f.Recursive && path != f.FolderPath {
 			return filepath.SkipDir
 		}
-		fmt.Println("path", path)
 
 		// Check if the file is a valid SBOM
 		if source.IsSBOMFile(path) {
@@ -57,7 +56,7 @@ func (f *FolderAdapter) fetchSBOMsSequentially(ctx *tcontext.TransferMetadata) (
 			}
 
 			// Extract project name from the top-level directory
-			projectName := getTopLevelDir(f.FolderPath, path)
+			projectName, path := getTopLevelDirAndFile(f.FolderPath, path)
 
 			sbomList = append(sbomList, &iterator.SBOM{
 				Data: content,
@@ -125,7 +124,7 @@ func (f *FolderAdapter) fetchSBOMsConcurrently(ctx *tcontext.TransferMetadata) (
 				}
 
 				// Extract project name from the top-level directory
-				projectName := getTopLevelDir(f.FolderPath, path)
+				projectName, path := getTopLevelDirAndFile(f.FolderPath, path)
 
 				sbomsChan <- &iterator.SBOM{
 					Data:      content,
@@ -164,18 +163,22 @@ func (f *FolderAdapter) fetchSBOMsConcurrently(ctx *tcontext.TransferMetadata) (
 	return iterator.NewMemoryIterator(sboms), nil
 }
 
-// getTopLevelDir extracts the top-level directory from a given path
-func getTopLevelDir(basePath, fullPath string) string {
+// getTopLevelDirAndFile extracts the first subdirectory after basePath and the filename.
+func getTopLevelDirAndFile(basePath, fullPath string) (string, string) {
+	// Get the relative path from basePath to fullPath
 	relPath, err := filepath.Rel(basePath, fullPath)
 	if err != nil {
-		return "unknown" // Fallback in case of an error
+		return "unknown", "unknown" // Fallback in case of error
 	}
 
-	// Split the relative path and return the first directory
+	// Split the relative path into directory components
 	parts := strings.Split(relPath, string(filepath.Separator))
+
+	// If there are at least two parts, return the first directory and the filename
 	if len(parts) > 1 {
-		return parts[0] // Return the top-level folder (e.g., "cdx" or "spdx")
+		return parts[0], parts[len(parts)-1] // First directory and last part (filename)
 	}
 
-	return "unknown"
+	// If there's no subdirectory, return "unknown" for directory and actual filename
+	return "unknown", relPath
 }
