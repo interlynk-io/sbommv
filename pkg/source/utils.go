@@ -17,6 +17,7 @@ package source
 import (
 	"encoding/base64"
 	"fmt"
+	"regexp"
 	"strings"
 )
 
@@ -24,14 +25,12 @@ import (
 func IsSBOMFile(name string) bool {
 	name = strings.ToLower(name)
 
-	// Common SBOM file patterns
+	// Extended SBOM patterns for better detection
 	patterns := []string{
-		".spdx.",
-		".sbom",
-		"bom.",
-		"cyclonedx",
-		"spdx",
-		".cdx.",
+		".spdx.", "spdx-", "spdx_", "spdx.",
+		".sbom", "sbom-", "sbom_", "sbom.",
+		"bom.", "bom-", "bom_",
+		"cyclonedx", "cdx-", "cdx_", "cdx.",
 	}
 
 	// Common SBOM file extensions
@@ -42,6 +41,14 @@ func IsSBOMFile(name string) bool {
 		".yaml",
 		".yml",
 		".txt", // for SPDX tag-value
+	}
+
+	// Regular expression for detecting known SBOM file naming conventions
+	sbomRegex := regexp.MustCompile(`(sbom|bom|spdx|cdx)[-_\.].+\.(json|xml|yaml|yml|txt)$`)
+
+	// Check if name matches the regex pattern
+	if sbomRegex.MatchString(name) {
+		return true
 	}
 
 	// Check if name contains any SBOM pattern
