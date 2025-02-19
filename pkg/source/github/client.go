@@ -22,6 +22,7 @@ import (
 	"sync"
 
 	"github.com/interlynk-io/sbommv/pkg/logger"
+	"github.com/interlynk-io/sbommv/pkg/source"
 	"github.com/interlynk-io/sbommv/pkg/tcontext"
 )
 
@@ -155,7 +156,7 @@ func (c *Client) extractSBOMs(releases []Release) []SBOMAsset {
 	var sboms []SBOMAsset
 	for _, release := range releases {
 		for _, asset := range release.Assets {
-			if isSBOMFile(asset.Name) {
+			if source.IsSBOMFile(asset.Name) {
 				sboms = append(sboms, SBOMAsset{
 					Release:     release.TagName,
 					Name:        asset.Name,
@@ -367,7 +368,7 @@ func (c *Client) downloadSingleSBOM(ctx *tcontext.TransferMetadata, sbom SBOMAss
 }
 
 func (c *Client) FetchSBOMFromAPI(ctx *tcontext.TransferMetadata) ([]byte, error) {
-	owner, repo, err := ParseGitHubURL(c.RepoURL)
+	owner, repo, err := source.ParseGitHubURL(c.RepoURL)
 	if err != nil {
 		return nil, fmt.Errorf("parsing GitHub URL: %w", err)
 	}
