@@ -13,7 +13,7 @@
 // limitations under the License.
 // -------------------------------------------------------------------------
 
-package mvtypes
+package types
 
 type Config struct {
 	// source adapter type

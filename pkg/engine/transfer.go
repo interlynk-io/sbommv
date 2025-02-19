@@ -23,13 +23,12 @@ import (
 	adapter "github.com/interlynk-io/sbommv/pkg/adapter"
 	"github.com/interlynk-io/sbommv/pkg/iterator"
 	"github.com/interlynk-io/sbommv/pkg/logger"
-	"github.com/interlynk-io/sbommv/pkg/mvtypes"
 	"github.com/interlynk-io/sbommv/pkg/tcontext"
 	"github.com/interlynk-io/sbommv/pkg/types"
 	"github.com/spf13/cobra"
 )
 
-func TransferRun(ctx context.Context, cmd *cobra.Command, config mvtypes.Config) error {
+func TransferRun(ctx context.Context, cmd *cobra.Command, config types.Config) error {
 	logger.LogDebug(ctx, "Starting SBOM transfer process")
 
 	// ✅ Initialize shared context with metadata support
