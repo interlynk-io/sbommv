@@ -28,3 +28,23 @@ const (
 	GithubAdapterType    AdapterType = "github"
 	InterlynkAdapterType AdapterType = "interlynk"
 )
+
+type ProcessingMode string
+
+const (
+	FetchParallel   ProcessingMode = "parallel"
+	FetchSequential ProcessingMode = "sequential"
+)
+
+type UploadMode string
+
+const (
+	UploadParallel   UploadMode = "parallel"
+	UploadBatching   UploadMode = "batch"
+	UploadSequential UploadMode = "sequential"
+)
+
+// UploadSettings contains configuration for SBOM uploads
+type UploadSettings struct {
+	ProcessingMode UploadMode // "sequential", "parallel", or "batch"
+}

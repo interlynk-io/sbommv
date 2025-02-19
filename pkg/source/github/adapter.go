@@ -49,13 +49,6 @@ type GitHubAdapter struct {
 	ExcludeRepos []string
 }
 
-type ProcessingMode string
-
-const (
-	FetchParallel   ProcessingMode = "parallel"
-	FetchSequential ProcessingMode = "sequential"
-)
-
 type GitHubMethod string
 
 const (
@@ -240,13 +233,13 @@ func (g *GitHubAdapter) FetchSBOMs(ctx *tcontext.TransferMetadata) (iterator.SBO
 
 	logger.LogDebug(ctx.Context, "Listing repos of organization after filtering", "values", repos)
 
-	processingMode := FetchSequential
+	processingMode := types.FetchSequential
 	var sbomIterator iterator.SBOMIterator
 
-	switch ProcessingMode(processingMode) {
-	case FetchParallel:
+	switch processingMode {
+	case types.FetchParallel:
 		sbomIterator, err = g.fetchSBOMsConcurrently(ctx, repos)
-	case FetchSequential:
+	case types.FetchSequential:
 		sbomIterator, err = g.fetchSBOMsSequentially(ctx, repos)
 	default:
 		return nil, fmt.Errorf("Unsupported Processing Mode !!")

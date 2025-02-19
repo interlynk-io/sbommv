@@ -42,20 +42,7 @@ type InterlynkAdapter struct {
 
 	// HTTP client for API requests
 	client   *http.Client
-	settings UploadSettings
-}
-
-type UploadMode string
-
-const (
-	UploadParallel   UploadMode = "parallel"
-	UploadBatching   UploadMode = "batch"
-	UploadSequential UploadMode = "sequential"
-)
-
-// UploadSettings contains configuration for SBOM uploads
-type UploadSettings struct {
-	ProcessingMode UploadMode // "sequential", "parallel", or "batch"
+	settings types.UploadSettings
 }
 
 // AddCommandParams adds GitHub-specific CLI flags
@@ -130,7 +117,7 @@ func (i *InterlynkAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 	i.ProjectName = projectName
 	i.ProjectEnv = projectEnv
 	i.ApiKey = token
-	i.settings = UploadSettings{ProcessingMode: UploadSequential}
+	i.settings = types.UploadSettings{ProcessingMode: types.UploadSequential}
 
 	logger.LogDebug(cmd.Context(), "Interlynk parameters validated and assigned",
 		"url", i.BaseURL,
@@ -154,17 +141,17 @@ func (i *InterlynkAdapter) UploadSBOMs(ctx *tcontext.TransferMetadata, iterator 
 
 	switch i.settings.ProcessingMode {
 
-	case UploadParallel:
+	case types.UploadParallel:
 		// TODO: cuncurrent upload: As soon as we get the SBOM, upload it
 		// i.uploadParallel()
 		return fmt.Errorf("processing mode %q not yet implemented", i.settings.ProcessingMode)
 
-	case UploadBatching:
+	case types.UploadBatching:
 		// TODO: hybrid of sequential + parallel
 		// i.uploadBatch()
 		return fmt.Errorf("processing mode %q not yet implemented", i.settings.ProcessingMode)
 
-	case UploadSequential:
+	case types.UploadSequential:
 		// Sequential Processing: Fetch SBOM → Upload → Repeat
 		i.uploadSequential(ctx, iterator)
 
