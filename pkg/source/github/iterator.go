@@ -142,12 +142,12 @@ func (it *GitHubIterator) fetchSBOMFromTool(ctx *tcontext.TransferMetadata) erro
 	}
 
 	// Generate SBOM and save in memory
-	sbomData, err := GenerateSBOM(ctx, repoDir, it.binaryPath)
+	sbomFile, err := GenerateSBOM(ctx, repoDir, it.binaryPath)
 	if err != nil {
 		return fmt.Errorf("failed to generate SBOM: %w", err)
 	}
 
-	sbomBytes, err := os.ReadFile(sbomData)
+	sbomBytes, err := os.ReadFile(sbomFile)
 	if err != nil {
 		return fmt.Errorf("failed to read SBOM: %w", err)
 	}

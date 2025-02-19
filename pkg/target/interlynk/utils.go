@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 )
 
 // ValidateInterlynkConnection chesks whether Interlynk ssytem is up and running
@@ -66,4 +67,13 @@ func genHealthzUrl(rawURL string) (string, error) {
 	}
 
 	return fmt.Sprintf("%s://%s/healthz", parsedURL.Scheme, parsedURL.Host), nil
+}
+
+// formatSetToString converts a map of unique formats to a comma-separated string
+func formatSetToString(formatSet map[string]struct{}) string {
+	var formats []string
+	for format := range formatSet {
+		formats = append(formats, format)
+	}
+	return strings.Join(formats, ", ")
 }

@@ -248,28 +248,6 @@ func (c *Client) DownloadAsset(ctx *tcontext.TransferMetadata, downloadURL strin
 	return resp.Body, nil
 }
 
-// DownloadSBOM fetches an SBOM from its download URL
-func (c *Client) DownloadSBOM(ctx *tcontext.TransferMetadata, asset SBOMAsset) ([]byte, error) {
-	logger.LogDebug(ctx.Context, "Downloading SBOM", "url", asset.DownloadURL)
-
-	resp, err := c.httpClient.Get(asset.DownloadURL)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch SBOM: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("GitHub API returned status %d", resp.StatusCode)
-	}
-
-	sbomData, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read SBOM data: %w", err)
-	}
-
-	return sbomData, nil
-}
-
 // GetSBOMs downloads and saves all SBOM files found in the repository
 func (c *Client) GetSBOMs(ctx *tcontext.TransferMetadata) (VersionedSBOMs, error) {
 	// Find SBOMs in releases

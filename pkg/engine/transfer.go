@@ -31,7 +31,7 @@ import (
 func TransferRun(ctx context.Context, cmd *cobra.Command, config types.Config) error {
 	logger.LogDebug(ctx, "Starting SBOM transfer process")
 
-	// ✅ Initialize shared context with metadata support
+	// Initialize shared context with metadata support
 	transferCtx := tcontext.NewTransferMetadata(ctx)
 
 	var inputAdapterInstance adapter.Adapter

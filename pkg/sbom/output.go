@@ -15,37 +15,13 @@
 package sbom
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 
 	"github.com/interlynk-io/sbommv/pkg/logger"
 )
-
-// PrettyPrintSBOM prints an SBOM in formatted JSON
-func PrettyPrintSBOM(w io.Writer, Content []byte) error {
-	// First try to unmarshal into a generic interface{} to get the structure
-	var data interface{}
-	if err := json.Unmarshal(Content, &data); err != nil {
-		return fmt.Errorf("failed to parse SBOM content: %w", err)
-	}
-
-	// Create a buffer for pretty printing
-	var buf bytes.Buffer
-	encoder := json.NewEncoder(&buf)
-	encoder.SetIndent("", "  ")
-	if err := encoder.Encode(data); err != nil {
-		return fmt.Errorf("failed to format SBOM: %w", err)
-	}
-
-	// Write the formatted JSON
-	_, err := w.Write(buf.Bytes())
-	return err
-}
 
 // WriteSBOM writes an SBOM to the output directory
 func (p *SBOMProcessor) WriteSBOM(doc SBOMDocument, repoName string) error {

@@ -88,11 +88,6 @@ func (i *InterlynkAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 		invalidFlags = append(invalidFlags, fmt.Sprintf("invalid Interlynk API URL format: %s", url))
 	}
 
-	// // Validate project name
-	// if projectNameFlag != "" && strings.TrimSpace(projectName) == "" {
-	// 	invalidFlags = append(invalidFlags, "project name cannot be empty")
-	// }
-
 	// Restrict `--out-interlynk-project-env` to only allowed values
 	allowedEnvs := map[string]bool{"default": true, "development": true, "production": true}
 	if !allowedEnvs[projectEnv] {
@@ -215,14 +210,6 @@ func (i *InterlynkAdapter) uploadSequential(ctx *tcontext.TransferMetadata, sbom
 	return nil
 }
 
-// // DryRun for Output Adapter: Displays all SBOMs that to be uploaded by output adapter
-// func (i *InterlynkAdapter) DryRun(ctx *tcontext.TransferMetadata, iterator iterator.SBOMIterator) error {
-// 	logger.LogDebug(ctx.Context, "Dry-run mode: Displaying SBOMs fetched from output adapter")
-// 	// TODO: Need to add core functionality
-// 	return nil
-// }
-
-// DryRunUpload simulates SBOM upload to Interlynk without actually performing the upload
 // DryRunUpload simulates SBOM upload to Interlynk without actual data transfer.
 func (i *InterlynkAdapter) DryRun(ctx *tcontext.TransferMetadata, sbomIterator iterator.SBOMIterator) error {
 	logger.LogDebug(ctx.Context, "🔄 Dry-Run Mode: Simulating Upload to Interlynk...")
@@ -288,13 +275,4 @@ func (i *InterlynkAdapter) DryRun(ctx *tcontext.TransferMetadata, sbomIterator i
 
 	fmt.Println("\n✅ **Dry-run completed**. No data was uploaded to Interlynk.")
 	return nil
-}
-
-// formatSetToString converts a map of unique formats to a comma-separated string
-func formatSetToString(formatSet map[string]struct{}) string {
-	var formats []string
-	for format := range formatSet {
-		formats = append(formats, format)
-	}
-	return strings.Join(formats, ", ")
 }

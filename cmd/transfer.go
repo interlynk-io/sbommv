@@ -17,7 +17,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"github.com/interlynk-io/sbommv/pkg/engine"
 	"github.com/interlynk-io/sbommv/pkg/source/github"
@@ -100,15 +99,6 @@ func transferSBOM(cmd *cobra.Command, args []string) error {
 
 	if err := engine.TransferRun(ctx, cmd, config); err != nil {
 		return fmt.Errorf("failed to process engine for transfer cmd: %w", err)
-	}
-
-	// Clean up SBOMs folder if it exists
-	if _, err := os.Stat("sboms"); err == nil {
-		if err := os.RemoveAll("sboms"); err != nil {
-			logger.LogError(ctx, err, "Failed to delete SBOM directory")
-			return fmt.Errorf("failed to delete directory %s: %w", "sboms", err)
-		}
-		logger.LogDebug(ctx, "Successfully deleted SBOM directory", "directory", "sboms")
 	}
 
 	return nil

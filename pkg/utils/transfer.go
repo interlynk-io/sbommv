@@ -22,8 +22,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-
-	"github.com/interlynk-io/sbommv/pkg/logger"
 )
 
 func GetBinaryPath() (string, error) {
@@ -69,29 +67,6 @@ func GetBinaryPath() (string, error) {
 	}
 
 	return syftBinary, nil
-}
-
-// CloneRepoWithGit clones a GitHub repository using the Git command-line tool.
-func CloneRepoWithGit(ctx context.Context, repoURL, targetDir string) error {
-	// Ensure Git is installed
-	if _, err := exec.LookPath("git"); err != nil {
-		return fmt.Errorf("git is not installed, install Git or use --method=api")
-	}
-
-	fmt.Println("🚀 Cloning repository using Git:", repoURL)
-
-	// Run `git clone --depth=1` for faster shallow cloning
-	cmd := exec.CommandContext(ctx, "git", "clone", "--depth=1", repoURL, targetDir)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("git clone failed: %w", err)
-	}
-
-	logger.LogDebug(ctx, "Repository successfully cloned using git", "repo", repoURL)
-
-	return nil
 }
 
 // ParseRepoVersion extracts the repository URL without version and version from a GitHub URL.
