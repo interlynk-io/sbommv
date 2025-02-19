@@ -208,9 +208,9 @@ func (i *InterlynkAdapter) uploadSequential(ctx *tcontext.TransferMetadata, sbom
 		}
 		errorCount = 0 // Reset error counter on successful iteration
 
-		logger.LogDebug(ctx.Context, "Uploading SBOM", "repo", sbom.Repo, "version", sbom.Version, "data size", len(sbom.Data))
+		logger.LogDebug(ctx.Context, "Uploading SBOM", "repo", sbom.Namespace, "version", sbom.Version, "data size", len(sbom.Data))
 
-		projectID, err := client.FindOrCreateProjectGroup(ctx, sbom.Repo)
+		projectID, err := client.FindOrCreateProjectGroup(ctx, sbom.Namespace)
 		if err != nil {
 			logger.LogInfo(ctx.Context, "error", err)
 			continue
@@ -219,9 +219,9 @@ func (i *InterlynkAdapter) uploadSequential(ctx *tcontext.TransferMetadata, sbom
 		// Upload SBOM content (stored in memory)
 		err = client.UploadSBOM(ctx, projectID, sbom.Data)
 		if err != nil {
-			logger.LogInfo(ctx.Context, "Failed to upload SBOM", "repo", sbom.Repo, "version", sbom.Version)
+			logger.LogInfo(ctx.Context, "Failed to upload SBOM", "repo", sbom.Namespace, "version", sbom.Version)
 		} else {
-			logger.LogDebug(ctx.Context, "Successfully uploaded SBOM", "repo", sbom.Repo, "version", sbom.Version)
+			logger.LogDebug(ctx.Context, "Successfully uploaded SBOM", "repo", sbom.Namespace, "version", sbom.Version)
 		}
 	}
 
@@ -265,7 +265,7 @@ func (i *InterlynkAdapter) DryRun(ctx *tcontext.TransferMetadata, sbomIterator i
 		}
 
 		// Update processor with current SBOM data
-		processor.Update(sbom.Data, sbom.Repo, sbom.Path)
+		processor.Update(sbom.Data, sbom.Namespace, sbom.Path)
 
 		// Process SBOM to extract metadata
 		doc, err := processor.ProcessSBOMs()
@@ -275,7 +275,7 @@ func (i *InterlynkAdapter) DryRun(ctx *tcontext.TransferMetadata, sbomIterator i
 		}
 
 		// Identify project name (repo-version)
-		projectKey := fmt.Sprintf("%s", sbom.Repo)
+		projectKey := fmt.Sprintf("%s", sbom.Namespace)
 		projectSBOMs[projectKey] = append(projectSBOMs[projectKey], doc)
 		totalSBOMs++
 		uniqueFormats[string(doc.Format)] = struct{}{}

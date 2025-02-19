@@ -415,7 +415,7 @@ func (g *GitHubAdapter) DryRun(ctx *tcontext.TransferMetadata, iterator iterator
 			continue
 		}
 		// Update processor with current SBOM data
-		processor.Update(sbom.Data, sbom.Repo, sbom.Path)
+		processor.Update(sbom.Data, sbom.Namespace, sbom.Path)
 
 		doc, err := processor.ProcessSBOMs()
 		if err != nil {
@@ -425,7 +425,7 @@ func (g *GitHubAdapter) DryRun(ctx *tcontext.TransferMetadata, iterator iterator
 
 		// If outputDir is provided, save the SBOM file
 		if outputDir != "" {
-			if err := processor.WriteSBOM(doc, sbom.Repo); err != nil {
+			if err := processor.WriteSBOM(doc, sbom.Namespace); err != nil {
 				logger.LogError(ctx.Context, err, "Failed to write SBOM to output directory")
 			}
 		}
@@ -441,7 +441,7 @@ func (g *GitHubAdapter) DryRun(ctx *tcontext.TransferMetadata, iterator iterator
 		}
 
 		sbomCount++
-		fmt.Printf(" - 📁 Repo: %s | Format: %s | SpecVersion: %s | Filename: %s \n", sbom.Repo, doc.Format, doc.SpecVersion, doc.Filename)
+		fmt.Printf(" - 📁 Repo: %s | Format: %s | SpecVersion: %s | Filename: %s \n", sbom.Namespace, doc.Format, doc.SpecVersion, doc.Filename)
 
 		// logger.LogInfo(ctx.Context, fmt.Sprintf("%d. Repo: %s | Format: %s | SpecVersion: %s | Filename: %s",
 		// 	sbomCount, sbom.Repo, doc.Format, doc.SpecVersion, doc.Filename))
