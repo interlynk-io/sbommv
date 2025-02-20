@@ -16,13 +16,10 @@ package interlynk
 
 import (
 	"fmt"
-	"io"
-	"net/http"
 	"strings"
 
 	"github.com/interlynk-io/sbommv/pkg/iterator"
 	"github.com/interlynk-io/sbommv/pkg/logger"
-	"github.com/interlynk-io/sbommv/pkg/sbom"
 	"github.com/interlynk-io/sbommv/pkg/tcontext"
 	"github.com/interlynk-io/sbommv/pkg/types"
 	"github.com/interlynk-io/sbommv/pkg/utils"
@@ -32,17 +29,23 @@ import (
 
 // InterlynkAdapter manages SBOM uploads to the Interlynk service.
 type InterlynkAdapter struct {
-	// Config fields
-	ProjectName string
-	ProjectEnv  string
+	client   InterlynkAPI
+	config   *InterlynkConfig
+	uploader SBOMUploader
 
-	BaseURL string
-	ApiKey  string
-	Role    types.AdapterRole
+	Role types.AdapterRole
+}
 
-	// HTTP client for API requests
-	client   *http.Client
-	settings types.UploadSettings
+func NewInterlynkAdapter(config *InterlynkConfig, client InterlynkAPI) *InterlynkAdapter {
+	uploader, ok := uploaderFactory[string(config.Settings.ProcessingMode)]
+	if !ok {
+		uploader = uploaderFactory[string(types.UploadSequential)]
+	}
+	return &InterlynkAdapter{
+		config:   config,
+		client:   client,
+		uploader: uploader,
+	}
 }
 
 // AddCommandParams adds GitHub-specific CLI flags
@@ -108,16 +111,16 @@ func (i *InterlynkAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 	}
 
 	// Assign values to struct
-	i.BaseURL = url
-	i.ProjectName = projectName
-	i.ProjectEnv = projectEnv
-	i.ApiKey = token
-	i.settings = types.UploadSettings{ProcessingMode: types.UploadSequential}
+	i.config.BaseURL = url
+	i.config.ProjectName = projectName
+	i.config.ProjectEnv = projectEnv
+	i.config.ApiKey = token
+	i.config.Settings = types.UploadSettings{ProcessingMode: types.UploadSequential}
 
 	logger.LogDebug(cmd.Context(), "Interlynk parameters validated and assigned",
-		"url", i.BaseURL,
-		"project_name", i.ProjectName,
-		"project_env", i.ProjectEnv,
+		"url", i.config.BaseURL,
+		"project_name", i.config.ProjectName,
+		"project_env", i.config.ProjectEnv,
 	)
 	return nil
 }
@@ -127,152 +130,163 @@ func (i *InterlynkAdapter) FetchSBOMs(ctx *tcontext.TransferMetadata) (iterator.
 	return nil, fmt.Errorf("Interlynk adapter does not support SBOM Fetching")
 }
 
-func (i *InterlynkAdapter) UploadSBOMs(ctx *tcontext.TransferMetadata, iterator iterator.SBOMIterator) error {
-	logger.LogDebug(ctx.Context, "Starting SBOM upload", "mode", i.settings.ProcessingMode)
-
-	if i.settings.ProcessingMode != "sequential" {
-		return fmt.Errorf("unsupported processing mode: %s", i.settings.ProcessingMode) // Future-proofed for parallel & batch
-	}
-
-	switch i.settings.ProcessingMode {
-
-	case types.UploadParallel:
-		// TODO: cuncurrent upload: As soon as we get the SBOM, upload it
-		// i.uploadParallel()
-		return fmt.Errorf("processing mode %q not yet implemented", i.settings.ProcessingMode)
-
-	case types.UploadBatching:
-		// TODO: hybrid of sequential + parallel
-		// i.uploadBatch()
-		return fmt.Errorf("processing mode %q not yet implemented", i.settings.ProcessingMode)
-
-	case types.UploadSequential:
-		// Sequential Processing: Fetch SBOM → Upload → Repeat
-		i.uploadSequential(ctx, iterator)
-
-	default:
-		//
-		return fmt.Errorf("invalid processing mode: %q", i.settings.ProcessingMode)
-	}
-
-	return nil
+func (i *InterlynkAdapter) UploadSBOMs(ctx *tcontext.TransferMetadata, iter iterator.SBOMIterator) error {
+	logger.LogDebug(ctx.Context, "Starting SBOM upload", "mode", i.config.Settings.ProcessingMode)
+	return i.uploader.Upload(ctx, i.client, iter)
 }
 
-// uploadSequential handles sequential SBOM processing and uploading
-func (i *InterlynkAdapter) uploadSequential(ctx *tcontext.TransferMetadata, sboms iterator.SBOMIterator) error {
-	logger.LogDebug(ctx.Context, "Uploading SBOMs in sequential mode")
+// func (i *InterlynkAdapter) UploadSBOMs(ctx *tcontext.TransferMetadata, iterator iterator.SBOMIterator) error {
+// 	logger.LogDebug(ctx.Context, "Starting SBOM upload", "mode", i.config.Settings.ProcessingMode)
 
-	// Initialize Interlynk API client
-	client := NewClient(Config{
-		Token:       i.ApiKey,
-		APIURL:      i.BaseURL,
-		ProjectName: i.ProjectName,
-		ProjectEnv:  i.ProjectEnv,
-	})
+// 	if i.config.Settings.ProcessingMode != "sequential" {
+// 		return fmt.Errorf("unsupported processing mode: %s", i.config.Settings.ProcessingMode) // Future-proofed for parallel & batch
+// 	}
 
-	errorCount := 0
-	maxRetries := 5
+// 	switch i.config.Settings.ProcessingMode {
 
-	for {
-		sbom, err := sboms.Next(ctx.Context)
-		if err == io.EOF {
-			logger.LogDebug(ctx.Context, "All SBOMs uploaded successfully, no more SBOMs left.")
-			break
-		}
-		if err != nil {
-			logger.LogInfo(ctx.Context, "Failed to retrieve SBOM from iterator", err)
-			errorCount++
-			if errorCount >= maxRetries {
-				logger.LogInfo(ctx.Context, "Exceeded maximum retries", err)
-				break
-			}
-			continue
-		}
-		errorCount = 0 // Reset error counter on successful iteration
+// 	case types.UploadParallel:
+// 		// TODO: cuncurrent upload: As soon as we get the SBOM, upload it
+// 		// i.uploadParallel()
+// 		return fmt.Errorf("processing mode %q not yet implemented", i.config.Settings.ProcessingMode)
 
-		logger.LogDebug(ctx.Context, "Uploading SBOM", "repo", sbom.Namespace, "version", sbom.Version, "data size", len(sbom.Data))
+// 	case types.UploadBatching:
+// 		// TODO: hybrid of sequential + parallel
+// 		// i.uploadBatch()
+// 		return fmt.Errorf("processing mode %q not yet implemented", i.config.Settings.ProcessingMode)
 
-		projectID, err := client.FindOrCreateProjectGroup(ctx, sbom.Namespace)
-		if err != nil {
-			logger.LogInfo(ctx.Context, "error", err)
-			continue
-		}
+// 	case types.UploadSequential:
+// 		// Sequential Processing: Fetch SBOM → Upload → Repeat
+// 		i.uploadSequential(ctx, iterator)
 
-		// Upload SBOM content (stored in memory)
-		err = client.UploadSBOM(ctx, projectID, sbom.Data)
-		if err != nil {
-			logger.LogInfo(ctx.Context, "Failed to upload SBOM", "repo", sbom.Namespace, "version", sbom.Version)
-		} else {
-			logger.LogDebug(ctx.Context, "Successfully uploaded SBOM", "repo", sbom.Namespace, "version", sbom.Version)
-		}
-	}
+// 	default:
+// 		//
+// 		return fmt.Errorf("invalid processing mode: %q", i.config.Settings.ProcessingMode)
+// 	}
 
-	return nil
-}
+// 	return nil
+// }
+
+// // uploadSequential handles sequential SBOM processing and uploading
+// func (i *InterlynkAdapter) uploadSequential(ctx *tcontext.TransferMetadata, sboms iterator.SBOMIterator) error {
+// 	logger.LogDebug(ctx.Context, "Uploading SBOMs in sequential mode")
+
+// 	// // Initialize Interlynk API client
+// 	// client := NewClient(Config{
+// 	// 	Token:       i.config.ApiKey,
+// 	// 	APIURL:      i.config.BaseURL,
+// 	// 	ProjectName: i.config.ProjectName,
+// 	// 	ProjectEnv:  i.config.ProjectEnv,
+// 	// })
+
+// 	errorCount := 0
+// 	maxRetries := 5
+
+// 	for {
+// 		sbom, err := sboms.Next(ctx.Context)
+// 		if err == io.EOF {
+// 			logger.LogDebug(ctx.Context, "All SBOMs uploaded successfully, no more SBOMs left.")
+// 			break
+// 		}
+// 		if err != nil {
+// 			logger.LogInfo(ctx.Context, "Failed to retrieve SBOM from iterator", err)
+// 			errorCount++
+// 			if errorCount >= maxRetries {
+// 				logger.LogInfo(ctx.Context, "Exceeded maximum retries", err)
+// 				break
+// 			}
+// 			continue
+// 		}
+// 		errorCount = 0 // Reset error counter on successful iteration
+
+// 		logger.LogDebug(ctx.Context, "Uploading SBOM", "repo", sbom.Namespace, "version", sbom.Version, "data size", len(sbom.Data))
+
+// 		projectID, err := i.client.FindOrCreateProjectGroup(ctx, sbom.Namespace)
+// 		if err != nil {
+// 			logger.LogInfo(ctx.Context, "error", err)
+// 			continue
+// 		}
+
+// 		// Upload SBOM content (stored in memory)
+// 		err = i.client.UploadSBOM(ctx, projectID, sbom.Data)
+// 		if err != nil {
+// 			logger.LogInfo(ctx.Context, "Failed to upload SBOM", "repo", sbom.Namespace, "version", sbom.Version)
+// 		} else {
+// 			logger.LogDebug(ctx.Context, "Successfully uploaded SBOM", "repo", sbom.Namespace, "version", sbom.Version)
+// 		}
+// 	}
+
+// 	return nil
+// }
 
 // DryRunUpload simulates SBOM upload to Interlynk without actual data transfer.
-func (i *InterlynkAdapter) DryRun(ctx *tcontext.TransferMetadata, sbomIterator iterator.SBOMIterator) error {
-	logger.LogDebug(ctx.Context, "🔄 Dry-Run Mode: Simulating Upload to Interlynk...")
-
-	// Step 1: Validate Interlynk Connection
-	err := ValidateInterlynkConnection(i.BaseURL, i.ApiKey)
-	if err != nil {
-		return fmt.Errorf("interlynk validation failed: %w", err)
-	}
-
-	// Step 2: Initialize SBOM Processor
-	processor := sbom.NewSBOMProcessor("", false)
-
-	// Step 3: Organize SBOMs into Projects
-	projectSBOMs := make(map[string][]sbom.SBOMDocument)
-	totalSBOMs := 0
-	uniqueFormats := make(map[string]struct{})
-
-	for {
-		sbom, err := sbomIterator.Next(ctx.Context)
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			logger.LogError(ctx.Context, err, "Error retrieving SBOM from iterator")
-			continue
-		}
-
-		// Update processor with current SBOM data
-		processor.Update(sbom.Data, sbom.Namespace, sbom.Path)
-
-		// Process SBOM to extract metadata
-		doc, err := processor.ProcessSBOMs()
-		if err != nil {
-			logger.LogError(ctx.Context, err, "Failed to process SBOM")
-			continue
-		}
-
-		// Identify project name (repo-version)
-		projectKey := fmt.Sprintf("%s", sbom.Namespace)
-		projectSBOMs[projectKey] = append(projectSBOMs[projectKey], doc)
-		totalSBOMs++
-		uniqueFormats[string(doc.Format)] = struct{}{}
-	}
-
-	// Step 4: Print Dry-Run Summary
-	fmt.Println("")
-	fmt.Printf("📦 Interlynk API Endpoint: %s\n", i.BaseURL)
-	fmt.Printf("📂 Project Groups Total: %d\n", len(projectSBOMs))
-	fmt.Printf("📊 Total SBOMs to be Uploaded: %d\n", totalSBOMs)
-	fmt.Printf("📦 INTERLYNK_SECURITY_TOKEN is valid\n")
-	fmt.Printf("📦 Unique Formats: %s\n", formatSetToString(uniqueFormats))
-	fmt.Println()
-
-	// Step 5: Print Project Details
-	for project, sboms := range projectSBOMs {
-		fmt.Printf("📌 **Project: %s** → %d SBOMs\n", project, len(sboms))
-		for _, doc := range sboms {
-			fmt.Printf("   - 📁  | Format: %s | SpecVersion: %s | Size: %d KB | Filename: %s\n",
-				doc.Format, doc.SpecVersion, len(doc.Content)/1024, doc.Filename)
-		}
-	}
-
-	fmt.Println("\n✅ **Dry-run completed**. No data was uploaded to Interlynk.")
-	return nil
+func (i *InterlynkAdapter) DryRun(ctx *tcontext.TransferMetadata, iter iterator.SBOMIterator) error {
+	reporter := NewInterlynkReporter(i.config.BaseURL, i.config.ApiKey)
+	return reporter.DryRun(ctx.Context, iter)
 }
+
+// // DryRunUpload simulates SBOM upload to Interlynk without actual data transfer.
+// func (i *InterlynkAdapter) DryRun(ctx *tcontext.TransferMetadata, sbomIterator iterator.SBOMIterator) error {
+// 	logger.LogDebug(ctx.Context, "🔄 Dry-Run Mode: Simulating Upload to Interlynk...")
+
+// 	// Step 1: Validate Interlynk Connection
+// 	err := ValidateInterlynkConnection(i.config.BaseURL, i.config.ApiKey)
+// 	if err != nil {
+// 		return fmt.Errorf("interlynk validation failed: %w", err)
+// 	}
+
+// 	// Step 2: Initialize SBOM Processor
+// 	processor := sbom.NewSBOMProcessor("", false)
+
+// 	// Step 3: Organize SBOMs into Projects
+// 	projectSBOMs := make(map[string][]sbom.SBOMDocument)
+// 	totalSBOMs := 0
+// 	uniqueFormats := make(map[string]struct{})
+
+// 	for {
+// 		sbom, err := sbomIterator.Next(ctx.Context)
+// 		if err == io.EOF {
+// 			break
+// 		}
+// 		if err != nil {
+// 			logger.LogError(ctx.Context, err, "Error retrieving SBOM from iterator")
+// 			continue
+// 		}
+
+// 		// Update processor with current SBOM data
+// 		processor.Update(sbom.Data, sbom.Namespace, sbom.Path)
+
+// 		// Process SBOM to extract metadata
+// 		doc, err := processor.ProcessSBOMs()
+// 		if err != nil {
+// 			logger.LogError(ctx.Context, err, "Failed to process SBOM")
+// 			continue
+// 		}
+
+// 		// Identify project name (repo-version)
+// 		projectKey := fmt.Sprintf("%s", sbom.Namespace)
+// 		projectSBOMs[projectKey] = append(projectSBOMs[projectKey], doc)
+// 		totalSBOMs++
+// 		uniqueFormats[string(doc.Format)] = struct{}{}
+// 	}
+
+// 	// Step 4: Print Dry-Run Summary
+// 	fmt.Println("")
+// 	fmt.Printf("📦 Interlynk API Endpoint: %s\n", i.config.BaseURL)
+// 	fmt.Printf("📂 Project Groups Total: %d\n", len(projectSBOMs))
+// 	fmt.Printf("📊 Total SBOMs to be Uploaded: %d\n", totalSBOMs)
+// 	fmt.Printf("📦 INTERLYNK_SECURITY_TOKEN is valid\n")
+// 	fmt.Printf("📦 Unique Formats: %s\n", formatSetToString(uniqueFormats))
+// 	fmt.Println()
+
+// 	// Step 5: Print Project Details
+// 	for project, sboms := range projectSBOMs {
+// 		fmt.Printf("📌 **Project: %s** → %d SBOMs\n", project, len(sboms))
+// 		for _, doc := range sboms {
+// 			fmt.Printf("   - 📁  | Format: %s | SpecVersion: %s | Size: %d KB | Filename: %s\n",
+// 				doc.Format, doc.SpecVersion, len(doc.Content)/1024, doc.Filename)
+// 		}
+// 	}
+
+// 	fmt.Println("\n✅ **Dry-run completed**. No data was uploaded to Interlynk.")
+// 	return nil
+// }

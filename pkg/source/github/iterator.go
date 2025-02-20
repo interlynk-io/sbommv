@@ -18,8 +18,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"os"
-	"path/filepath"
 
 	"github.com/interlynk-io/sbommv/pkg/iterator"
 	"github.com/interlynk-io/sbommv/pkg/logger"
@@ -28,59 +26,68 @@ import (
 
 // // GitHubIterator iterates over SBOMs fetched from GitHub (API, Release, Tool)
 type GitHubIterator struct {
-	client     *Client
-	sboms      []*iterator.SBOM // Stores all fetched SBOMs
-	position   int              // Tracks iteration position
-	binaryPath string
+	client   GitHubAPI
+	config   *GitHubConfig    // Added to avoid dependency on adapter
+	sboms    []*iterator.SBOM // Stores all fetched SBOMs
+	position int              // Tracks iteration position
 }
 
-// NewGitHubIterator initializes and returns a new GitHubIterator instance
-func NewGitHubIterator(ctx *tcontext.TransferMetadata, g *GitHubAdapter, repo string) *GitHubIterator {
-	logger.LogDebug(ctx.Context, "Initializing GitHub Iterator", "repo", g.URL, "method", g.Method, "repo", repo)
-
-	g.client.updateRepo(repo)
-
-	// Create and return the iterator instance without fetching SBOMs
+func NewGitHubIterator(ctx *tcontext.TransferMetadata, client GitHubAPI, config *GitHubConfig) *GitHubIterator {
+	logger.LogDebug(ctx.Context, "Initializing GitHub Iterator", "repo", config.URL, "method", config.Method)
 	return &GitHubIterator{
-		client:     g.client,
-		sboms:      []*iterator.SBOM{},
-		binaryPath: g.BinaryPath,
+		client: client,
+		config: config,
+		sboms:  []*iterator.SBOM{},
 	}
 }
 
-// FetchSBOMs fetches SBOMs for the given GitHubIterator instance
-func (it *GitHubIterator) HandleSBOMFetchingViaIterator(ctx *tcontext.TransferMetadata, method GitHubMethod) error {
-	logger.LogDebug(ctx.Context, "Fetching SBOMs using GitHub Iterator", "repo", it.client.Repo, "method", method)
+// // NewGitHubIterator initializes and returns a new GitHubIterator instance
+// func NewGitHubIterator(ctx *tcontext.TransferMetadata, g *GitHubAdapter, repo string) *GitHubIterator {
+// 	logger.LogDebug(ctx.Context, "Initializing GitHub Iterator", "repo", g.config.URL, "method", g.config.Method, "repo", repo)
 
-	var err error
+// 	g.client.updateRepo(repo)
 
-	switch GitHubMethod(method) {
-	case MethodAPI:
-		err = it.fetchSBOMFromAPI(ctx)
+// 	// Create and return the iterator instance without fetching SBOMs
+// 	return &GitHubIterator{
+// 		client:     g.client,
+// 		sboms:      []*iterator.SBOM{},
+// 		binaryPath: g.config.BinaryPath,
+// 	}
+// }
 
-	case MethodReleases:
-		err = it.fetchSBOMFromReleases(ctx)
+// // FetchSBOMs fetches SBOMs for the given GitHubIterator instance
+// func (it *GitHubIterator) HandleSBOMFetchingViaIterator(ctx *tcontext.TransferMetadata, method GitHubMethod) error {
+// 	logger.LogDebug(ctx.Context, "Fetching SBOMs using GitHub Iterator", "repo", it.client.Repo, "method", method)
 
-	case MethodTool:
-		err = it.fetchSBOMFromTool(ctx)
+// 	var err error
 
-	default:
-		return fmt.Errorf("unsupported GitHub method: %s", method)
-	}
+// 	switch GitHubMethod(method) {
+// 	case MethodAPI:
+// 		err = it.fetchSBOMFromAPI(ctx)
 
-	if err != nil {
-		return fmt.Errorf("failed to fetch SBOMs: %w", err)
-	}
+// 	case MethodReleases:
+// 		err = it.fetchSBOMFromReleases(ctx)
 
-	if len(it.sboms) == 0 {
-		fmt.Printf("no SBOMs found for repository")
-		return nil
-	}
+// 	case MethodTool:
+// 		err = it.fetchSBOMFromTool(ctx)
 
-	logger.LogDebug(ctx.Context, "Total SBOMs fetched for ", "repo", it.client.Repo, "count", len(it.sboms))
+// 	default:
+// 		return fmt.Errorf("unsupported GitHub method: %s", method)
+// 	}
 
-	return err
-}
+// 	if err != nil {
+// 		return fmt.Errorf("failed to fetch SBOMs: %w", err)
+// 	}
+
+// 	if len(it.sboms) == 0 {
+// 		fmt.Printf("no SBOMs found for repository")
+// 		return nil
+// 	}
+
+// 	logger.LogDebug(ctx.Context, "Total SBOMs fetched for ", "repo", it.client.Repo, "count", len(it.sboms))
+
+// 	return err
+// }
 
 // Next returns the next SBOM from the stored list
 func (it *GitHubIterator) Next(ctx context.Context) (*iterator.SBOM, error) {
@@ -103,7 +110,7 @@ func (it *GitHubIterator) fetchSBOMFromAPI(ctx *tcontext.TransferMetadata) error
 	it.sboms = append(it.sboms, &iterator.SBOM{
 		Path:      "",
 		Data:      sbomData,
-		Namespace: fmt.Sprintf("%s/%s", it.client.Owner, it.client.Repo),
+		Namespace: fmt.Sprintf("%s/%s", it.config.Owner, it.client.GetRepo()),
 		Version:   "latest",
 	})
 	return nil
@@ -121,7 +128,7 @@ func (it *GitHubIterator) fetchSBOMFromReleases(ctx *tcontext.TransferMetadata) 
 			it.sboms = append(it.sboms, &iterator.SBOM{
 				Path:      sbomData.Filename,
 				Data:      sbomData.Content,
-				Namespace: fmt.Sprintf("%s/%s", it.client.Owner, it.client.Repo),
+				Namespace: fmt.Sprintf("%s/%s", it.config.Owner, it.client.GetRepo()),
 				Version:   version,
 			})
 		}
@@ -130,39 +137,39 @@ func (it *GitHubIterator) fetchSBOMFromReleases(ctx *tcontext.TransferMetadata) 
 	return nil
 }
 
-func (it *GitHubIterator) fetchSBOMFromTool(ctx *tcontext.TransferMetadata) error {
-	logger.LogDebug(ctx.Context, "Generating SBOM using Tool", "repository", it.client.RepoURL)
+// func (it *GitHubIterator) fetchSBOMFromTool(ctx *tcontext.TransferMetadata) error {
+// 	logger.LogDebug(ctx.Context, "Generating SBOM using Tool", "repository", it.client.RepoURL)
 
-	// Clone the repository
-	repoDir := filepath.Join(os.TempDir(), fmt.Sprintf("%s-%s", it.client.Repo, it.client.Version))
-	defer os.RemoveAll(repoDir)
+// 	// Clone the repository
+// 	repoDir := filepath.Join(os.TempDir(), fmt.Sprintf("%s-%s", it.client.Repo, it.client.Version))
+// 	defer os.RemoveAll(repoDir)
 
-	if err := CloneRepoWithGit(ctx, it.client.RepoURL, it.client.Branch, repoDir); err != nil {
-		return fmt.Errorf("failed to clone the repository: %w", err)
-	}
+// 	if err := CloneRepoWithGit(ctx, it.client.RepoURL, it.client.Branch, repoDir); err != nil {
+// 		return fmt.Errorf("failed to clone the repository: %w", err)
+// 	}
 
-	// Generate SBOM and save in memory
-	sbomFile, err := GenerateSBOM(ctx, repoDir, it.binaryPath)
-	if err != nil {
-		return fmt.Errorf("failed to generate SBOM: %w", err)
-	}
+// 	// Generate SBOM and save in memory
+// 	sbomFile, err := GenerateSBOM(ctx, repoDir, it.config.BinaryPath)
+// 	if err != nil {
+// 		return fmt.Errorf("failed to generate SBOM: %w", err)
+// 	}
 
-	sbomBytes, err := os.ReadFile(sbomFile)
-	if err != nil {
-		return fmt.Errorf("failed to read SBOM: %w", err)
-	}
+// 	sbomBytes, err := os.ReadFile(sbomFile)
+// 	if err != nil {
+// 		return fmt.Errorf("failed to read SBOM: %w", err)
+// 	}
 
-	if len(sbomBytes) == 0 {
-		return fmt.Errorf("generate SBOM with zero file data: %w", err)
-	}
+// 	if len(sbomBytes) == 0 {
+// 		return fmt.Errorf("generate SBOM with zero file data: %w", err)
+// 	}
 
-	it.sboms = append(it.sboms, &iterator.SBOM{
-		Path:      "",
-		Data:      sbomBytes,
-		Namespace: fmt.Sprintf("%s/%s", it.client.Owner, it.client.Repo),
-		Version:   it.client.Version,
-		Branch:    it.client.Branch,
-	})
-	logger.LogDebug(ctx.Context, "SBOM successfully stored in memory", "repository", it.client.RepoURL)
-	return nil
-}
+// 	it.sboms = append(it.sboms, &iterator.SBOM{
+// 		Path:      "",
+// 		Data:      sbomBytes,
+// 		Namespace: fmt.Sprintf("%s/%s", it.client.Owner, it.client.Repo),
+// 		Version:   it.client.Version,
+// 		Branch:    it.client.Branch,
+// 	})
+// 	logger.LogDebug(ctx.Context, "SBOM successfully stored in memory", "repository", it.client.RepoURL)
+// 	return nil
+// }

@@ -87,15 +87,29 @@ func NewClient(g *GitHubAdapter) *Client {
 	return &Client{
 		httpClient: &http.Client{},
 		BaseURL:    "https://api.github.com",
-		RepoURL:    g.URL,
-		Version:    g.Version,
-		Method:     g.Method,
-		Owner:      g.Owner,
-		Repo:       g.Repo,
-		Branch:     g.Branch,
-		Token:      g.GithubToken,
+		RepoURL:    g.config.URL,
+		Version:    g.config.Version,
+		Method:     g.config.Method,
+		Owner:      g.config.Owner,
+		Repo:       g.config.Repo,
+		Branch:     g.config.Branch,
+		Token:      g.config.GithubToken,
 	}
 }
+
+type GitHubAPI interface {
+	GetAllRepositories(ctx *tcontext.TransferMetadata) ([]string, error)
+	FetchSBOMFromAPI(ctx *tcontext.TransferMetadata) ([]byte, error)
+	GetSBOMs(ctx *tcontext.TransferMetadata) (VersionedSBOMs, error)
+	updateRepo(repo string)
+	GetRepo() string // Added to access the current repo
+}
+
+func (c *Client) GetRepo() string {
+	return c.Repo
+}
+
+var _ GitHubAPI = (*Client)(nil) // Ensure Client implements it
 
 // FindSBOMs gets all releases assets from github release page
 // filter out the particular provided release asset and
