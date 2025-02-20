@@ -16,11 +16,8 @@ package folder
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 
-	"github.com/google/uuid"
 	"github.com/interlynk-io/sbommv/pkg/iterator"
 	"github.com/interlynk-io/sbommv/pkg/logger"
 	"github.com/interlynk-io/sbommv/pkg/tcontext"
@@ -30,9 +27,9 @@ import (
 
 // FolderAdapter handles storing SBOMs in a local folder
 type FolderAdapter struct {
-	Role       types.AdapterRole
-	FolderPath string
-	settings   types.UploadSettings
+	Role     types.AdapterRole
+	config   *FolderConfig
+	Uploader SBOMUploader
 }
 
 // AddCommandParams defines folder adapter CLI flags
@@ -83,10 +80,13 @@ func (f *FolderAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 		return fmt.Errorf("invalid input adapter flag usage:\n %s\n\nUse 'sbommv transfer --help' for correct usage.", strings.Join(invalidFlags, "\n "))
 	}
 
-	f.FolderPath = folderPath
-	f.settings.ProcessingMode = types.UploadMode(mode)
+	cfg := FolderConfig{
+		FolderPath: folderPath,
+		Settings:   types.UploadSettings{ProcessingMode: types.UploadMode(mode)},
+	}
+	f.config = &cfg
 
-	logger.LogDebug(cmd.Context(), "Folder Output Adapter Initialized", "path", f.FolderPath)
+	logger.LogDebug(cmd.Context(), "Folder Output Adapter Initialized", "path", f.config.FolderPath)
 	return nil
 }
 
@@ -96,111 +96,13 @@ func (i *FolderAdapter) FetchSBOMs(ctx *tcontext.TransferMetadata) (iterator.SBO
 }
 
 // UploadSBOMs writes SBOMs to the output folder
-func (f *FolderAdapter) UploadSBOMs(ctx *tcontext.TransferMetadata, iterator iterator.SBOMIterator) error {
-	logger.LogDebug(ctx.Context, "Starting SBOM upload", "mode", f.settings.ProcessingMode)
-
-	if f.settings.ProcessingMode != "sequential" {
-		return fmt.Errorf("unsupported processing mode: %s", f.settings.ProcessingMode) // Future-proofed for parallel & batch
-	}
-
-	switch f.settings.ProcessingMode {
-
-	case types.UploadParallel:
-		// TODO: cuncurrent upload: As soon as we get the SBOM, upload it
-		// f.uploadParallel()
-		return fmt.Errorf("processing mode %q not yet implemented", f.settings.ProcessingMode)
-
-	case types.UploadBatching:
-		// TODO: hybrid of sequential + parallel
-		// f.uploadBatch()
-		return fmt.Errorf("processing mode %q not yet implemented", f.settings.ProcessingMode)
-
-	case types.UploadSequential:
-		// Sequential Processing: Fetch SBOM → Upload → Repeat
-		f.uploadSequential(ctx, iterator)
-
-	default:
-		//
-		return fmt.Errorf("invalid processing mode: %q", f.settings.ProcessingMode)
-	}
-
-	logger.LogDebug(ctx.Context, "All SBOMs have been successfully saved in directory", "value", f.FolderPath)
-	return nil
+func (f *FolderAdapter) UploadSBOMs(ctx *tcontext.TransferMetadata, iter iterator.SBOMIterator) error {
+	logger.LogDebug(ctx.Context, "Starting SBOM upload", "mode", f.config.Settings.ProcessingMode)
+	return f.Uploader.Upload(ctx, f.config, iter)
 }
 
 // DryRun for Output Adapter: Simulates writing SBOMs to a folder
-func (f *FolderAdapter) DryRun(ctx *tcontext.TransferMetadata, sbomIter iterator.SBOMIterator) error {
-	logger.LogDebug(ctx.Context, "Dry-run mode: Displaying SBOMs that would be stored in folder")
-
-	fmt.Println("\n📦 **Folder Output Adapter Dry-Run**")
-
-	sbomCount := 0
-
-	for {
-		sbom, err := sbomIter.Next(ctx.Context)
-		if err != nil {
-			if err.Error() == "EOF" {
-				break
-			}
-			logger.LogError(ctx.Context, err, "Error retrieving SBOM from iterator")
-			continue
-		}
-
-		namespace := filepath.Base(sbom.Namespace)
-		if namespace == "" {
-			namespace = fmt.Sprintf("sbom_%s.json", uuid.New().String()) // Generate unique filename
-		}
-
-		outputPath := filepath.Join(f.FolderPath, namespace)
-		outputFile := filepath.Join(outputPath, sbom.Path)
-
-		fmt.Printf("- 📂 Would write: %s\n", outputFile)
-		sbomCount++
-	}
-
-	fmt.Printf("\n📊 Total SBOMs to be stored: %d\n", sbomCount)
-	logger.LogDebug(ctx.Context, "Dry-run mode completed for folder output adapter", "total_sboms", sbomCount)
-	return nil
-}
-
-func (f *FolderAdapter) uploadSequential(ctx *tcontext.TransferMetadata, sbomIter iterator.SBOMIterator) error {
-	logger.LogDebug(ctx.Context, "Writing SBOMs in sequential mode", "folder", f.FolderPath)
-
-	// Process SBOMs
-	for {
-		sbom, err := sbomIter.Next(ctx.Context)
-		if err != nil {
-			if err.Error() == "EOF" {
-				break
-			}
-			logger.LogError(ctx.Context, err, "Error retrieving SBOM from iterator")
-			continue
-		}
-
-		namespace := filepath.Base(sbom.Namespace)
-		if namespace == "" {
-			namespace = fmt.Sprintf("sbom_%s.json", uuid.New().String()) // Generate unique filename
-		}
-
-		// Construct output path (preserve filename if available)
-		outputDir := filepath.Join(f.FolderPath, namespace)
-		if err := os.MkdirAll(outputDir, 0o755); err != nil {
-			logger.LogError(ctx.Context, err, "Failed to create folder", "path", outputDir)
-			continue
-		}
-
-		outputFile := filepath.Join(outputDir, sbom.Path)
-		if sbom.Path == "" {
-			outputFile = filepath.Join(outputDir, fmt.Sprintf("%s.sbom.json", uuid.New().String()))
-		}
-
-		// Write SBOM file
-		if err := os.WriteFile(outputFile, sbom.Data, 0o644); err != nil {
-			logger.LogError(ctx.Context, err, "Failed to write SBOM file", "path", outputFile)
-			continue
-		}
-
-		logger.LogDebug(ctx.Context, "Successfully written SBOM", "path", outputFile)
-	}
-	return nil
+func (f *FolderAdapter) DryRun(ctx *tcontext.TransferMetadata, iter iterator.SBOMIterator) error {
+	reporter := NewFolderOutputReporter(f.config.FolderPath)
+	return reporter.DryRun(ctx.Context, iter)
 }

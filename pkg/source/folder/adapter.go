@@ -27,18 +27,9 @@ import (
 
 // FolderAdapter handles fetching SBOMs from folders
 type FolderAdapter struct {
-	config *FolderConfig
-	Role   types.AdapterRole // "input" or "output" adapter type
-
-	fetcher SBOMFetcher
-}
-
-func NewFolderAdapter(config *FolderConfig) *FolderAdapter {
-	fetcher, ok := fetcherFactory[config.ProcessingMode]
-	if !ok {
-		fetcher = fetcherFactory[types.FetchSequential]
-	}
-	return &FolderAdapter{config: config, fetcher: fetcher}
+	config  *FolderConfig
+	Role    types.AdapterRole // "input" or "output" adapter type
+	Fetcher SBOMFetcher
 }
 
 // AddCommandParams adds Folder-specific CLI flags
@@ -97,9 +88,13 @@ func (f *FolderAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 		return fmt.Errorf("invalid input adapter flag usage:\n %s\n\nUse 'sbommv transfer --help' for correct usage.", strings.Join(invalidFlags, "\n "))
 	}
 
-	f.config.FolderPath = folderPath
-	f.config.Recursive = folderRecurse
-	f.config.ProcessingMode = types.ProcessingMode(mode)
+	cfg := FolderConfig{
+		FolderPath:     folderPath,
+		Recursive:      folderRecurse,
+		ProcessingMode: types.ProcessingMode(mode),
+	}
+
+	f.config = &cfg
 
 	return nil
 }
@@ -107,7 +102,7 @@ func (f *FolderAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 // FetchSBOMs initializes the Folder SBOM iterator using the unified method
 func (f *FolderAdapter) FetchSBOMs(ctx *tcontext.TransferMetadata) (iterator.SBOMIterator, error) {
 	logger.LogDebug(ctx.Context, "Initializing SBOM fetching", "mode", f.config.ProcessingMode)
-	return f.fetcher.Fetch(ctx, f.config)
+	return f.Fetcher.Fetch(ctx, f.config)
 }
 
 // OutputSBOMs should return an error since Folder does not support SBOM uploads
@@ -120,60 +115,3 @@ func (f *FolderAdapter) DryRun(ctx *tcontext.TransferMetadata, iter iterator.SBO
 	reporter := NewFolderReporter(false, "")
 	return reporter.DryRun(ctx.Context, iter)
 }
-
-// DryRun for Folder Adapter: Displays all fetched SBOMs from folder adapter
-// func (f *FolderAdapter) DryRun(ctx *tcontext.TransferMetadata, iterator iterator.SBOMIterator) error {
-// 	logger.LogDebug(ctx.Context, "Dry-run mode: Displaying SBOMs fetched from folder input adapter")
-
-// 	var outputDir string
-// 	var verbose bool
-
-// 	processor := sbom.NewSBOMProcessor(outputDir, verbose)
-// 	sbomCount := 0
-// 	fmt.Println()
-// 	fmt.Printf("📦 Details of all Fetched SBOMs by Folder Input Adapter\n")
-
-// 	for {
-
-// 		sbom, err := iterator.Next(ctx.Context)
-// 		if err == io.EOF {
-// 			break // No more sboms
-// 		}
-
-// 		if err != nil {
-// 			logger.LogError(ctx.Context, err, "Error retrieving SBOM from iterator")
-// 		}
-
-// 		// update processor with current SBOM data
-// 		processor.Update(sbom.Data, "", sbom.Path)
-
-// 		doc, err := processor.ProcessSBOMs()
-// 		if err != nil {
-// 			logger.LogError(ctx.Context, err, "Failed to process SBOM")
-// 			continue
-// 		}
-
-// 		// if outputDir is provided, save the SBOM file
-// 		if outputDir != "" {
-// 			if err := processor.WriteSBOM(doc, ""); err != nil {
-// 				logger.LogError(ctx.Context, err, "Failed to write SBOM to output directory")
-// 			}
-// 		}
-
-// 		// Print SBOM content if verbose mode is enabled
-// 		if verbose {
-// 			fmt.Println("\n-------------------- 📜 SBOM Content --------------------")
-// 			fmt.Printf("📂 Filename: %s\n", doc.Filename)
-// 			fmt.Printf("📦 Format: %s | SpecVersion: %s\n\n", doc.Format, doc.SpecVersion)
-// 			fmt.Println(string(doc.Content))
-// 			fmt.Println("------------------------------------------------------")
-// 			fmt.Println()
-// 		}
-
-// 		sbomCount++
-// 		fmt.Printf(" - 📁 Folder: %s | Format: %s | SpecVersion: %s | Filename: %s \n", sbom.Namespace, doc.Format, doc.SpecVersion, doc.Filename)
-
-// 	}
-
-// 	return nil
-// }

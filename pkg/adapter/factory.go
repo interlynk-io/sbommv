@@ -62,7 +62,7 @@ func NewAdapter(ctx *tcontext.TransferMetadata, config types.Config) (map[types.
 			adapters[types.InputAdapterRole] = &github.GitHubAdapter{Role: types.InputAdapterRole}
 
 		case types.FolderAdapterType:
-			adapters[types.InputAdapterRole] = &ifolder.FolderAdapter{Role: types.InputAdapterRole}
+			adapters[types.InputAdapterRole] = &ifolder.FolderAdapter{Role: types.InputAdapterRole, Fetcher: &ifolder.SequentialFetcher{}}
 
 		case types.InterlynkAdapterType:
 			adapters[types.InputAdapterRole] = &interlynk.InterlynkAdapter{Role: types.InputAdapterRole}
@@ -79,7 +79,7 @@ func NewAdapter(ctx *tcontext.TransferMetadata, config types.Config) (map[types.
 		switch types.AdapterType(config.DestinationType) {
 
 		case types.FolderAdapterType:
-			adapters[types.OutputAdapterRole] = &ofolder.FolderAdapter{Role: types.OutputAdapterRole}
+			adapters[types.OutputAdapterRole] = &ofolder.FolderAdapter{Role: types.OutputAdapterRole, Uploader: &ofolder.SequentialUploader{}}
 
 		case types.InterlynkAdapterType:
 			adapters[types.OutputAdapterRole] = &interlynk.InterlynkAdapter{Role: types.OutputAdapterRole}
