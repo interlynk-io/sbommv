@@ -29,17 +29,17 @@ import (
 
 // InterlynkAdapter manages SBOM uploads to the Interlynk service.
 type InterlynkAdapter struct {
-	client   *Client
+	client   InterlynkAPI
 	config   *InterlynkConfig
 	uploader SBOMUploader
 
 	Role types.AdapterRole
 }
 
-func NewInterlynkAdapter(config *InterlynkConfig, client *Client) *InterlynkAdapter {
+func NewInterlynkAdapter(config *InterlynkConfig, client InterlynkAPI) *InterlynkAdapter {
 	uploader, ok := uploaderFactory[string(config.Settings.ProcessingMode)]
 	if !ok {
-		uploader = uploaderFactory[string(types.UploadSequential)] // Default
+		uploader = uploaderFactory[string(types.UploadSequential)]
 	}
 	return &InterlynkAdapter{
 		config:   config,

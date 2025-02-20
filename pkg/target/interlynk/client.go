@@ -91,6 +91,13 @@ func NewClient(config Config) *Client {
 	}
 }
 
+type InterlynkAPI interface {
+	FindOrCreateProjectGroup(ctx *tcontext.TransferMetadata, repoName string) (string, error)
+	UploadSBOM(ctx *tcontext.TransferMetadata, projectID string, sbomData []byte) error
+}
+
+var _ InterlynkAPI = (*Client)(nil) // Client implements it
+
 func (c *Client) FindOrCreateProjectGroup(ctx *tcontext.TransferMetadata, repoName string) (string, error) {
 	projectName := ""
 	if c.ProjectName != "" {
@@ -106,12 +113,12 @@ func (c *Client) FindOrCreateProjectGroup(ctx *tcontext.TransferMetadata, repoNa
 		env = "default"
 	}
 
-	projectID, err := c.FindProjectGroup(ctx, projectName, env)
+	projectID, err := c.findProjectGroup(ctx, projectName, env)
 	if err != nil {
 		if c.ProjectName != "" {
 			return "", fmt.Errorf("failed to find project: %s or env %s", projectName, env)
 		} else {
-			projectID, err = c.CreateProjectGroup(ctx, projectName, env)
+			projectID, err = c.createProjectGroup(ctx, projectName, env)
 			if err != nil {
 				return "", fmt.Errorf("failed to create project: %s or env %s ", projectName, env)
 			}
@@ -137,6 +144,7 @@ func (c *Client) UploadSBOM(ctx *tcontext.TransferMetadata, projectID string, sb
 	return c.executeUploadRequest(ctx, req)
 }
 
+// Builds an HTTP request for UploadSBOM
 func (c *Client) createUploadRequest(ctx *tcontext.TransferMetadata, projectID string, sbomData []byte) (*http.Request, error) {
 	const uploadMutation = `
         mutation uploadSbom($doc: Upload!, $projectId: ID!) {
@@ -167,6 +175,7 @@ func (c *Client) createUploadRequest(ctx *tcontext.TransferMetadata, projectID s
 	return req, nil
 }
 
+// Formats the multipart form data for the GraphQL mutation.
 func (c *Client) prepareMultipartForm(projectID string, sbomData []byte, query string) (*bytes.Buffer, *multipart.Writer, error) {
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
@@ -219,6 +228,7 @@ func writeJSONField(writer *multipart.Writer, fieldName string, data interface{}
 	return nil
 }
 
+// Sends the HTTP request and processes the response.
 func (c *Client) executeUploadRequest(ctx *tcontext.TransferMetadata, req *http.Request) error {
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -261,7 +271,8 @@ func (c *Client) executeUploadRequest(ctx *tcontext.TransferMetadata, req *http.
 	return nil
 }
 
-func (c *Client) FindProjectGroup(ctx *tcontext.TransferMetadata, name string, env string) (string, error) {
+// Queries Interlynk for an existing project group.
+func (c *Client) findProjectGroup(ctx *tcontext.TransferMetadata, name string, env string) (string, error) {
 	const findProjectGroupMutation = `
 		query FindProjectGroup($search: String) {
 			  organization {
@@ -370,8 +381,8 @@ func (c *Client) FindProjectGroup(ctx *tcontext.TransferMetadata, name string, e
 	return projectGroupEnvID, nil
 }
 
-// CreateProjectGroup creates a new project group and returns the default project's ID
-func (c *Client) CreateProjectGroup(ctx *tcontext.TransferMetadata, name, env string) (string, error) {
+// Creates a new project group if it doesn’t exist and returns the default project's ID
+func (c *Client) createProjectGroup(ctx *tcontext.TransferMetadata, name, env string) (string, error) {
 	const createProjectGroupMutation = `
         mutation CreateProjectGroup($name: String!, $desc: String, $enabled: Boolean) {
             projectGroupCreate(

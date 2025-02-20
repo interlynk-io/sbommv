@@ -26,7 +26,7 @@ import (
 )
 
 type SBOMUploader interface {
-	Upload(ctx *tcontext.TransferMetadata, client *Client, iter iterator.SBOMIterator) error
+	Upload(ctx *tcontext.TransferMetadata, client InterlynkAPI, iter iterator.SBOMIterator) error
 }
 
 type SequentialUploader struct{}
@@ -36,7 +36,7 @@ var uploaderFactory = map[string]SBOMUploader{
 	// Add parallel and batch uploaders later
 }
 
-func (u *SequentialUploader) Upload(ctx *tcontext.TransferMetadata, client *Client, iter iterator.SBOMIterator) error {
+func (u *SequentialUploader) Upload(ctx *tcontext.TransferMetadata, client InterlynkAPI, iter iterator.SBOMIterator) error {
 	logger.LogDebug(ctx.Context, "Uploading SBOMs sequentially")
 	errorCount := 0
 	maxRetries := 5
