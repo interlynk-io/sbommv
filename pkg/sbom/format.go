@@ -56,7 +56,7 @@ func (p *SBOMProcessor) detectAndParse(doc *SBOMDocument) error {
 		return fmt.Errorf("failed to detect SBOM format: %w", err)
 	}
 
-	// ✅ Map detected format to our SBOMFormat type
+	// Map detected format to our SBOMFormat type
 	switch specFormat {
 
 	case detect.SBOMSpecSPDX:

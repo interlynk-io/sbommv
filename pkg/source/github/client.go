@@ -22,6 +22,7 @@ import (
 	"sync"
 
 	"github.com/interlynk-io/sbommv/pkg/logger"
+	"github.com/interlynk-io/sbommv/pkg/source"
 	"github.com/interlynk-io/sbommv/pkg/tcontext"
 )
 
@@ -155,7 +156,7 @@ func (c *Client) extractSBOMs(releases []Release) []SBOMAsset {
 	var sboms []SBOMAsset
 	for _, release := range releases {
 		for _, asset := range release.Assets {
-			if isSBOMFile(asset.Name) {
+			if source.IsSBOMFile(asset.Name) {
 				sboms = append(sboms, SBOMAsset{
 					Release:     release.TagName,
 					Name:        asset.Name,
@@ -245,28 +246,6 @@ func (c *Client) DownloadAsset(ctx *tcontext.TransferMetadata, downloadURL strin
 	}
 
 	return resp.Body, nil
-}
-
-// DownloadSBOM fetches an SBOM from its download URL
-func (c *Client) DownloadSBOM(ctx *tcontext.TransferMetadata, asset SBOMAsset) ([]byte, error) {
-	logger.LogDebug(ctx.Context, "Downloading SBOM", "url", asset.DownloadURL)
-
-	resp, err := c.httpClient.Get(asset.DownloadURL)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch SBOM: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("GitHub API returned status %d", resp.StatusCode)
-	}
-
-	sbomData, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read SBOM data: %w", err)
-	}
-
-	return sbomData, nil
 }
 
 // GetSBOMs downloads and saves all SBOM files found in the repository
@@ -367,7 +346,7 @@ func (c *Client) downloadSingleSBOM(ctx *tcontext.TransferMetadata, sbom SBOMAss
 }
 
 func (c *Client) FetchSBOMFromAPI(ctx *tcontext.TransferMetadata) ([]byte, error) {
-	owner, repo, err := ParseGitHubURL(c.RepoURL)
+	owner, repo, err := source.ParseGitHubURL(c.RepoURL)
 	if err != nil {
 		return nil, fmt.Errorf("parsing GitHub URL: %w", err)
 	}

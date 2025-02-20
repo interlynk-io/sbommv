@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package github
+package source
 
 import (
 	"encoding/base64"
@@ -21,7 +21,7 @@ import (
 )
 
 // isSBOMFile checks if a filename appears to be an SBOM
-func isSBOMFile(name string) bool {
+func IsSBOMFile(name string) bool {
 	name = strings.ToLower(name)
 
 	// Common SBOM file patterns
@@ -82,7 +82,7 @@ func ParseGitHubURL(url string) (owner, repo string, err error) {
 }
 
 // decodeBase64 decodes base64 encoded SBOM data
-func decodeBase64(encoded string) (string, error) {
+func DecodeBase64(encoded string) (string, error) {
 	decodedBytes, err := base64.StdEncoding.DecodeString(strings.TrimSpace(encoded))
 	if err != nil {
 		return "", fmt.Errorf("failed to decode base64 SBOM: %w", err)

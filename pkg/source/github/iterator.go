@@ -101,10 +101,10 @@ func (it *GitHubIterator) fetchSBOMFromAPI(ctx *tcontext.TransferMetadata) error
 	}
 
 	it.sboms = append(it.sboms, &iterator.SBOM{
-		Path:    "",
-		Data:    sbomData,
-		Repo:    fmt.Sprintf("%s/%s", it.client.Owner, it.client.Repo),
-		Version: "latest",
+		Path:      "",
+		Data:      sbomData,
+		Namespace: fmt.Sprintf("%s/%s", it.client.Owner, it.client.Repo),
+		Version:   "latest",
 	})
 	return nil
 }
@@ -119,10 +119,10 @@ func (it *GitHubIterator) fetchSBOMFromReleases(ctx *tcontext.TransferMetadata) 
 	for version, sbomDataList := range sbomFiles {
 		for _, sbomData := range sbomDataList { // sbomPath is a string (file path)
 			it.sboms = append(it.sboms, &iterator.SBOM{
-				Path:    sbomData.Filename,
-				Data:    sbomData.Content,
-				Repo:    fmt.Sprintf("%s/%s", it.client.Owner, it.client.Repo),
-				Version: version,
+				Path:      sbomData.Filename,
+				Data:      sbomData.Content,
+				Namespace: fmt.Sprintf("%s/%s", it.client.Owner, it.client.Repo),
+				Version:   version,
 			})
 		}
 	}
@@ -142,12 +142,12 @@ func (it *GitHubIterator) fetchSBOMFromTool(ctx *tcontext.TransferMetadata) erro
 	}
 
 	// Generate SBOM and save in memory
-	sbomData, err := GenerateSBOM(ctx, repoDir, it.binaryPath)
+	sbomFile, err := GenerateSBOM(ctx, repoDir, it.binaryPath)
 	if err != nil {
 		return fmt.Errorf("failed to generate SBOM: %w", err)
 	}
 
-	sbomBytes, err := os.ReadFile(sbomData)
+	sbomBytes, err := os.ReadFile(sbomFile)
 	if err != nil {
 		return fmt.Errorf("failed to read SBOM: %w", err)
 	}
@@ -157,11 +157,11 @@ func (it *GitHubIterator) fetchSBOMFromTool(ctx *tcontext.TransferMetadata) erro
 	}
 
 	it.sboms = append(it.sboms, &iterator.SBOM{
-		Path:    "",
-		Data:    sbomBytes,
-		Repo:    fmt.Sprintf("%s/%s", it.client.Owner, it.client.Repo),
-		Version: it.client.Version,
-		Branch:  it.client.Branch,
+		Path:      "",
+		Data:      sbomBytes,
+		Namespace: fmt.Sprintf("%s/%s", it.client.Owner, it.client.Repo),
+		Version:   it.client.Version,
+		Branch:    it.client.Branch,
 	})
 	logger.LogDebug(ctx.Context, "SBOM successfully stored in memory", "repository", it.client.RepoURL)
 	return nil

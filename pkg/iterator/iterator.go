@@ -22,11 +22,11 @@ import (
 
 // SBOM represents a single SBOM file
 type SBOM struct {
-	Path    string // File path (empty if stored in memory)
-	Data    []byte // SBOM data stored in memory (nil if using Path)
-	Repo    string // Repository URL (helps track multi-repo processing)
-	Version string // Version of the SBOM (e.g., "latest" or "v1.2.3")
-	Branch  string // github repo main, master, or any specific branch
+	Path      string // File path (empty if stored in memory)
+	Data      []byte // SBOM data stored in memory (nil if using Path)
+	Namespace string // It could be Repo, or Dir (helps track multi-repo or multi-folder processing)
+	Version   string // Version of the SBOM (e.g., "latest" or "v1.2.3")
+	Branch    string // github repo main, master, or any specific branch
 }
 
 // SBOMIterator provides a way to lazily fetch SBOMs one by one

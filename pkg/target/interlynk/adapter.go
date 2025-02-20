@@ -42,20 +42,7 @@ type InterlynkAdapter struct {
 
 	// HTTP client for API requests
 	client   *http.Client
-	settings UploadSettings
-}
-
-type UploadMode string
-
-const (
-	UploadParallel   UploadMode = "parallel"
-	UploadBatching   UploadMode = "batch"
-	UploadSequential UploadMode = "sequential"
-)
-
-// UploadSettings contains configuration for SBOM uploads
-type UploadSettings struct {
-	ProcessingMode UploadMode // "sequential", "parallel", or "batch"
+	settings types.UploadSettings
 }
 
 // AddCommandParams adds GitHub-specific CLI flags
@@ -101,11 +88,6 @@ func (i *InterlynkAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 		invalidFlags = append(invalidFlags, fmt.Sprintf("invalid Interlynk API URL format: %s", url))
 	}
 
-	// // Validate project name
-	// if projectNameFlag != "" && strings.TrimSpace(projectName) == "" {
-	// 	invalidFlags = append(invalidFlags, "project name cannot be empty")
-	// }
-
 	// Restrict `--out-interlynk-project-env` to only allowed values
 	allowedEnvs := map[string]bool{"default": true, "development": true, "production": true}
 	if !allowedEnvs[projectEnv] {
@@ -130,7 +112,7 @@ func (i *InterlynkAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 	i.ProjectName = projectName
 	i.ProjectEnv = projectEnv
 	i.ApiKey = token
-	i.settings = UploadSettings{ProcessingMode: UploadSequential}
+	i.settings = types.UploadSettings{ProcessingMode: types.UploadSequential}
 
 	logger.LogDebug(cmd.Context(), "Interlynk parameters validated and assigned",
 		"url", i.BaseURL,
@@ -154,17 +136,17 @@ func (i *InterlynkAdapter) UploadSBOMs(ctx *tcontext.TransferMetadata, iterator 
 
 	switch i.settings.ProcessingMode {
 
-	case UploadParallel:
+	case types.UploadParallel:
 		// TODO: cuncurrent upload: As soon as we get the SBOM, upload it
 		// i.uploadParallel()
 		return fmt.Errorf("processing mode %q not yet implemented", i.settings.ProcessingMode)
 
-	case UploadBatching:
+	case types.UploadBatching:
 		// TODO: hybrid of sequential + parallel
 		// i.uploadBatch()
 		return fmt.Errorf("processing mode %q not yet implemented", i.settings.ProcessingMode)
 
-	case UploadSequential:
+	case types.UploadSequential:
 		// Sequential Processing: Fetch SBOM → Upload → Repeat
 		i.uploadSequential(ctx, iterator)
 
@@ -208,9 +190,9 @@ func (i *InterlynkAdapter) uploadSequential(ctx *tcontext.TransferMetadata, sbom
 		}
 		errorCount = 0 // Reset error counter on successful iteration
 
-		logger.LogDebug(ctx.Context, "Uploading SBOM", "repo", sbom.Repo, "version", sbom.Version, "data size", len(sbom.Data))
+		logger.LogDebug(ctx.Context, "Uploading SBOM", "repo", sbom.Namespace, "version", sbom.Version, "data size", len(sbom.Data))
 
-		projectID, err := client.FindOrCreateProjectGroup(ctx, sbom.Repo)
+		projectID, err := client.FindOrCreateProjectGroup(ctx, sbom.Namespace)
 		if err != nil {
 			logger.LogInfo(ctx.Context, "error", err)
 			continue
@@ -219,23 +201,15 @@ func (i *InterlynkAdapter) uploadSequential(ctx *tcontext.TransferMetadata, sbom
 		// Upload SBOM content (stored in memory)
 		err = client.UploadSBOM(ctx, projectID, sbom.Data)
 		if err != nil {
-			logger.LogInfo(ctx.Context, "Failed to upload SBOM", "repo", sbom.Repo, "version", sbom.Version)
+			logger.LogInfo(ctx.Context, "Failed to upload SBOM", "repo", sbom.Namespace, "version", sbom.Version)
 		} else {
-			logger.LogDebug(ctx.Context, "Successfully uploaded SBOM", "repo", sbom.Repo, "version", sbom.Version)
+			logger.LogDebug(ctx.Context, "Successfully uploaded SBOM", "repo", sbom.Namespace, "version", sbom.Version)
 		}
 	}
 
 	return nil
 }
 
-// // DryRun for Output Adapter: Displays all SBOMs that to be uploaded by output adapter
-// func (i *InterlynkAdapter) DryRun(ctx *tcontext.TransferMetadata, iterator iterator.SBOMIterator) error {
-// 	logger.LogDebug(ctx.Context, "Dry-run mode: Displaying SBOMs fetched from output adapter")
-// 	// TODO: Need to add core functionality
-// 	return nil
-// }
-
-// DryRunUpload simulates SBOM upload to Interlynk without actually performing the upload
 // DryRunUpload simulates SBOM upload to Interlynk without actual data transfer.
 func (i *InterlynkAdapter) DryRun(ctx *tcontext.TransferMetadata, sbomIterator iterator.SBOMIterator) error {
 	logger.LogDebug(ctx.Context, "🔄 Dry-Run Mode: Simulating Upload to Interlynk...")
@@ -265,7 +239,7 @@ func (i *InterlynkAdapter) DryRun(ctx *tcontext.TransferMetadata, sbomIterator i
 		}
 
 		// Update processor with current SBOM data
-		processor.Update(sbom.Data, sbom.Repo, sbom.Path)
+		processor.Update(sbom.Data, sbom.Namespace, sbom.Path)
 
 		// Process SBOM to extract metadata
 		doc, err := processor.ProcessSBOMs()
@@ -275,7 +249,7 @@ func (i *InterlynkAdapter) DryRun(ctx *tcontext.TransferMetadata, sbomIterator i
 		}
 
 		// Identify project name (repo-version)
-		projectKey := fmt.Sprintf("%s", sbom.Repo)
+		projectKey := fmt.Sprintf("%s", sbom.Namespace)
 		projectSBOMs[projectKey] = append(projectSBOMs[projectKey], doc)
 		totalSBOMs++
 		uniqueFormats[string(doc.Format)] = struct{}{}
@@ -301,13 +275,4 @@ func (i *InterlynkAdapter) DryRun(ctx *tcontext.TransferMetadata, sbomIterator i
 
 	fmt.Println("\n✅ **Dry-run completed**. No data was uploaded to Interlynk.")
 	return nil
-}
-
-// formatSetToString converts a map of unique formats to a comma-separated string
-func formatSetToString(formatSet map[string]struct{}) string {
-	var formats []string
-	for format := range formatSet {
-		formats = append(formats, format)
-	}
-	return strings.Join(formats, ", ")
 }

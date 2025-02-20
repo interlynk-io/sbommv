@@ -17,12 +17,11 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"github.com/interlynk-io/sbommv/pkg/engine"
-	"github.com/interlynk-io/sbommv/pkg/mvtypes"
 	"github.com/interlynk-io/sbommv/pkg/source/github"
 	"github.com/interlynk-io/sbommv/pkg/target/interlynk"
+	"github.com/interlynk-io/sbommv/pkg/types"
 
 	"github.com/interlynk-io/sbommv/pkg/logger"
 	"github.com/spf13/cobra"
@@ -102,19 +101,10 @@ func transferSBOM(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to process engine for transfer cmd: %w", err)
 	}
 
-	// Clean up SBOMs folder if it exists
-	if _, err := os.Stat("sboms"); err == nil {
-		if err := os.RemoveAll("sboms"); err != nil {
-			logger.LogError(ctx, err, "Failed to delete SBOM directory")
-			return fmt.Errorf("failed to delete directory %s: %w", "sboms", err)
-		}
-		logger.LogDebug(ctx, "Successfully deleted SBOM directory", "directory", "sboms")
-	}
-
 	return nil
 }
 
-func parseConfig(cmd *cobra.Command) (mvtypes.Config, error) {
+func parseConfig(cmd *cobra.Command) (types.Config, error) {
 	inputType, _ := cmd.Flags().GetString("input-adapter")
 	outputType, _ := cmd.Flags().GetString("output-adapter")
 	dr, _ := cmd.Flags().GetBool("dry-run")
@@ -134,17 +124,17 @@ func parseConfig(cmd *cobra.Command) (mvtypes.Config, error) {
 
 	// Show error message if required flags are missing
 	if len(missingFlags) > 0 {
-		return mvtypes.Config{}, fmt.Errorf("missing required flags: %v\n\nUse 'sbommv transfer --help' for usage details.", missingFlags)
+		return types.Config{}, fmt.Errorf("missing required flags: %v\n\nUse 'sbommv transfer --help' for usage details.", missingFlags)
 	}
 
 	if !validInputAdapter[inputType] {
-		return mvtypes.Config{}, fmt.Errorf("input adapter must be one of type: github")
+		return types.Config{}, fmt.Errorf("input adapter must be one of type: github")
 	}
 
 	if !validOutputAdapter[outputType] {
-		return mvtypes.Config{}, fmt.Errorf("output adapter must be one of type: interlynk")
+		return types.Config{}, fmt.Errorf("output adapter must be one of type: interlynk")
 	}
-	config := mvtypes.Config{
+	config := types.Config{
 		SourceType:      inputType,
 		DestinationType: outputType,
 		DryRun:          dr,

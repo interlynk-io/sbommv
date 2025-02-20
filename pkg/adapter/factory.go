@@ -20,7 +20,6 @@ import (
 
 	"github.com/interlynk-io/sbommv/pkg/iterator"
 	"github.com/interlynk-io/sbommv/pkg/logger"
-	"github.com/interlynk-io/sbommv/pkg/mvtypes"
 	"github.com/interlynk-io/sbommv/pkg/source/github"
 	"github.com/interlynk-io/sbommv/pkg/target/interlynk"
 	"github.com/interlynk-io/sbommv/pkg/tcontext"
@@ -47,7 +46,7 @@ type Adapter interface {
 }
 
 // NewAdapter initializes and returns the correct adapters (both input & output)
-func NewAdapter(ctx *tcontext.TransferMetadata, config mvtypes.Config) (map[types.AdapterRole]Adapter, error) {
+func NewAdapter(ctx *tcontext.TransferMetadata, config types.Config) (map[types.AdapterRole]Adapter, error) {
 	adapters := make(map[types.AdapterRole]Adapter)
 
 	// Initialize Input Adapter
