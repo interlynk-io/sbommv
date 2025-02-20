@@ -15,6 +15,12 @@
 // pkg/source/github/config.go
 package github
 
+const (
+	MethodAPI      = "api"
+	MethodReleases = "release"
+	MethodTool     = "tool"
+)
+
 // GitHubConfig holds all configuration data for the GitHub adapter
 type GitHubConfig struct {
 	URL          string

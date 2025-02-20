@@ -34,37 +34,19 @@ import (
 // GitHubAdapter handles fetching SBOMs from GitHub releases
 type GitHubAdapter struct {
 	config  *GitHubConfig
-	client  *Client
+	client  GitHubAPI // Interface instead of concrete Client
 	Role    types.AdapterRole
 	fetcher SBOMFetcher // Strategy for fetching SBOMs
 }
 
 // NewGitHubAdapter creates a new GitHub adapter with the given config and client
-func NewGitHubAdapter(config *GitHubConfig, client *Client) *GitHubAdapter {
-	fetcher, ok := fetcherFactory[config.Method]
-	if !ok {
-		fetcher = fetcherFactory["api"] // Default to API
-	}
-
+func NewGitHubAdapter(config *GitHubConfig, client GitHubAPI, fetcher SBOMFetcher) *GitHubAdapter {
 	return &GitHubAdapter{
 		config:  config,
 		client:  client,
 		fetcher: fetcher,
 	}
 }
-
-type GitHubMethod string
-
-const (
-	// MethodReleases searches for SBOMs in GitHub releases
-	MethodReleases GitHubMethod = "release"
-
-	// // MethodReleases searches for SBOMs in GitHub releases
-	MethodAPI GitHubMethod = "api"
-
-	// MethodGenerate clones the repo and generates SBOMs using external Tools
-	MethodTool GitHubMethod = "tool"
-)
 
 // AddCommandParams adds GitHub-specific CLI flags
 func (g *GitHubAdapter) AddCommandParams(cmd *cobra.Command) {
@@ -219,6 +201,12 @@ func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 // FetchSBOMs initializes the GitHub SBOM iterator using the unified method
 func (g *GitHubAdapter) FetchSBOMs(ctx *tcontext.TransferMetadata) (iterator.SBOMIterator, error) {
 	logger.LogDebug(ctx.Context, "Intializing SBOM fetching process")
+
+	select {
+	case <-ctx.Context.Done():
+		return nil, ctx.Context.Err()
+	default:
+	}
 
 	// Org Mode: Fetch all repositories
 	repos, err := g.client.GetAllRepositories(ctx)
@@ -375,7 +363,6 @@ func (g *GitHubAdapter) fetchSBOMsConcurrently(ctx *tcontext.TransferMetadata, r
 		go func(repo string) {
 			defer wg.Done()
 			g.config.Repo = repo
-			g.client.Repo = repo
 			g.client.updateRepo(repo)
 
 			iter, err := g.fetcher.Fetch(ctx, g.client, g.config)

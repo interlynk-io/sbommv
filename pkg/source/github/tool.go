@@ -33,7 +33,13 @@ var SupportedTools = map[string]string{
 	"spdxgen": "https://github.com/spdx/spdx-sbom-generator.git",
 }
 
-func GenerateSBOM(ctx *tcontext.TransferMetadata, repoDir, binaryPath string) (string, error) {
+type SBOMGenerator interface {
+	Generate(ctx *tcontext.TransferMetadata, repoDir, binaryPath string) (string, error)
+}
+
+type SyftGenerator struct{}
+
+func (s *SyftGenerator) Generate(ctx *tcontext.TransferMetadata, repoDir, binaryPath string) (string, error) {
 	logger.LogDebug(ctx.Context, "Generating SBOM using Syft", "repo_dir", repoDir)
 
 	// Ensure Syft binary is executable

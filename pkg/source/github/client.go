@@ -97,6 +97,20 @@ func NewClient(g *GitHubAdapter) *Client {
 	}
 }
 
+type GitHubAPI interface {
+	GetAllRepositories(ctx *tcontext.TransferMetadata) ([]string, error)
+	FetchSBOMFromAPI(ctx *tcontext.TransferMetadata) ([]byte, error)
+	GetSBOMs(ctx *tcontext.TransferMetadata) (VersionedSBOMs, error)
+	updateRepo(repo string)
+	GetRepo() string // Added to access the current repo
+}
+
+func (c *Client) GetRepo() string {
+	return c.Repo
+}
+
+var _ GitHubAPI = (*Client)(nil) // Ensure Client implements it
+
 // FindSBOMs gets all releases assets from github release page
 // filter out the particular provided release asset and
 // extract SBOMs from that
