@@ -16,7 +16,6 @@ package interlynk
 
 import (
 	"fmt"
-	"io"
 	"strings"
 
 	"github.com/interlynk-io/sbommv/pkg/iterator"
@@ -30,16 +29,22 @@ import (
 
 // InterlynkAdapter manages SBOM uploads to the Interlynk service.
 type InterlynkAdapter struct {
-	client *Client
-	config *InterlynkConfig
+	client   *Client
+	config   *InterlynkConfig
+	uploader SBOMUploader
 
 	Role types.AdapterRole
 }
 
 func NewInterlynkAdapter(config *InterlynkConfig, client *Client) *InterlynkAdapter {
+	uploader, ok := uploaderFactory[string(config.Settings.ProcessingMode)]
+	if !ok {
+		uploader = uploaderFactory[string(types.UploadSequential)] // Default
+	}
 	return &InterlynkAdapter{
-		config: config,
-		client: client,
+		config:   config,
+		client:   client,
+		uploader: uploader,
 	}
 }
 
@@ -125,88 +130,93 @@ func (i *InterlynkAdapter) FetchSBOMs(ctx *tcontext.TransferMetadata) (iterator.
 	return nil, fmt.Errorf("Interlynk adapter does not support SBOM Fetching")
 }
 
-func (i *InterlynkAdapter) UploadSBOMs(ctx *tcontext.TransferMetadata, iterator iterator.SBOMIterator) error {
+func (i *InterlynkAdapter) UploadSBOMs(ctx *tcontext.TransferMetadata, iter iterator.SBOMIterator) error {
 	logger.LogDebug(ctx.Context, "Starting SBOM upload", "mode", i.config.Settings.ProcessingMode)
-
-	if i.config.Settings.ProcessingMode != "sequential" {
-		return fmt.Errorf("unsupported processing mode: %s", i.config.Settings.ProcessingMode) // Future-proofed for parallel & batch
-	}
-
-	switch i.config.Settings.ProcessingMode {
-
-	case types.UploadParallel:
-		// TODO: cuncurrent upload: As soon as we get the SBOM, upload it
-		// i.uploadParallel()
-		return fmt.Errorf("processing mode %q not yet implemented", i.config.Settings.ProcessingMode)
-
-	case types.UploadBatching:
-		// TODO: hybrid of sequential + parallel
-		// i.uploadBatch()
-		return fmt.Errorf("processing mode %q not yet implemented", i.config.Settings.ProcessingMode)
-
-	case types.UploadSequential:
-		// Sequential Processing: Fetch SBOM → Upload → Repeat
-		i.uploadSequential(ctx, iterator)
-
-	default:
-		//
-		return fmt.Errorf("invalid processing mode: %q", i.config.Settings.ProcessingMode)
-	}
-
-	return nil
+	return i.uploader.Upload(ctx, i.client, iter)
 }
 
-// uploadSequential handles sequential SBOM processing and uploading
-func (i *InterlynkAdapter) uploadSequential(ctx *tcontext.TransferMetadata, sboms iterator.SBOMIterator) error {
-	logger.LogDebug(ctx.Context, "Uploading SBOMs in sequential mode")
+// func (i *InterlynkAdapter) UploadSBOMs(ctx *tcontext.TransferMetadata, iterator iterator.SBOMIterator) error {
+// 	logger.LogDebug(ctx.Context, "Starting SBOM upload", "mode", i.config.Settings.ProcessingMode)
 
-	// // Initialize Interlynk API client
-	// client := NewClient(Config{
-	// 	Token:       i.config.ApiKey,
-	// 	APIURL:      i.config.BaseURL,
-	// 	ProjectName: i.config.ProjectName,
-	// 	ProjectEnv:  i.config.ProjectEnv,
-	// })
+// 	if i.config.Settings.ProcessingMode != "sequential" {
+// 		return fmt.Errorf("unsupported processing mode: %s", i.config.Settings.ProcessingMode) // Future-proofed for parallel & batch
+// 	}
 
-	errorCount := 0
-	maxRetries := 5
+// 	switch i.config.Settings.ProcessingMode {
 
-	for {
-		sbom, err := sboms.Next(ctx.Context)
-		if err == io.EOF {
-			logger.LogDebug(ctx.Context, "All SBOMs uploaded successfully, no more SBOMs left.")
-			break
-		}
-		if err != nil {
-			logger.LogInfo(ctx.Context, "Failed to retrieve SBOM from iterator", err)
-			errorCount++
-			if errorCount >= maxRetries {
-				logger.LogInfo(ctx.Context, "Exceeded maximum retries", err)
-				break
-			}
-			continue
-		}
-		errorCount = 0 // Reset error counter on successful iteration
+// 	case types.UploadParallel:
+// 		// TODO: cuncurrent upload: As soon as we get the SBOM, upload it
+// 		// i.uploadParallel()
+// 		return fmt.Errorf("processing mode %q not yet implemented", i.config.Settings.ProcessingMode)
 
-		logger.LogDebug(ctx.Context, "Uploading SBOM", "repo", sbom.Namespace, "version", sbom.Version, "data size", len(sbom.Data))
+// 	case types.UploadBatching:
+// 		// TODO: hybrid of sequential + parallel
+// 		// i.uploadBatch()
+// 		return fmt.Errorf("processing mode %q not yet implemented", i.config.Settings.ProcessingMode)
 
-		projectID, err := i.client.FindOrCreateProjectGroup(ctx, sbom.Namespace)
-		if err != nil {
-			logger.LogInfo(ctx.Context, "error", err)
-			continue
-		}
+// 	case types.UploadSequential:
+// 		// Sequential Processing: Fetch SBOM → Upload → Repeat
+// 		i.uploadSequential(ctx, iterator)
 
-		// Upload SBOM content (stored in memory)
-		err = i.client.UploadSBOM(ctx, projectID, sbom.Data)
-		if err != nil {
-			logger.LogInfo(ctx.Context, "Failed to upload SBOM", "repo", sbom.Namespace, "version", sbom.Version)
-		} else {
-			logger.LogDebug(ctx.Context, "Successfully uploaded SBOM", "repo", sbom.Namespace, "version", sbom.Version)
-		}
-	}
+// 	default:
+// 		//
+// 		return fmt.Errorf("invalid processing mode: %q", i.config.Settings.ProcessingMode)
+// 	}
 
-	return nil
-}
+// 	return nil
+// }
+
+// // uploadSequential handles sequential SBOM processing and uploading
+// func (i *InterlynkAdapter) uploadSequential(ctx *tcontext.TransferMetadata, sboms iterator.SBOMIterator) error {
+// 	logger.LogDebug(ctx.Context, "Uploading SBOMs in sequential mode")
+
+// 	// // Initialize Interlynk API client
+// 	// client := NewClient(Config{
+// 	// 	Token:       i.config.ApiKey,
+// 	// 	APIURL:      i.config.BaseURL,
+// 	// 	ProjectName: i.config.ProjectName,
+// 	// 	ProjectEnv:  i.config.ProjectEnv,
+// 	// })
+
+// 	errorCount := 0
+// 	maxRetries := 5
+
+// 	for {
+// 		sbom, err := sboms.Next(ctx.Context)
+// 		if err == io.EOF {
+// 			logger.LogDebug(ctx.Context, "All SBOMs uploaded successfully, no more SBOMs left.")
+// 			break
+// 		}
+// 		if err != nil {
+// 			logger.LogInfo(ctx.Context, "Failed to retrieve SBOM from iterator", err)
+// 			errorCount++
+// 			if errorCount >= maxRetries {
+// 				logger.LogInfo(ctx.Context, "Exceeded maximum retries", err)
+// 				break
+// 			}
+// 			continue
+// 		}
+// 		errorCount = 0 // Reset error counter on successful iteration
+
+// 		logger.LogDebug(ctx.Context, "Uploading SBOM", "repo", sbom.Namespace, "version", sbom.Version, "data size", len(sbom.Data))
+
+// 		projectID, err := i.client.FindOrCreateProjectGroup(ctx, sbom.Namespace)
+// 		if err != nil {
+// 			logger.LogInfo(ctx.Context, "error", err)
+// 			continue
+// 		}
+
+// 		// Upload SBOM content (stored in memory)
+// 		err = i.client.UploadSBOM(ctx, projectID, sbom.Data)
+// 		if err != nil {
+// 			logger.LogInfo(ctx.Context, "Failed to upload SBOM", "repo", sbom.Namespace, "version", sbom.Version)
+// 		} else {
+// 			logger.LogDebug(ctx.Context, "Successfully uploaded SBOM", "repo", sbom.Namespace, "version", sbom.Version)
+// 		}
+// 	}
+
+// 	return nil
+// }
 
 // DryRunUpload simulates SBOM upload to Interlynk without actual data transfer.
 func (i *InterlynkAdapter) DryRun(ctx *tcontext.TransferMetadata, iter iterator.SBOMIterator) error {
