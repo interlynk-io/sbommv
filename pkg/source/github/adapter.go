@@ -23,7 +23,7 @@ import (
 
 	"github.com/interlynk-io/sbommv/pkg/iterator"
 	"github.com/interlynk-io/sbommv/pkg/logger"
-	"github.com/interlynk-io/sbommv/pkg/sbom"
+	"github.com/interlynk-io/sbommv/pkg/reporter"
 	"github.com/interlynk-io/sbommv/pkg/tcontext"
 	"github.com/interlynk-io/sbommv/pkg/types"
 	"github.com/interlynk-io/sbommv/pkg/utils"
@@ -33,20 +33,17 @@ import (
 
 // GitHubAdapter handles fetching SBOMs from GitHub releases
 type GitHubAdapter struct {
-	URL         string
-	Repo        string
-	Owner       string
-	Version     string
-	Branch      string
-	Method      string
-	BinaryPath  string
-	client      *Client
-	GithubToken string
-	Role        types.AdapterRole
+	config *GitHubConfig
+	client *Client
+	Role   types.AdapterRole
+}
 
-	// Comma-separated list (e.g., "repo1,repo2")
-	IncludeRepos []string
-	ExcludeRepos []string
+// NewGitHubAdapter creates a new GitHub adapter with the given config and client
+func NewGitHubAdapter(config *GitHubConfig, client *Client) *GitHubAdapter {
+	return &GitHubAdapter{
+		config: config,
+		client: client,
+	}
 }
 
 type GitHubMethod string
@@ -152,11 +149,11 @@ func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 		return fmt.Errorf("invalid input adapter flag usage:\n %s\n\nUse 'sbommv transfer --help' for correct usage.", strings.Join(invalidFlags, "\n "))
 	}
 
-	g.IncludeRepos = includeRepos
-	g.ExcludeRepos = excludeRepos
+	g.config.IncludeRepos = includeRepos
+	g.config.ExcludeRepos = excludeRepos
 
 	// Validate that both include & exclude are not used together
-	if len(g.IncludeRepos) > 0 && len(g.ExcludeRepos) > 0 {
+	if len(g.config.IncludeRepos) > 0 && len(g.config.ExcludeRepos) > 0 {
 		return fmt.Errorf("cannot use both --in-github-include-repos and --in-github-exclude-repos together")
 	}
 
@@ -166,8 +163,8 @@ func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 			return fmt.Errorf("failed to get Syft binary: %w", err)
 		}
 
-		g.BinaryPath = binaryPath
-		logger.LogDebug(context.Background(), "Binary Path", "value", g.BinaryPath)
+		g.config.BinaryPath = binaryPath
+		logger.LogDebug(context.Background(), "Binary Path", "value", g.config.BinaryPath)
 	}
 
 	token := viper.GetString("GITHUB_TOKEN")
@@ -182,32 +179,32 @@ func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 	// Assign extracted values to struct
 	if version == "" {
 		version = "latest"
-		g.URL = githubURL
+		g.config.URL = githubURL
 	} else {
-		g.URL = fmt.Sprintf("https://github.com/%s/%s", owner, repo)
+		g.config.URL = fmt.Sprintf("https://github.com/%s/%s", owner, repo)
 	}
 
-	g.Owner = owner
-	g.Repo = repo
-	g.Branch = branch
-	g.Version = version
-	g.Method = method
-	g.GithubToken = token
+	g.config.Owner = owner
+	g.config.Repo = repo
+	g.config.Branch = branch
+	g.config.Version = version
+	g.config.Method = method
+	g.config.GithubToken = token
 
 	// Initialize GitHub client
 	g.client = NewClient(g)
 
 	// Debugging logs for tracking
 	logger.LogDebug(cmd.Context(), "Parsed GitHub parameters",
-		"url", g.URL,
-		"owner", g.Owner,
-		"branch", g.Branch,
-		"repo", g.Repo,
-		"version", g.Version,
-		"include_repos", g.IncludeRepos,
-		"exclude_repos", g.ExcludeRepos,
-		"method", g.Method,
-		"token", g.GithubToken,
+		"url", g.config.URL,
+		"owner", g.config.Owner,
+		"branch", g.config.Branch,
+		"repo", g.config.Repo,
+		"version", g.config.Version,
+		"include_repos", g.config.IncludeRepos,
+		"exclude_repos", g.config.ExcludeRepos,
+		"method", g.config.Method,
+		"token", g.config.GithubToken,
 	)
 	return nil
 }
@@ -258,78 +255,84 @@ func (g *GitHubAdapter) UploadSBOMs(ctx *tcontext.TransferMetadata, iterator ite
 	return fmt.Errorf("GitHub adapter does not support SBOM uploading")
 }
 
-// DryRun for Input Adapter: Displays all fetched SBOMs from input adapter
-func (g *GitHubAdapter) DryRun(ctx *tcontext.TransferMetadata, iterator iterator.SBOMIterator) error {
-	logger.LogDebug(ctx.Context, "Dry-run mode: Displaying SBOMs fetched from input adapter")
-
-	var outputDir string
-	var verbose bool
-
-	processor := sbom.NewSBOMProcessor(outputDir, verbose)
-	sbomCount := 0
-	fmt.Println()
-	fmt.Printf("📦 Details of all Fetched SBOMs by Input Adapter\n")
-
-	for {
-
-		sbom, err := iterator.Next(ctx.Context)
-		if err == io.EOF {
-			break // No more SBOMs
-		}
-		if err != nil {
-			logger.LogError(ctx.Context, err, "Error retrieving SBOM from iterator")
-			continue
-		}
-		// Update processor with current SBOM data
-		processor.Update(sbom.Data, sbom.Namespace, sbom.Path)
-
-		doc, err := processor.ProcessSBOMs()
-		if err != nil {
-			logger.LogError(ctx.Context, err, "Failed to process SBOM")
-			continue
-		}
-
-		// If outputDir is provided, save the SBOM file
-		if outputDir != "" {
-			if err := processor.WriteSBOM(doc, sbom.Namespace); err != nil {
-				logger.LogError(ctx.Context, err, "Failed to write SBOM to output directory")
-			}
-		}
-
-		// Print SBOM content if verbose mode is enabled
-		if verbose {
-			fmt.Println("\n-------------------- 📜 SBOM Content --------------------")
-			fmt.Printf("📂 Filename: %s\n", doc.Filename)
-			fmt.Printf("📦 Format: %s | SpecVersion: %s\n\n", doc.Format, doc.SpecVersion)
-			fmt.Println(string(doc.Content))
-			fmt.Println("------------------------------------------------------")
-			fmt.Println()
-		}
-
-		sbomCount++
-		fmt.Printf(" - 📁 Repo: %s | Format: %s | SpecVersion: %s | Filename: %s \n", sbom.Namespace, doc.Format, doc.SpecVersion, doc.Filename)
-
-		// logger.LogInfo(ctx.Context, fmt.Sprintf("%d. Repo: %s | Format: %s | SpecVersion: %s | Filename: %s",
-		// 	sbomCount, sbom.Repo, doc.Format, doc.SpecVersion, doc.Filename))
-	}
-	fmt.Printf("📊 Total SBOMs are: %d\n", sbomCount)
-
-	logger.LogDebug(ctx.Context, "Dry-run mode completed for input adapter", "total_sboms", sbomCount)
-	return nil
+// pkg/source/github/adapter.go (update)
+func (g *GitHubAdapter) DryRun(ctx *tcontext.TransferMetadata, iter iterator.SBOMIterator) error {
+	reporter := reporter.NewSBOMReporter(false, "") // Configurable later
+	return reporter.DryRun(ctx.Context, iter)
 }
+
+// // DryRun for Input Adapter: Displays all fetched SBOMs from input adapter
+// func (g *GitHubAdapter) DryRun(ctx *tcontext.TransferMetadata, iterator iterator.SBOMIterator) error {
+// 	logger.LogDebug(ctx.Context, "Dry-run mode: Displaying SBOMs fetched from input adapter")
+
+// 	var outputDir string
+// 	var verbose bool
+
+// 	processor := sbom.NewSBOMProcessor(outputDir, verbose)
+// 	sbomCount := 0
+// 	fmt.Println()
+// 	fmt.Printf("📦 Details of all Fetched SBOMs by Input Adapter\n")
+
+// 	for {
+
+// 		sbom, err := iterator.Next(ctx.Context)
+// 		if err == io.EOF {
+// 			break // No more SBOMs
+// 		}
+// 		if err != nil {
+// 			logger.LogError(ctx.Context, err, "Error retrieving SBOM from iterator")
+// 			continue
+// 		}
+// 		// Update processor with current SBOM data
+// 		processor.Update(sbom.Data, sbom.Namespace, sbom.Path)
+
+// 		doc, err := processor.ProcessSBOMs()
+// 		if err != nil {
+// 			logger.LogError(ctx.Context, err, "Failed to process SBOM")
+// 			continue
+// 		}
+
+// 		// If outputDir is provided, save the SBOM file
+// 		if outputDir != "" {
+// 			if err := processor.WriteSBOM(doc, sbom.Namespace); err != nil {
+// 				logger.LogError(ctx.Context, err, "Failed to write SBOM to output directory")
+// 			}
+// 		}
+
+// 		// Print SBOM content if verbose mode is enabled
+// 		if verbose {
+// 			fmt.Println("\n-------------------- 📜 SBOM Content --------------------")
+// 			fmt.Printf("📂 Filename: %s\n", doc.Filename)
+// 			fmt.Printf("📦 Format: %s | SpecVersion: %s\n\n", doc.Format, doc.SpecVersion)
+// 			fmt.Println(string(doc.Content))
+// 			fmt.Println("------------------------------------------------------")
+// 			fmt.Println()
+// 		}
+
+// 		sbomCount++
+// 		fmt.Printf(" - 📁 Repo: %s | Format: %s | SpecVersion: %s | Filename: %s \n", sbom.Namespace, doc.Format, doc.SpecVersion, doc.Filename)
+
+// 		// logger.LogInfo(ctx.Context, fmt.Sprintf("%d. Repo: %s | Format: %s | SpecVersion: %s | Filename: %s",
+// 		// 	sbomCount, sbom.Repo, doc.Format, doc.SpecVersion, doc.Filename))
+// 	}
+// 	fmt.Printf("📊 Total SBOMs are: %d\n", sbomCount)
+
+// 	logger.LogDebug(ctx.Context, "Dry-run mode completed for input adapter", "total_sboms", sbomCount)
+// 	return nil
+// }
 
 // applyRepoFilters filters repositories based on inclusion/exclusion flags
 func (g *GitHubAdapter) applyRepoFilters(repos []string) []string {
 	includedRepos := make(map[string]bool)
 	excludedRepos := make(map[string]bool)
 
-	for _, repo := range g.IncludeRepos {
+	for _, repo := range g.config.IncludeRepos {
 		if repo != "" {
 			includedRepos[strings.TrimSpace(repo)] = true
 		}
 	}
 
-	for _, repo := range g.ExcludeRepos {
+	for _, repo := range g.config.ExcludeRepos {
 		if repo != "" {
 			excludedRepos[strings.TrimSpace(repo)] = true
 		}
@@ -364,13 +367,13 @@ func (g *GitHubAdapter) fetchSBOMsConcurrently(ctx *tcontext.TransferMetadata, r
 		wg.Add(1)
 		go func(repo string) {
 			defer wg.Done()
-			g.Repo = repo
+			g.config.Repo = repo
 			g.client.Repo = repo
 
 			iter := NewGitHubIterator(ctx, g, repo)
 
 			// Fetch SBOMs separately
-			err := iter.HandleSBOMFetchingViaIterator(ctx, GitHubMethod(g.Method))
+			err := iter.HandleSBOMFetchingViaIterator(ctx, GitHubMethod(g.config.Method))
 			if err != nil {
 				logger.LogDebug(ctx.Context, "Failed to fetch SBOMs for repo", "repo", repo)
 				return
@@ -409,14 +412,14 @@ func (g *GitHubAdapter) fetchSBOMsSequentially(ctx *tcontext.TransferMetadata, r
 
 	// Iterate over repositories one by one (sequential processing)
 	for _, repo := range repos {
-		g.Repo = repo // Set current repository
+		g.config.Repo = repo // Set current repository
 
 		logger.LogDebug(ctx.Context, "Fetching SBOMs sequentially", "repo", repo)
 
 		iter := NewGitHubIterator(ctx, g, repo)
 
 		// Fetch SBOMs separately
-		err := iter.HandleSBOMFetchingViaIterator(ctx, GitHubMethod(g.Method))
+		err := iter.HandleSBOMFetchingViaIterator(ctx, GitHubMethod(g.config.Method))
 		if err != nil {
 			logger.LogInfo(ctx.Context, "Failed to fetch SBOMs for", "repo", repo)
 			continue

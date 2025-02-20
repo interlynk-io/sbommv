@@ -36,7 +36,7 @@ type GitHubIterator struct {
 
 // NewGitHubIterator initializes and returns a new GitHubIterator instance
 func NewGitHubIterator(ctx *tcontext.TransferMetadata, g *GitHubAdapter, repo string) *GitHubIterator {
-	logger.LogDebug(ctx.Context, "Initializing GitHub Iterator", "repo", g.URL, "method", g.Method, "repo", repo)
+	logger.LogDebug(ctx.Context, "Initializing GitHub Iterator", "repo", g.config.URL, "method", g.config.Method, "repo", repo)
 
 	g.client.updateRepo(repo)
 
@@ -44,7 +44,7 @@ func NewGitHubIterator(ctx *tcontext.TransferMetadata, g *GitHubAdapter, repo st
 	return &GitHubIterator{
 		client:     g.client,
 		sboms:      []*iterator.SBOM{},
-		binaryPath: g.BinaryPath,
+		binaryPath: g.config.BinaryPath,
 	}
 }
 

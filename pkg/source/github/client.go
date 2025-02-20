@@ -87,13 +87,13 @@ func NewClient(g *GitHubAdapter) *Client {
 	return &Client{
 		httpClient: &http.Client{},
 		BaseURL:    "https://api.github.com",
-		RepoURL:    g.URL,
-		Version:    g.Version,
-		Method:     g.Method,
-		Owner:      g.Owner,
-		Repo:       g.Repo,
-		Branch:     g.Branch,
-		Token:      g.GithubToken,
+		RepoURL:    g.config.URL,
+		Version:    g.config.Version,
+		Method:     g.config.Method,
+		Owner:      g.config.Owner,
+		Repo:       g.config.Repo,
+		Branch:     g.config.Branch,
+		Token:      g.config.GithubToken,
 	}
 }
 
