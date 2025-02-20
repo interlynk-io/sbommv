@@ -28,25 +28,34 @@ import (
 
 // // GitHubIterator iterates over SBOMs fetched from GitHub (API, Release, Tool)
 type GitHubIterator struct {
-	client     *Client
-	sboms      []*iterator.SBOM // Stores all fetched SBOMs
-	position   int              // Tracks iteration position
-	binaryPath string
+	client   *Client
+	config   *GitHubConfig    // Added to avoid dependency on adapter
+	sboms    []*iterator.SBOM // Stores all fetched SBOMs
+	position int              // Tracks iteration position
 }
 
-// NewGitHubIterator initializes and returns a new GitHubIterator instance
-func NewGitHubIterator(ctx *tcontext.TransferMetadata, g *GitHubAdapter, repo string) *GitHubIterator {
-	logger.LogDebug(ctx.Context, "Initializing GitHub Iterator", "repo", g.config.URL, "method", g.config.Method, "repo", repo)
-
-	g.client.updateRepo(repo)
-
-	// Create and return the iterator instance without fetching SBOMs
+func NewGitHubIterator(ctx *tcontext.TransferMetadata, client *Client, config *GitHubConfig) *GitHubIterator {
+	logger.LogDebug(ctx.Context, "Initializing GitHub Iterator", "repo", config.URL, "method", config.Method)
 	return &GitHubIterator{
-		client:     g.client,
-		sboms:      []*iterator.SBOM{},
-		binaryPath: g.config.BinaryPath,
+		client: client,
+		config: config,
+		sboms:  []*iterator.SBOM{},
 	}
 }
+
+// // NewGitHubIterator initializes and returns a new GitHubIterator instance
+// func NewGitHubIterator(ctx *tcontext.TransferMetadata, g *GitHubAdapter, repo string) *GitHubIterator {
+// 	logger.LogDebug(ctx.Context, "Initializing GitHub Iterator", "repo", g.config.URL, "method", g.config.Method, "repo", repo)
+
+// 	g.client.updateRepo(repo)
+
+// 	// Create and return the iterator instance without fetching SBOMs
+// 	return &GitHubIterator{
+// 		client:     g.client,
+// 		sboms:      []*iterator.SBOM{},
+// 		binaryPath: g.config.BinaryPath,
+// 	}
+// }
 
 // FetchSBOMs fetches SBOMs for the given GitHubIterator instance
 func (it *GitHubIterator) HandleSBOMFetchingViaIterator(ctx *tcontext.TransferMetadata, method GitHubMethod) error {
@@ -142,7 +151,7 @@ func (it *GitHubIterator) fetchSBOMFromTool(ctx *tcontext.TransferMetadata) erro
 	}
 
 	// Generate SBOM and save in memory
-	sbomFile, err := GenerateSBOM(ctx, repoDir, it.binaryPath)
+	sbomFile, err := GenerateSBOM(ctx, repoDir, it.config.BinaryPath)
 	if err != nil {
 		return fmt.Errorf("failed to generate SBOM: %w", err)
 	}
