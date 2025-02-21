@@ -25,6 +25,7 @@ Once SBOMs are fetched, they are uploaded to Interlynk. To use Interlynk, you ne
 1. [Create an Interlynk account](https://app.interlynk.io/auth).
 2. Generate an INTERLYNK_SECURITY_TOKEN from [here](https://app.interlynk.io/vendor/settings?tab=security%20tokens).
 3. Export the token before running `sbommv`
+
     ```bash
     export INTERLYNK_SECURITY_TOKEN="lynk_test_EV2DxRfCfn4wdM8FVaiGkb6ny3KgSJ7JE5zT"
     ```
@@ -122,9 +123,9 @@ sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigst
 
 - Useful for previewing the SBOMs to be uploaded, project to be created on Interlynk.
 
-## 2. Advanced Transfer(Organization Repos): GitHub → Interlynk
+## 3. Advanced Transfer(Organization Repos): GitHub → Interlynk
 
-### 2.1 Github Release Method
+### 3.1 Github Release Method
 
 #### Fetch SBOMs from a GitHub Organization, Including Only Specific Repos and then upload to interlynk
 
@@ -170,7 +171,6 @@ sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigst
   - Uploads them as separate projects in Interlynk.
   - `cosign`, `rekor` SBOMs will be uploaded to `sigstore/cosign` and `sigstore/reko` respectively.
 
-
 #### Fetch SBOMs using API method from a GitHub Organization by excluding Specific Repos and then upload to interlynk
 
 ```bash
@@ -209,6 +209,31 @@ sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigst
 - **What this does**:
   - Fetches SBOMs from all repositories in `sigstore` except `docs`.
   - Uploads them as separate projects in Interlynk.
+
+## 4. GitHub  → Folder
+
+### Fetch SBOMs from github repo and save it to a folder
+
+```bash
+ sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigstore/" --in-github-include-repos=cosign,fulcio,rekor --in-github-method="release" --output-adapter=folder --out-folder-path="temp"
+```
+
+- **What this does**:
+  - Fetches SBOMs from `sigstore` organization for repositories in `cosign`, `fulcio`, and `rekor`.
+  - Save these SBOMs to a folder `temp`.
+  - Under `temp`, seperate sub-dir with name `cosign`, `fulcio` and `rekor` will be created and respective repo SBOMs will be stored there.
+
+## 4. Folder → Interlynk
+
+### Fetch SBOMs from folder "temp" and upload/push it to a Interlynk
+
+```bash
+sbommv transfer --input-adapter=folder --in-folder-path="temp"  --in-folder-recursive=true  --output-adapter=interlynk --out-interlynk-url="http://localhost:3000/lynkapi"
+```
+
+- **What this does**:
+  - Fetches/Scan SBOMs from `temp` directory for all sub-directories such as `cosign`, `fulcio`, and `rekor`.
+  - Upload these SBOMs to a Interlynk with a project ID `cosign`, `fulcio`, and `rekor`.
 
 ## Some More Examples
 

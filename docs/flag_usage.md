@@ -11,7 +11,7 @@ These flags apply to **all commands**, regardless of input or output adapters.
 - `--dry-run` : **Simulates the transfer process** without actually uploading SBOMs. This allows users to preview the results before making real changes.
 - `-h, --help` : Displays the help menu for the `sbommv transfer` command.
 
-## 🔹 Input Adapter: GitHub Flags
+## 1. Input Adapter GitHub Flags
 
 The **GitHub adapter** allows fetching SBOMs from repositories or organizations. The following flags control how SBOMs are retrieved.
 
@@ -30,7 +30,17 @@ The **GitHub adapter** allows fetching SBOMs from repositories or organizations.
   - Example: `--in-github-url=https://github.com/sigstore`
 - **For a specific branch** → Use `--in-github-branch="<branch_name>"` (only with the tool method)  
 
-## 🔹 Output Adapter: Interlynk Flags
+## 2. Input Adapter Folder Flags
+
+The **Folder adapter** allows fetching/scanning SBOMs from directories and sub-directories. The following flags control how SBOMs are retrieved.
+
+- `--input-adapter=folder`: **Specifies Folder as the input system** to fetch SBOMs. **(Required)** 
+- `--in-folder-path=<path>`: **Folder path** from which to scan/fetch SBOMs.
+- `--in-folder-recursive=true`: Specifies to scan from all sub-directories under provided path.
+- `--in-folder-processing-mode="parallel`: **SBOM fetching mode**, fetch or scan sboms cuncurrently or parralelly, which is quite faster than sequential mode.
+
+
+## 1. Output Adapter: Interlynk Flags
 
 The **Interlynk adapter** is used for uploading SBOMs to **Interlynk’s SBOM Management Platform**.
 
@@ -45,11 +55,17 @@ The **Interlynk adapter** is used for uploading SBOMs to **Interlynk’s SBOM Ma
 - **Uploading to a custom environment** → Use `--out-interlynk-project-env="development"`
 - **NOTE**: For entire organization, no need to provide specific project, it will be automatically created as per requirements.
 
-## 📌 Summary
+## 2. Ouput Adapter Folder Flags
 
-✅ **GitHub Flags** → Control how SBOMs are fetched  
-✅ **Interlynk Flags** → Control how SBOMs are uploaded  
-✅ **Test with `--dry-run`** before uploading  
+The **Folder adapter** allows fetching/scanning SBOMs from directories and sub-directories. The following flags control how SBOMs are retrieved.
+
+- `--output-adapter=folder`: **Specifies Folder as the output system** to save SBOMs. **(Required)**
+- `--out-folder-path=<path>`: **Folder path** to which to save or download the SBOMs.
+- `--out-folder-processing-mode="parallel`: **SBOM saving mode**, save sboms cuncurrently or parralelly, which is quite faster than sequential mode.
+
+## 📌 NOTE
+
+✅ To see the display of how many SBOMs are fetched or how many SBOMs to be uploaded, use `--dry-run`. It provides you rough idea about what being fetched and what would be uploaded.  
 
 📌 **Looking for command examples?** → [Check out the Example Guide](https://github.com/interlynk-io/sbommv/blob/main/docs/examples.md)  
 📌 **Want to get started quickly?** → [Read Getting Started with sbommv]([./docs/GettingStarted.md](https://github.com/interlynk-io/sbommv/blob/main/docs/getting_started.md))  
