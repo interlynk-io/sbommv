@@ -20,6 +20,7 @@ import (
 
 	"github.com/interlynk-io/sbommv/pkg/engine"
 	ifolder "github.com/interlynk-io/sbommv/pkg/source/folder"
+	"github.com/interlynk-io/sbommv/pkg/target/dependencytrack"
 	ofolder "github.com/interlynk-io/sbommv/pkg/target/folder"
 
 	"github.com/interlynk-io/sbommv/pkg/source/github"
@@ -93,6 +94,8 @@ func registerAdapterFlags(cmd *cobra.Command) {
 	folderOutputAdapter := &ofolder.FolderAdapter{}
 	folderOutputAdapter.AddCommandParams(cmd)
 
+	dtrackAdapter := &dependencytrack.DependencyTrackAdapter{}
+	dtrackAdapter.AddCommandParams(cmd)
 	// similarly for all other Adapters
 }
 
@@ -130,7 +133,7 @@ func parseConfig(cmd *cobra.Command) (types.Config, error) {
 	dr, _ := cmd.Flags().GetBool("dry-run")
 
 	validInputAdapter := map[string]bool{"github": true, "folder": true}
-	validOutputAdapter := map[string]bool{"interlynk": true, "folder": true}
+	validOutputAdapter := map[string]bool{"interlynk": true, "folder": true, "dtrack": true}
 
 	// Custom validation for required flags
 	missingFlags := []string{}
