@@ -20,6 +20,7 @@ import (
 
 	"github.com/interlynk-io/sbommv/pkg/iterator"
 	"github.com/interlynk-io/sbommv/pkg/logger"
+	"github.com/interlynk-io/sbommv/pkg/target/dependencytrack"
 	ofolder "github.com/interlynk-io/sbommv/pkg/target/folder"
 
 	ifolder "github.com/interlynk-io/sbommv/pkg/source/folder"
@@ -83,6 +84,9 @@ func NewAdapter(ctx *tcontext.TransferMetadata, config types.Config) (map[types.
 
 		case types.InterlynkAdapterType:
 			adapters[types.OutputAdapterRole] = &interlynk.InterlynkAdapter{Role: types.OutputAdapterRole}
+
+		case types.DtrackAdapterType:
+			adapters[types.OutputAdapterRole] = &dependencytrack.DependencyTrackAdapter{Role: types.OutputAdapterRole, Uploader: &dependencytrack.SequentialUploader{}}
 
 		default:
 			return nil, fmt.Errorf("unsupported output adapter type: %s", config.DestinationType)
