@@ -44,6 +44,15 @@ sbommv transfer -D --input-adapter=github --in-github-url="https://github.com/in
 # Fetch SBOMs using the GitHub adapter via the api method for the latest repository version
 sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigstore/cosign" --in-github-method=api  \
 --output-adapter=interlynk --out-interlynk-url="http://localhost:3000/lynkapi"
+
+# Fetch SBOMs from github repo and save it to a folder "temp"
+sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigstore/" --in-github-include-repos=cosign,fulcio,rekor \
+--in-github-method="release" --output-adapter=folder --out-folder-path="temp"
+
+# Fetch SBOMs from folder "temp" and upload/push it to a Interlynk
+sbommv transfer --input-adapter=folder --in-folder-path="temp"  --in-folder-recursive=true  --output-adapter=interlynk \
+--out-interlynk-url="http://localhost:3000/lynkapi"
+
 	`,
 	Args: cobra.NoArgs,
 	RunE: transferSBOM,
