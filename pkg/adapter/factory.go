@@ -86,7 +86,7 @@ func NewAdapter(ctx *tcontext.TransferMetadata, config types.Config) (map[types.
 			adapters[types.OutputAdapterRole] = &interlynk.InterlynkAdapter{Role: types.OutputAdapterRole}
 
 		case types.DtrackAdapterType:
-			adapters[types.OutputAdapterRole] = &dependencytrack.DependencyTrackAdapter{Role: types.OutputAdapterRole, Uploader: &dependencytrack.SequentialUploader{}}
+			adapters[types.OutputAdapterRole] = &dependencytrack.DependencyTrackAdapter{Role: types.OutputAdapterRole, Uploader: dependencytrack.NewSequentialUploader()}
 
 		default:
 			return nil, fmt.Errorf("unsupported output adapter type: %s", config.DestinationType)

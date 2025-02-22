@@ -15,13 +15,15 @@
 package dependencytrack
 
 type DependencyTrackConfig struct {
-	APIURL      string
-	APIKey      string
-	ProjectName string // Target project name for uploads
+	APIURL         string
+	APIKey         string
+	ProjectName    string
+	ProjectVersion string // Added field for project version
 }
 
 func NewDependencyTrackConfig() *DependencyTrackConfig {
 	return &DependencyTrackConfig{
-		APIURL: "https://dependencytrack.com/api/v1",
+		APIURL:         "http://localhost:8081/api/v1",
+		ProjectVersion: "latest", // Default version
 	}
 }

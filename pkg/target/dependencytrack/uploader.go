@@ -4,19 +4,19 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package dependencytrack
 
 import (
 	"fmt"
 	"io"
+	"sync"
 
 	"github.com/interlynk-io/sbommv/pkg/iterator"
 	"github.com/interlynk-io/sbommv/pkg/logger"
@@ -27,7 +27,16 @@ type SBOMUploader interface {
 	Upload(ctx *tcontext.TransferMetadata, config *DependencyTrackConfig, client *DependencyTrackClient, iter iterator.SBOMIterator) error
 }
 
-type SequentialUploader struct{}
+type SequentialUploader struct {
+	createdProjects map[string]bool // Cache of created project names
+	mu              sync.Mutex      // Protect map access
+}
+
+func NewSequentialUploader() *SequentialUploader {
+	return &SequentialUploader{
+		createdProjects: make(map[string]bool), // Initialize map
+	}
+}
 
 func (u *SequentialUploader) Upload(ctx *tcontext.TransferMetadata, config *DependencyTrackConfig, client *DependencyTrackClient, iter iterator.SBOMIterator) error {
 	logger.LogDebug(ctx.Context, "Uploading SBOMs to Dependency-Track sequentially")
@@ -42,33 +51,40 @@ func (u *SequentialUploader) Upload(ctx *tcontext.TransferMetadata, config *Depe
 			return err
 		}
 
-		// Use config.ProjectName if provided, otherwise fall back to sbom.Namespace
 		projectName := config.ProjectName
 		if projectName == "" {
 			if sbom.Namespace == "" {
 				return fmt.Errorf("no project name specified and SBOM namespace is empty")
 			}
-			projectName = sbom.Namespace // e.g., "cosign", "fulcio", "rekor"
+			projectName = sbom.Namespace
 		}
 
-		// Ensure project exists (idempotent PUT)
-		_, err = client.CreateProject(ctx, projectName)
-		if err != nil {
-			logger.LogInfo(ctx.Context, "Failed to create project", "project", projectName, "error", err)
-			continue
+		u.mu.Lock()
+		if !u.createdProjects[projectName] {
+			_, err = client.FindOrCreateProject(ctx, projectName, config.ProjectVersion)
+			if err != nil {
+				logger.LogInfo(ctx.Context, "Failed to find or create project", "project", projectName, "error", err)
+				u.mu.Unlock()
+				continue
+			}
+			u.createdProjects[projectName] = true
+			logger.LogDebug(ctx.Context, "Project ensured", "project", projectName)
 		}
+		u.mu.Unlock()
 
-		// Upload SBOM to the project
-		err = client.UploadSBOM(ctx, projectName, sbom.Data)
+		// Log SBOM filename before upload
+		logger.LogDebug(ctx.Context, "Attempting to upload SBOM", "project", projectName, "file", sbom.Path)
+
+		err = client.UploadSBOM(ctx, projectName, config.ProjectVersion, sbom.Data)
 		if err != nil {
-			logger.LogInfo(ctx.Context, "Failed to upload SBOM", "project", projectName, "error", err)
+			logger.LogInfo(ctx.Context, "Failed to upload SBOM", "project", projectName, "file", sbom.Path, "error", err)
 			continue
 		}
-		logger.LogDebug(ctx.Context, "Successfully uploaded SBOM", "project", projectName)
+		logger.LogDebug(ctx.Context, "Successfully uploaded SBOM", "project", projectName, "file", sbom.Path)
 	}
 	return nil
 }
 
 var uploaderFactory = map[string]SBOMUploader{
-	"sequential": &SequentialUploader{},
+	"sequential": NewSequentialUploader(),
 }

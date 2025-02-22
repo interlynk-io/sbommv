@@ -16,10 +16,12 @@ package dependencytrack
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/interlynk-io/sbommv/pkg/logger"
 	"github.com/interlynk-io/sbommv/pkg/tcontext"
@@ -35,7 +37,7 @@ func NewDependencyTrackClient(config *DependencyTrackConfig) *DependencyTrackCli
 	return &DependencyTrackClient{
 		apiURL: config.APIURL,
 		apiKey: config.APIKey,
-		client: &http.Client{},
+		client: &http.Client{Timeout: 30 * time.Second},
 	}
 }
 
@@ -45,13 +47,42 @@ type Project struct {
 	Version string `json:"version"`
 }
 
-// UploadSBOM uploads an SBOM to a Dependency-Track project
-func (c *DependencyTrackClient) UploadSBOM(ctx *tcontext.TransferMetadata, projectName string, sbomData []byte) error {
-	logger.LogDebug(ctx.Context, "Intiatializing Uploading SBOMs", "project", projectName)
+func (c *DependencyTrackClient) FindProject(ctx *tcontext.TransferMetadata, projectName, projectVersion string) (string, error) {
+	req, err := http.NewRequestWithContext(ctx.Context, "GET", c.apiURL+"/project", nil)
+	if err != nil {
+		return "", fmt.Errorf("creating request: %w", err)
+	}
+	req.Header.Set("X-Api-Key", c.apiKey)
+	req.Header.Set("Accept", "application/json")
 
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("fetching projects: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("API returned status %d", resp.StatusCode)
+	}
+
+	var projects []Project
+	if err := json.NewDecoder(resp.Body).Decode(&projects); err != nil {
+		return "", fmt.Errorf("decoding projects: %w", err)
+	}
+	for _, p := range projects {
+		if p.Name == projectName && p.Version == projectVersion {
+			return p.UUID, nil
+		}
+	}
+	return "", nil // Project not found
+}
+
+// UploadSBOM uploads an SBOM to a Dependency-Track project
+func (c *DependencyTrackClient) UploadSBOM(ctx *tcontext.TransferMetadata, projectName, projectVersion string, sbomData []byte) error {
 	payload := map[string]interface{}{
-		"projectName": projectName,
-		"bom":         string(sbomData), // Dependency-Track expects base64-encoded SBOM, but we'll send raw for simplicity here
+		"projectName":    projectName,
+		"projectVersion": projectVersion,
+		"bom":            base64.StdEncoding.EncodeToString(sbomData),
 	}
 	body, err := json.Marshal(payload)
 	if err != nil {
@@ -81,13 +112,24 @@ func (c *DependencyTrackClient) UploadSBOM(ctx *tcontext.TransferMetadata, proje
 	return nil
 }
 
-// CreateProject ensures a project exists, creating it if necessary
-func (c *DependencyTrackClient) CreateProject(ctx *tcontext.TransferMetadata, projectName string) (string, error) {
-	logger.LogDebug(ctx.Context, "Intiatializing Project Creation", "project", projectName)
+// FindOrCreateProject ensures a project exists, returning its UUID
+func (c *DependencyTrackClient) FindOrCreateProject(ctx *tcontext.TransferMetadata, projectName, projectVersion string) (string, error) {
+	uuid, err := c.FindProject(ctx, projectName, projectVersion)
+	if err != nil {
+		return "", fmt.Errorf("finding project: %w", err)
+	}
+	if uuid != "" {
+		logger.LogDebug(ctx.Context, "Project already exists", "project", projectName, "uuid", uuid)
+		return uuid, nil
+	}
+	return c.CreateProject(ctx, projectName, projectVersion)
+}
 
+// CreateProject creates a new project if it doesn’t exist
+func (c *DependencyTrackClient) CreateProject(ctx *tcontext.TransferMetadata, projectName, projectVersion string) (string, error) {
 	payload := map[string]string{
 		"name":    projectName,
-		"version": "latest", // Default version
+		"version": projectVersion,
 	}
 	body, err := json.Marshal(payload)
 	if err != nil {
@@ -108,15 +150,14 @@ func (c *DependencyTrackClient) CreateProject(ctx *tcontext.TransferMetadata, pr
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("API returned status %d", resp.StatusCode)
+		body, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(body))
 	}
 
 	var project Project
 	if err := json.NewDecoder(resp.Body).Decode(&project); err != nil {
 		return "", fmt.Errorf("decoding response: %w", err)
 	}
-
-	logger.LogDebug(ctx.Context, "Successfully Project Created", "project", projectName, "projectID", project.UUID)
-
+	logger.LogDebug(ctx.Context, "Project created or verified", "project", projectName, "uuid", project.UUID)
 	return project.UUID, nil
 }
