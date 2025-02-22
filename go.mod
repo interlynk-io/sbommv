@@ -5,6 +5,7 @@ go 1.23.0
 toolchain go1.23.6
 
 require (
+	github.com/DependencyTrack/client-go v0.15.0
 	github.com/interlynk-io/sbomasm v1.0.0
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/viper v1.19.0
@@ -13,6 +14,8 @@ require (
 )
 
 require github.com/common-nighthawk/go-figure v0.0.0-20210622060536-734e95fb86be // indirect
+
+require golang.org/x/mod v0.23.0 // indirect
 
 require (
 	github.com/fsnotify/fsnotify v1.8.0 // indirect

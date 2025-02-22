@@ -45,14 +45,15 @@ func NewDependencyTrackAdapter(config *DependencyTrackConfig, client *Dependency
 func (d *DependencyTrackAdapter) AddCommandParams(cmd *cobra.Command) {
 	cmd.Flags().String("out-dtrack-url", "", "Dependency Track API URL")
 	cmd.Flags().String("out-dtrack-project-name", "", "Project name to upload SBOMs to")
+	cmd.Flags().String("out-dtrack-project-version", "latest", "Project version (default: latest)")
 }
 
 // ParseAndValidateParams validates the Dependency-Track adapter params
 func (d *DependencyTrackAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 	var (
-		urlFlag, projectNameFlag string
-		missingFlags             []string
-		invalidFlags             []string
+		urlFlag, projectNameFlag, projectVersionFlag string
+		missingFlags                                 []string
+		invalidFlags                                 []string
 	)
 
 	switch d.Role {
@@ -62,6 +63,7 @@ func (d *DependencyTrackAdapter) ParseAndValidateParams(cmd *cobra.Command) erro
 	case types.OutputAdapterRole:
 		urlFlag = "out-dtrack-url"
 		projectNameFlag = "out-dtrack-project-name"
+		projectVersionFlag = "out-dtrack-project-version"
 
 	default:
 		return fmt.Errorf("The adapter is neither an input type nor an output type")
@@ -71,11 +73,12 @@ func (d *DependencyTrackAdapter) ParseAndValidateParams(cmd *cobra.Command) erro
 	apiURL, _ := cmd.Flags().GetString(urlFlag)
 
 	// Check if INTERLYNK_SECURITY_TOKEN is set
-	token := viper.GetString("DTRACK_SECURITY_TOKEN")
+	token := viper.GetString("DTRACK_API_KEY")
 	if token == "" {
-		return fmt.Errorf("missing INTERLYNK_SECURITY_TOKEN: authentication required")
+		return fmt.Errorf("missing DTRACK_API_KEY: authentication required")
 	}
 	projectName, _ := cmd.Flags().GetString(projectNameFlag)
+	projectVersion, _ := cmd.Flags().GetString(projectVersionFlag)
 
 	// Validate API URL and API key
 	if !strings.HasPrefix(apiURL, "http") {
@@ -94,6 +97,7 @@ func (d *DependencyTrackAdapter) ParseAndValidateParams(cmd *cobra.Command) erro
 	cfg.APIURL = apiURL
 	cfg.APIKey = token
 	cfg.ProjectName = projectName
+	cfg.ProjectVersion = projectVersion
 
 	// Set values to struct
 	d.config = cfg
@@ -106,6 +110,7 @@ func (d *DependencyTrackAdapter) ParseAndValidateParams(cmd *cobra.Command) erro
 		"url", d.config.APIURL,
 		"apiKey", d.config.APIKey,
 		"project_name", d.config.ProjectName,
+		"project_version", d.config.ProjectVersion,
 	)
 	return nil
 }
