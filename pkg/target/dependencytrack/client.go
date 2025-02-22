@@ -48,6 +48,8 @@ type Project struct {
 }
 
 func (c *DependencyTrackClient) FindProject(ctx *tcontext.TransferMetadata, projectName, projectVersion string) (string, error) {
+	logger.LogDebug(ctx.Context, "Finding Project", "project", projectName, "version", projectVersion)
+
 	req, err := http.NewRequestWithContext(ctx.Context, "GET", c.apiURL+"/project", nil)
 	if err != nil {
 		return "", fmt.Errorf("creating request: %w", err)
@@ -71,19 +73,24 @@ func (c *DependencyTrackClient) FindProject(ctx *tcontext.TransferMetadata, proj
 	}
 	for _, p := range projects {
 		if p.Name == projectName && p.Version == projectVersion {
+			logger.LogDebug(ctx.Context, "Project found", "project", projectName, "version", projectVersion, "id", p.UUID)
 			return p.UUID, nil
 		}
 	}
+	logger.LogDebug(ctx.Context, "Project not found", "project", projectName, "version", projectVersion)
 	return "", nil // Project not found
 }
 
 // UploadSBOM uploads an SBOM to a Dependency-Track project
 func (c *DependencyTrackClient) UploadSBOM(ctx *tcontext.TransferMetadata, projectName, projectVersion string, sbomData []byte) error {
+	logger.LogDebug(ctx.Context, "Processing Uploading SBOMs to Dependency-Track sequentially", "project", projectName, "version", projectVersion)
+
 	payload := map[string]interface{}{
 		"projectName":    projectName,
 		"projectVersion": projectVersion,
 		"bom":            base64.StdEncoding.EncodeToString(sbomData),
 	}
+
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return fmt.Errorf("marshaling payload: %w", err)
@@ -108,12 +115,14 @@ func (c *DependencyTrackClient) UploadSBOM(ctx *tcontext.TransferMetadata, proje
 		return fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(body))
 	}
 
-	logger.LogDebug(ctx.Context, "Successfully Uploaded SBOMs", "project", projectName)
+	logger.LogDebug(ctx.Context, "Successfully Uploaded SBOMs", "project", projectName, "version", projectVersion)
 	return nil
 }
 
 // FindOrCreateProject ensures a project exists, returning its UUID
 func (c *DependencyTrackClient) FindOrCreateProject(ctx *tcontext.TransferMetadata, projectName, projectVersion string) (string, error) {
+	logger.LogDebug(ctx.Context, "Finding Project", "project", projectName, "version", projectVersion)
+
 	uuid, err := c.FindProject(ctx, projectName, projectVersion)
 	if err != nil {
 		return "", fmt.Errorf("finding project: %w", err)
@@ -122,15 +131,20 @@ func (c *DependencyTrackClient) FindOrCreateProject(ctx *tcontext.TransferMetada
 		logger.LogDebug(ctx.Context, "Project already exists", "project", projectName, "uuid", uuid)
 		return uuid, nil
 	}
+	logger.LogDebug(ctx.Context, "Project doesn't exist", "project", projectName, "version", projectVersion)
+
 	return c.CreateProject(ctx, projectName, projectVersion)
 }
 
 // CreateProject creates a new project if it doesn’t exist
 func (c *DependencyTrackClient) CreateProject(ctx *tcontext.TransferMetadata, projectName, projectVersion string) (string, error) {
+	logger.LogDebug(ctx.Context, "Creating Project", "project", projectName, "version", projectVersion)
+
 	payload := map[string]string{
 		"name":    projectName,
 		"version": projectVersion,
 	}
+
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return "", fmt.Errorf("marshaling payload: %w", err)
@@ -158,6 +172,6 @@ func (c *DependencyTrackClient) CreateProject(ctx *tcontext.TransferMetadata, pr
 	if err := json.NewDecoder(resp.Body).Decode(&project); err != nil {
 		return "", fmt.Errorf("decoding response: %w", err)
 	}
-	logger.LogDebug(ctx.Context, "Project created or verified", "project", projectName, "uuid", project.UUID)
+	logger.LogDebug(ctx.Context, "Project created or verified", "project", project.Name, "version", project.Version, "uuid", project.UUID)
 	return project.UUID, nil
 }
