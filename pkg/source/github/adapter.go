@@ -98,6 +98,8 @@ func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 	default:
 		return fmt.Errorf("The adapter is neither an input type nor an output type")
 	}
+	// validate flags for respective adapters
+	utils.FlagValidation(cmd, types.GithubAdapterType, types.InputAdapterFlagPrefix)
 
 	// Extract GitHub URL
 	githubURL, _ := cmd.Flags().GetString(urlFlag)

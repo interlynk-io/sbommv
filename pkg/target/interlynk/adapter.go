@@ -72,6 +72,9 @@ func (i *InterlynkAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 		return fmt.Errorf("The adapter is neither an input type nor an output type")
 	}
 
+	// validate flags for respective adapters
+	utils.FlagValidation(cmd, types.InterlynkAdapterType, types.OutputAdapterFlagPrefix)
+
 	// Get flags
 	url, _ := cmd.Flags().GetString(urlFlag)
 	projectName, _ := cmd.Flags().GetString(projectNameFlag)

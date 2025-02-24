@@ -49,3 +49,10 @@ const (
 type UploadSettings struct {
 	ProcessingMode UploadMode // "sequential", "parallel", or "batch"
 }
+
+type FlagPrefix string
+
+const (
+	InputAdapterFlagPrefix  FlagPrefix = "in"
+	OutputAdapterFlagPrefix FlagPrefix = "out"
+)
