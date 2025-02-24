@@ -22,6 +22,7 @@ import (
 	"github.com/interlynk-io/sbommv/pkg/logger"
 	"github.com/interlynk-io/sbommv/pkg/tcontext"
 	"github.com/interlynk-io/sbommv/pkg/types"
+	"github.com/interlynk-io/sbommv/pkg/utils"
 	"github.com/spf13/cobra"
 )
 
@@ -60,6 +61,9 @@ func (f *FolderAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 		return fmt.Errorf("The adapter is neither an input type nor an output type")
 
 	}
+
+	// validate flags for respective adapters
+	utils.FlagValidation(cmd, types.FolderAdapterType, types.InputAdapterFlagPrefix)
 
 	// Extract Folder Path
 	folderPath, _ := cmd.Flags().GetString(pathFlag)
