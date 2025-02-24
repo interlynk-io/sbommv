@@ -41,7 +41,7 @@ type MemoryIterator struct {
 }
 
 // NewMemoryIterator creates a new MemoryIterator from a slice of SBOMs.
-func NewMemoryIterator(sboms []*SBOM) *MemoryIterator {
+func NewMemoryIterator(sboms []*SBOM) SBOMIterator {
 	return &MemoryIterator{
 		sboms: sboms,
 		index: 0,

@@ -15,7 +15,16 @@ require (
 
 require github.com/common-nighthawk/go-figure v0.0.0-20210622060536-734e95fb86be // indirect
 
-require golang.org/x/mod v0.23.0 // indirect
+require (
+	github.com/CycloneDX/cyclonedx-go v0.9.2 // indirect
+	github.com/anchore/go-struct-converter v0.0.0-20250211213226-cce56d595160 // indirect
+	github.com/blang/semver/v4 v4.0.0 // indirect
+	github.com/google/go-cmp v0.6.0 // indirect
+	github.com/sirupsen/logrus v1.9.3 // indirect
+	github.com/spdx/tools-golang v0.5.5 // indirect
+	golang.org/x/mod v0.23.0 // indirect
+	google.golang.org/protobuf v1.36.5 // indirect
+)
 
 require (
 	github.com/fsnotify/fsnotify v1.8.0 // indirect
@@ -25,12 +34,13 @@ require (
 	github.com/magiconair/properties v1.8.9 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.3 // indirect
+	github.com/protobom/protobom v0.5.1
 	github.com/sagikazarmark/locafero v0.7.0 // indirect
 	github.com/sagikazarmark/slog-shim v0.1.0 // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect
 	github.com/spf13/afero v1.12.0 // indirect
 	github.com/spf13/cast v1.7.1 // indirect
-	github.com/spf13/pflag v1.0.6 // indirect
+	github.com/spf13/pflag v1.0.6
 	github.com/subosito/gotenv v1.6.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/exp v0.0.0-20250218142911-aa4b98e5adaa // indirect

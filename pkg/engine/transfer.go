@@ -21,6 +21,7 @@ import (
 	"io"
 
 	adapter "github.com/interlynk-io/sbommv/pkg/adapter"
+	"github.com/interlynk-io/sbommv/pkg/converter"
 	"github.com/interlynk-io/sbommv/pkg/iterator"
 	"github.com/interlynk-io/sbommv/pkg/logger"
 	"github.com/interlynk-io/sbommv/pkg/tcontext"
@@ -71,13 +72,25 @@ func TransferRun(ctx context.Context, cmd *cobra.Command, config types.Config) e
 		return fmt.Errorf("failed to fetch SBOMs: %w", err)
 	}
 
+	var convertedIterator iterator.SBOMIterator
+
+	if types.AdapterType(config.DestinationType) == types.DtrackAdapterType {
+		logger.LogDebug(transferCtx.Context, "SBOM conversion will take place")
+		convertedSBOMs := sbomConversion(sbomIterator, *transferCtx)
+		// Create a new iterator with converted SBOMs
+		convertedIterator = iterator.NewMemoryIterator(convertedSBOMs)
+	} else {
+		logger.LogDebug(transferCtx.Context, "SBOM conversion will not take place")
+		convertedIterator = sbomIterator
+	}
+
 	if config.DryRun {
 		logger.LogDebug(transferCtx.Context, "Dry-run mode enabled: Displaying retrieved SBOMs", "values", config.DryRun)
 		dryRun(*transferCtx, sbomIterator, inputAdapterInstance, outputAdapterInstance)
 	}
 
 	// Process & Upload SBOMs Sequentially
-	if err := outputAdapterInstance.UploadSBOMs(transferCtx, sbomIterator); err != nil {
+	if err := outputAdapterInstance.UploadSBOMs(transferCtx, convertedIterator); err != nil {
 		return fmt.Errorf("failed to output SBOMs: %w", err)
 	}
 
@@ -115,4 +128,35 @@ func dryRun(ctx tcontext.TransferMetadata, sbomIterator iterator.SBOMIterator, i
 	}
 
 	return nil
+}
+
+func sbomConversion(sbomIterator iterator.SBOMIterator, transferCtx tcontext.TransferMetadata) []*iterator.SBOM {
+	logger.LogDebug(transferCtx.Context, "Processing SBOM conversion")
+
+	var convertedSBOMs []*iterator.SBOM
+
+	for {
+		sbom, err := sbomIterator.Next(transferCtx.Context)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			logger.LogError(transferCtx.Context, err, "Error retrieving SBOM from iterator")
+			continue // Skip erroring SBOMs, proceed with next
+		}
+
+		// Convert SBOM to CycloneDX for Dependency-Track
+		convertedData, err := converter.ConvertSBOM(transferCtx, sbom.Data, converter.FormatCycloneDX)
+		if err != nil {
+			logger.LogInfo(transferCtx.Context, "Failed to convert SBOM to CycloneDX", "file", sbom.Path, "error", err)
+			continue // Skip unconverted SBOMs
+		}
+
+		// Update SBOM data with converted content
+		sbom.Data = convertedData
+		convertedSBOMs = append(convertedSBOMs, sbom)
+	}
+	logger.LogDebug(transferCtx.Context, "Successfully SBOM conversion")
+
+	return convertedSBOMs
 }
