@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strings"
 
 	adapter "github.com/interlynk-io/sbommv/pkg/adapter"
 	"github.com/interlynk-io/sbommv/pkg/converter"
@@ -73,16 +74,7 @@ func TransferRun(ctx context.Context, cmd *cobra.Command, config types.Config) e
 	}
 
 	var convertedIterator iterator.SBOMIterator
-
-	if types.AdapterType(config.DestinationType) == types.DtrackAdapterType {
-		logger.LogDebug(transferCtx.Context, "SBOM conversion will take place")
-		convertedSBOMs := sbomConversion(sbomIterator, *transferCtx)
-		// Create a new iterator with converted SBOMs
-		convertedIterator = iterator.NewMemoryIterator(convertedSBOMs)
-	} else {
-		logger.LogDebug(transferCtx.Context, "SBOM conversion will not take place")
-		convertedIterator = sbomIterator
-	}
+	convertedIterator = checkAdapterForConversion(transferCtx, config, sbomIterator)
 
 	if config.DryRun {
 		logger.LogDebug(transferCtx.Context, "Dry-run mode enabled: Displaying retrieved SBOMs", "values", config.DryRun)
@@ -154,9 +146,32 @@ func sbomConversion(sbomIterator iterator.SBOMIterator, transferCtx tcontext.Tra
 
 		// Update SBOM data with converted content
 		sbom.Data = convertedData
+
+		if strings.HasSuffix(sbom.Path, ".spdx.json") {
+			sbom.Path = strings.Replace(sbom.Path, ".spdx.json", ".conversion.cdx.json", 1)
+			// transferCtx.FilePath = sbom.Path // Sync FilePath for logging
+		}
 		convertedSBOMs = append(convertedSBOMs, sbom)
 	}
 	logger.LogDebug(transferCtx.Context, "Successfully SBOM conversion")
 
 	return convertedSBOMs
+}
+
+func checkAdapterForConversion(transferCtx *tcontext.TransferMetadata, config types.Config, sbomIterator iterator.SBOMIterator) iterator.SBOMIterator {
+	logger.LogDebug(transferCtx.Context, "Checking adapter eligibility for undergoing conversion layer", "adapter type", config.DestinationType)
+
+	if types.AdapterType(config.DestinationType) == types.DtrackAdapterType {
+		logger.LogDebug(transferCtx.Context, "Adapter eligible for conversion layer", "adapter type", config.DestinationType)
+
+		logger.LogDebug(transferCtx.Context, "SBOM conversion will take place")
+		convertedSBOMs := sbomConversion(sbomIterator, *transferCtx)
+		// Create a new iterator with converted SBOMs
+		return iterator.NewMemoryIterator(convertedSBOMs)
+	} else {
+
+		logger.LogDebug(transferCtx.Context, "Adapter not eligible for conversion layer", "adapter type", config.DestinationType)
+		logger.LogDebug(transferCtx.Context, "SBOM conversion will not take place")
+		return sbomIterator
+	}
 }

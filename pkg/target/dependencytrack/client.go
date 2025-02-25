@@ -51,6 +51,7 @@ type Project struct {
 func (c *DependencyTrackClient) FindProject(ctx *tcontext.TransferMetadata, projectName, projectVersion string) (string, error) {
 	logger.LogDebug(ctx.Context, "Finding Project", "project", projectName, "version", projectVersion)
 
+	// dtrack client, retrives all projects
 	projects, err := c.Client.Project.GetAll(ctx.Context, dtrack.PageOptions{})
 	if err != nil {
 		return "", err
@@ -59,6 +60,7 @@ func (c *DependencyTrackClient) FindProject(ctx *tcontext.TransferMetadata, proj
 	logger.LogDebug(ctx.Context, "Total Project Found", "count", projects.TotalCount)
 
 	for _, project := range projects.Items {
+		// lookup for the our project name with version
 		if project.Name == projectName && project.Version == projectVersion {
 			logger.LogDebug(ctx.Context, "Project found", "project", projectName, "version", project.Version, "id", project.UUID)
 			return project.UUID.String(), nil
@@ -71,7 +73,7 @@ func (c *DependencyTrackClient) FindProject(ctx *tcontext.TransferMetadata, proj
 
 // UploadSBOM uploads an SBOM to a Dependency-Track project
 func (c *DependencyTrackClient) UploadSBOM(ctx *tcontext.TransferMetadata, projectName, projectVersion string, sbomData []byte) error {
-	logger.LogDebug(ctx.Context, "Processing Uploading SBOMs to Dependency-Track sequentially", "project", projectName, "version", projectVersion)
+	logger.LogDebug(ctx.Context, "Processing Uploading SBOMs", "project", projectName, "version", projectVersion)
 
 	bomReq := dtrack.BOMUploadRequest{
 		ProjectName:    projectName,
@@ -79,6 +81,7 @@ func (c *DependencyTrackClient) UploadSBOM(ctx *tcontext.TransferMetadata, proje
 		BOM:            base64.StdEncoding.EncodeToString(sbomData),
 	}
 
+	// dtrack client will upload SBOM
 	token, err := c.Client.BOM.Upload(ctx.Context, bomReq)
 	if err != nil {
 		return err
@@ -88,20 +91,22 @@ func (c *DependencyTrackClient) UploadSBOM(ctx *tcontext.TransferMetadata, proje
 	return nil
 }
 
-// FindOrCreateProject ensures a project exists, returning its UUID
+// FindOrCreateProject ensures a project exists, returning its UUID after finding or creating project
 func (c *DependencyTrackClient) FindOrCreateProject(ctx *tcontext.TransferMetadata, projectName, projectVersion string) (string, error) {
 	logger.LogDebug(ctx.Context, "Finding Project", "project", projectName, "version", projectVersion)
 
+	// find project using project name and project version
 	uuid, err := c.FindProject(ctx, projectName, projectVersion)
 	if err != nil {
 		return "", fmt.Errorf("finding project: %w", err)
 	}
 	if uuid != "" {
-		logger.LogDebug(ctx.Context, "Project already exists", "project", projectName, "uuid", uuid)
+		logger.LogDebug(ctx.Context, "Project already exists, therefor it wouldn't create a new", "project", projectName, "uuid", uuid)
 		return uuid, nil
 	}
-	logger.LogDebug(ctx.Context, "Project doesn't exist", "project", projectName, "version", projectVersion)
+	logger.LogDebug(ctx.Context, "New project will be created", "project", projectName, "version", projectVersion)
 
+	// create project using project name and project version
 	return c.CreateProject(ctx, projectName, projectVersion)
 }
 
@@ -114,6 +119,7 @@ func (c *DependencyTrackClient) CreateProject(ctx *tcontext.TransferMetadata, pr
 		Version: projectVersion,
 	}
 
+	// dtrack client will create a new project
 	created, err := c.Client.Project.Create(ctx.Context, project)
 	if err != nil {
 		return "", err

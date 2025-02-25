@@ -25,6 +25,7 @@ import (
 	"github.com/interlynk-io/sbommv/pkg/tcontext"
 	"github.com/protobom/protobom/pkg/formats"
 	"github.com/protobom/protobom/pkg/reader"
+	"github.com/protobom/protobom/pkg/sbom"
 	"github.com/protobom/protobom/pkg/writer"
 )
 
@@ -51,39 +52,27 @@ func newBufferWriteCloser() *bufferWriteCloser {
 // ConvertSBOM converts SBOM data to the target format using protobom
 func ConvertSBOM(ctx tcontext.TransferMetadata, sbomData []byte, targetFormat FormatSpec) ([]byte, error) {
 	// Detect source format
+	logger.LogDebug(ctx.Context, "Iniatializing for SBOM conversion from spdx to cdx")
 
 	sourceFormat, err := detectFormat(sbomData)
 	if err != nil {
 		return nil, fmt.Errorf("detecting source format: %w", err)
 	}
+
 	if sourceFormat == targetFormat {
 		logger.LogDebug(ctx.Context, "No conversion needed", "format", sourceFormat)
 		return sbomData, nil
 	}
 
-	// Parse the input SBOM
-	r := reader.New()
-
-	doc, err := r.ParseStream(bytes.NewReader(sbomData))
+	doc, err := parseSBOM(sbomData)
 	if err != nil {
-		return nil, fmt.Errorf("parsing SBOM: %w", err)
+		return nil, err
 	}
 
-	// Serialize to target format (CycloneDX for DTrack)
+	// Serialize to CycloneDX format from SPDX format
 	if targetFormat == FormatCycloneDX {
-		// Set serialNumber if missing or invalid
-		if doc.Metadata.Id == "" || !isValidCycloneDXSerialNumber(doc.Metadata.Id) {
-			doc.Metadata.Id = "urn:uuid:" + uuid.New().String()
-		}
-		doc.Metadata.Version = "1" // Default version
-
-		w := writer.New()
-		buf := newBufferWriteCloser()
-		if err := w.WriteStreamWithOptions(doc, buf, &writer.Options{Format: formats.CDX16JSON}); err != nil {
-			return nil, fmt.Errorf("writing CycloneDX: %w", err)
-		}
-		logger.LogDebug(ctx.Context, "Converted SBOM", "from", sourceFormat, "to", targetFormat)
-		return buf.Bytes(), nil
+		enrichedDoc := enrichCycloneDXSBOM(doc)
+		return serializeToCycloneDX(ctx, enrichedDoc)
 	}
 
 	return nil, fmt.Errorf("unsupported conversion to %s", targetFormat)
@@ -110,4 +99,40 @@ func isValidCycloneDXSerialNumber(serial string) bool {
 	pattern := `^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`
 	matched, _ := regexp.MatchString(pattern, serial)
 	return matched
+}
+
+// protobom on converting from spdx to cdx, puts wp invalid serial number and version.
+// enrichCycloneDXSBOM() function will update the correct serial number and version
+func enrichCycloneDXSBOM(doc *sbom.Document) *sbom.Document {
+	if doc.Metadata.Id == "" || !isValidCycloneDXSerialNumber(doc.Metadata.Id) {
+		doc.Metadata.Id = "urn:uuid:" + uuid.New().String()
+	}
+
+	doc.Metadata.Version = "1" // Default version
+
+	return doc
+}
+
+func parseSBOM(sbomData []byte) (*sbom.Document, error) {
+	// Parse the input SBOM
+	r := reader.New()
+
+	// parse a sbom document from a sbom data using protobom
+	doc, err := r.ParseStream(bytes.NewReader(sbomData))
+	if err != nil {
+		return nil, fmt.Errorf("parsing SBOM: %w", err)
+	}
+	return doc, nil
+}
+
+func serializeToCycloneDX(ctx tcontext.TransferMetadata, doc *sbom.Document) ([]byte, error) {
+	w := writer.New()
+	buf := newBufferWriteCloser()
+
+	if err := w.WriteStreamWithOptions(doc, buf, &writer.Options{Format: formats.CDX15JSON}); err != nil {
+		return nil, fmt.Errorf("writing CycloneDX: %w", err)
+	}
+	logger.LogDebug(ctx.Context, "Converted SPDX SBOM to CycloneDX")
+
+	return buf.Bytes(), nil
 }

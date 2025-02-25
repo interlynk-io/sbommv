@@ -59,9 +59,16 @@ func (u *SequentialUploader) Upload(ctx *tcontext.TransferMetadata, config *Depe
 			projectName = sbom.Namespace
 		}
 
+		projectVersion := config.ProjectVersion
+		if projectVersion == "" {
+			projectVersion = "latest"
+		}
+
 		u.mu.Lock()
 		if !u.createdProjects[projectName] {
-			_, err = client.FindOrCreateProject(ctx, projectName, config.ProjectVersion)
+
+			// find or create project using project name and project version
+			_, err = client.FindOrCreateProject(ctx, projectName, projectVersion)
 			if err != nil {
 				logger.LogInfo(ctx.Context, "Failed to find or create project", "project", projectName, "error", err)
 				u.mu.Unlock()
@@ -73,14 +80,14 @@ func (u *SequentialUploader) Upload(ctx *tcontext.TransferMetadata, config *Depe
 		u.mu.Unlock()
 
 		// Log SBOM filename before upload
-		logger.LogDebug(ctx.Context, "Attempting to upload SBOM", "project", projectName, "file", sbom.Path)
+		logger.LogDebug(ctx.Context, "Iniatializing uploading SBOM file", "file", sbom.Path)
 
 		err = client.UploadSBOM(ctx, projectName, config.ProjectVersion, sbom.Data)
 		if err != nil {
 			logger.LogInfo(ctx.Context, "Failed to upload SBOM", "project", projectName, "file", sbom.Path, "error", err)
 			continue
 		}
-		logger.LogDebug(ctx.Context, "Successfully uploaded SBOM", "project", projectName, "file", sbom.Path)
+		logger.LogDebug(ctx.Context, "Successfully uploaded SBOM file", "file", sbom.Path)
 	}
 	return nil
 }
