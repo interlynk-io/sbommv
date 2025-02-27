@@ -16,9 +16,12 @@
 package engine
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 
 	adapter "github.com/interlynk-io/sbommv/pkg/adapter"
@@ -144,13 +147,22 @@ func sbomConversion(sbomIterator iterator.SBOMIterator, transferCtx tcontext.Tra
 			continue // Skip unconverted SBOMs
 		}
 
+		// let's check minimfies SBOM
+		sbom.Data, err = convertMinifiedJSON(transferCtx, convertedData)
+
 		// Update SBOM data with converted content
 		sbom.Data = convertedData
 
-		if strings.HasSuffix(sbom.Path, ".spdx.json") {
-			sbom.Path = strings.Replace(sbom.Path, ".spdx.json", ".conversion.cdx.json", 1)
+		if strings.Contains(sbom.Path, "spdx") {
+			sbom.Path = strings.Replace(sbom.Path, "spdx", "spdxtocdx", 1)
 			// transferCtx.FilePath = sbom.Path // Sync FilePath for logging
 		}
+
+		err = os.WriteFile(sbom.Path, sbom.Data, 0o644)
+		if err != nil {
+			fmt.Println("Error writing formatted JSON:", err)
+		}
+
 		convertedSBOMs = append(convertedSBOMs, sbom)
 	}
 	logger.LogDebug(transferCtx.Context, "Successfully SBOM conversion")
@@ -173,5 +185,46 @@ func checkAdapterForConversion(transferCtx *tcontext.TransferMetadata, config ty
 		logger.LogDebug(transferCtx.Context, "Adapter not eligible for conversion layer", "adapter type", config.DestinationType)
 		logger.LogDebug(transferCtx.Context, "SBOM conversion will not take place")
 		return sbomIterator
+	}
+}
+
+func isMinifiedJSON(data []byte) (bool, []byte, []byte, error) {
+	// Try parsing the JSON
+	var jsonData map[string]interface{}
+	err := json.Unmarshal(data, &jsonData)
+	if err != nil {
+		return false, nil, nil, err
+	}
+
+	// Pretty-print the JSON
+	prettyJSON, err := json.MarshalIndent(jsonData, "", "  ")
+	if err != nil {
+		return false, nil, nil, err
+	}
+
+	// Check if original file is minified by comparing bytes
+	if bytes.Equal(data, prettyJSON) {
+		return false, data, prettyJSON, nil // Already formatted
+	}
+
+	return true, data, prettyJSON, nil // Minified JSON detected
+}
+
+func convertMinifiedJSON(transferCtx tcontext.TransferMetadata, data []byte) ([]byte, error) {
+	minified, original, formatted, err := isMinifiedJSON(data)
+	if err != nil {
+		logger.LogError(transferCtx.Context, err, "Error while isMinifiedJSON")
+		return original, nil
+	}
+
+	if minified {
+		fmt.Println("Minified JSON detected! Converting to pretty format...")
+		// Write formatted JSON back to file
+		fmt.Println("isMinifiedJSON Converted successfully!")
+		return formatted, nil
+
+	} else {
+		fmt.Println("isMinifiedJSON is already pretty-formatted.")
+		return original, nil
 	}
 }
