@@ -54,7 +54,13 @@ func ConvertSBOM(ctx tcontext.TransferMetadata, sbomData []byte, targetFormat Fo
 	// Detect source format
 	logger.LogDebug(ctx.Context, "Iniatializing for SBOM conversion from spdx to cdx")
 
-	sourceFormat, err := detectFormat(sbomData)
+	// Preprocess SPDX SBOM to remove licenseInfoInFiles: ["NOASSERTION"] from files section
+	cleanedData, err := preprocessSBOM(sbomData)
+	if err != nil {
+		return nil, fmt.Errorf("preprocessing SBOM: %w", err)
+	}
+
+	sourceFormat, err := detectFormat(cleanedData)
 	if err != nil {
 		return nil, fmt.Errorf("detecting source format: %w", err)
 	}
@@ -64,9 +70,9 @@ func ConvertSBOM(ctx tcontext.TransferMetadata, sbomData []byte, targetFormat Fo
 		return sbomData, nil
 	}
 
-	doc, err := parseSBOM(sbomData)
+	doc, err := parseSBOM(cleanedData)
 	if err != nil {
-		return nil, err
+		return sbomData, err
 	}
 
 	// Serialize to CycloneDX format from SPDX format
@@ -117,12 +123,35 @@ func parseSBOM(sbomData []byte) (*sbom.Document, error) {
 	// Parse the input SBOM
 	r := reader.New()
 
+	// remove licenseInfoInFiles
+
 	// parse a sbom document from a sbom data using protobom
 	doc, err := r.ParseStream(bytes.NewReader(sbomData))
 	if err != nil {
 		return nil, fmt.Errorf("parsing SBOM: %w", err)
 	}
 	return doc, nil
+}
+
+// preprocessSBOM for the time it does the job of protobom of removing NOASSERTION license field.
+// as these changes is added in the protobom, will remove this function.
+func preprocessSBOM(data []byte) ([]byte, error) {
+	var sbom map[string]interface{}
+	if err := json.Unmarshal(data, &sbom); err != nil {
+		return nil, fmt.Errorf("unmarshaling SBOM: %w", err)
+	}
+	if files, ok := sbom["files"].([]interface{}); ok {
+		for _, file := range files {
+			if f, ok := file.(map[string]interface{}); ok {
+				if licInfo, ok := f["licenseInfoInFiles"].([]interface{}); ok {
+					if len(licInfo) == 1 && licInfo[0] == "NOASSERTION" {
+						delete(f, "licenseInfoInFiles") // Remove if only "NOASSERTION"
+					}
+				}
+			}
+		}
+	}
+	return json.Marshal(sbom)
 }
 
 func serializeToCycloneDX(ctx tcontext.TransferMetadata, doc *sbom.Document) ([]byte, error) {
