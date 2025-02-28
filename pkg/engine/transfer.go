@@ -21,7 +21,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"os"
 	"strings"
 
 	adapter "github.com/interlynk-io/sbommv/pkg/adapter"
@@ -76,13 +75,13 @@ func TransferRun(ctx context.Context, cmd *cobra.Command, config types.Config) e
 		return fmt.Errorf("failed to fetch SBOMs: %w", err)
 	}
 
-	var convertedIterator iterator.SBOMIterator
-	convertedIterator = sbomProcessing(transferCtx, config, sbomIterator)
-
 	if config.DryRun {
 		logger.LogDebug(transferCtx.Context, "Dry-run mode enabled: Displaying retrieved SBOMs", "values", config.DryRun)
 		dryRun(*transferCtx, sbomIterator, inputAdapterInstance, outputAdapterInstance)
 	}
+
+	var convertedIterator iterator.SBOMIterator
+	convertedIterator = sbomProcessing(transferCtx, config, sbomIterator)
 
 	// Process & Upload SBOMs Sequentially
 	if err := outputAdapterInstance.UploadSBOMs(transferCtx, convertedIterator); err != nil {
@@ -158,10 +157,10 @@ func sbomConversion(sbomIterator iterator.SBOMIterator, transferCtx tcontext.Tra
 			// transferCtx.FilePath = sbom.Path // Sync FilePath for logging
 		}
 
-		err = os.WriteFile(sbom.Path, sbom.Data, 0o644)
-		if err != nil {
-			fmt.Println("Error writing formatted JSON:", err)
-		}
+		// err = os.WriteFile(sbom.Path, sbom.Data, 0o644)
+		// if err != nil {
+		// 	fmt.Println("Error writing formatted JSON:", err)
+		// }
 
 		convertedSBOMs = append(convertedSBOMs, sbom)
 	}
@@ -218,13 +217,11 @@ func convertMinifiedJSON(transferCtx tcontext.TransferMetadata, data []byte) ([]
 	}
 
 	if minified {
-		fmt.Println("Minified JSON detected! Converting to pretty format...")
-		// Write formatted JSON back to file
-		fmt.Println("isMinifiedJSON Converted successfully!")
+		logger.LogDebug(transferCtx.Context, "Minified JSON detected! Converting to pretty format.")
+		logger.LogDebug(transferCtx.Context, "Minified JSON converted to preety JSON!")
+
 		return formatted, nil
 
-	} else {
-		fmt.Println("isMinifiedJSON is already pretty-formatted.")
-		return original, nil
 	}
+	return original, nil
 }

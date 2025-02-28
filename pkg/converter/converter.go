@@ -27,6 +27,7 @@ import (
 	"github.com/protobom/protobom/pkg/reader"
 	"github.com/protobom/protobom/pkg/sbom"
 	"github.com/protobom/protobom/pkg/writer"
+	"github.com/sirupsen/logrus"
 )
 
 type FormatSpec string
@@ -53,6 +54,11 @@ func newBufferWriteCloser() *bufferWriteCloser {
 func ConvertSBOM(ctx tcontext.TransferMetadata, sbomData []byte, targetFormat FormatSpec) ([]byte, error) {
 	// Detect source format
 	logger.LogDebug(ctx.Context, "Iniatializing for SBOM conversion from spdx to cdx")
+
+	// Mute protobom warnings of data lost
+	originalLevel := logrus.GetLevel()
+	logrus.SetLevel(logrus.ErrorLevel)   // Only ERROR and above from protobom
+	defer logrus.SetLevel(originalLevel) // Restore after
 
 	// Preprocess SPDX SBOM to remove licenseInfoInFiles: ["NOASSERTION"] from files section
 	cleanedData, err := preprocessSBOM(sbomData)

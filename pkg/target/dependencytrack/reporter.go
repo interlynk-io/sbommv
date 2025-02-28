@@ -64,9 +64,9 @@ func (r *DependencyTrackReporter) DryRun(ctx context.Context, iter iterator.SBOM
 			projectName = "unnamed_project" // Fallback for dry-run clarity
 		}
 		fmt.Printf("- 📁 Would upload to project '%s' | Format: %s | SpecVersion: %s\n",
-			r.projectName, doc.Format, doc.SpecVersion)
+			projectName, doc.Format, doc.SpecVersion)
 		sbomCount++
 	}
-	fmt.Printf("📊 Total SBOMs to upload: %d\n", sbomCount)
+	fmt.Printf("📊 \nTotal SBOMs to upload: %d\n", sbomCount)
 	return nil
 }
