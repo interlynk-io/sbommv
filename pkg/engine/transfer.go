@@ -38,8 +38,7 @@ func TransferRun(ctx context.Context, cmd *cobra.Command, config types.Config) e
 	// Initialize shared context with metadata support
 	transferCtx := tcontext.NewTransferMetadata(ctx)
 
-	var inputAdapterInstance adapter.Adapter
-	var outputAdapterInstance adapter.Adapter
+	var inputAdapterInstance, outputAdapterInstance adapter.Adapter
 	var err error
 
 	adapters, err := adapter.NewAdapter(transferCtx, config)

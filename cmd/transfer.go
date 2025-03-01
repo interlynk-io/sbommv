@@ -63,10 +63,10 @@ func init() {
 	rootCmd.AddCommand(transferCmd)
 
 	// Input adapter flags
-	transferCmd.Flags().String("input-adapter", "", "input adapter type (github)")
+	transferCmd.Flags().String("input-adapter", "", "input adapter type (github, folder)")
 
 	// Output adapter flags
-	transferCmd.Flags().String("output-adapter", "", "output adapter type (interlynk)")
+	transferCmd.Flags().String("output-adapter", "", "output adapter type (dtrack, interlynk, folder)")
 
 	transferCmd.Flags().BoolP("dry-run", "", false, "enable dry run mode")
 
@@ -114,7 +114,6 @@ func transferSBOM(cmd *cobra.Command, args []string) error {
 	// Parse config
 	config, err := parseConfig(cmd)
 	if err != nil {
-		// logger.LogError(ctx, err, "Invalid configuration")
 		return err
 	}
 
@@ -151,11 +150,11 @@ func parseConfig(cmd *cobra.Command) (types.Config, error) {
 	}
 
 	if !validInputAdapter[inputType] {
-		return types.Config{}, fmt.Errorf("input adapter must be one of type: github")
+		return types.Config{}, fmt.Errorf("input adapter must be one of type: github, folder")
 	}
 
 	if !validOutputAdapter[outputType] {
-		return types.Config{}, fmt.Errorf("output adapter must be one of type: interlynk")
+		return types.Config{}, fmt.Errorf("output adapter must be one of type: dtrack, interlynk, folder")
 	}
 	config := types.Config{
 		SourceType:      inputType,
