@@ -20,6 +20,7 @@ import (
 
 	"github.com/interlynk-io/sbommv/pkg/engine"
 	ifolder "github.com/interlynk-io/sbommv/pkg/source/folder"
+	"github.com/interlynk-io/sbommv/pkg/target/dependencytrack"
 	ofolder "github.com/interlynk-io/sbommv/pkg/target/folder"
 
 	"github.com/interlynk-io/sbommv/pkg/source/github"
@@ -62,10 +63,10 @@ func init() {
 	rootCmd.AddCommand(transferCmd)
 
 	// Input adapter flags
-	transferCmd.Flags().String("input-adapter", "", "input adapter type (github)")
+	transferCmd.Flags().String("input-adapter", "", "input adapter type (github, folder)")
 
 	// Output adapter flags
-	transferCmd.Flags().String("output-adapter", "", "output adapter type (interlynk)")
+	transferCmd.Flags().String("output-adapter", "", "output adapter type (dtrack, interlynk, folder)")
 
 	transferCmd.Flags().BoolP("dry-run", "", false, "enable dry run mode")
 
@@ -93,6 +94,8 @@ func registerAdapterFlags(cmd *cobra.Command) {
 	folderOutputAdapter := &ofolder.FolderAdapter{}
 	folderOutputAdapter.AddCommandParams(cmd)
 
+	dtrackAdapter := &dependencytrack.DependencyTrackAdapter{}
+	dtrackAdapter.AddCommandParams(cmd)
 	// similarly for all other Adapters
 }
 
@@ -111,7 +114,6 @@ func transferSBOM(cmd *cobra.Command, args []string) error {
 	// Parse config
 	config, err := parseConfig(cmd)
 	if err != nil {
-		// logger.LogError(ctx, err, "Invalid configuration")
 		return err
 	}
 
@@ -130,7 +132,7 @@ func parseConfig(cmd *cobra.Command) (types.Config, error) {
 	dr, _ := cmd.Flags().GetBool("dry-run")
 
 	validInputAdapter := map[string]bool{"github": true, "folder": true}
-	validOutputAdapter := map[string]bool{"interlynk": true, "folder": true}
+	validOutputAdapter := map[string]bool{"interlynk": true, "folder": true, "dtrack": true}
 
 	// Custom validation for required flags
 	missingFlags := []string{}
@@ -148,11 +150,11 @@ func parseConfig(cmd *cobra.Command) (types.Config, error) {
 	}
 
 	if !validInputAdapter[inputType] {
-		return types.Config{}, fmt.Errorf("input adapter must be one of type: github")
+		return types.Config{}, fmt.Errorf("input adapter must be one of type: github, folder")
 	}
 
 	if !validOutputAdapter[outputType] {
-		return types.Config{}, fmt.Errorf("output adapter must be one of type: interlynk")
+		return types.Config{}, fmt.Errorf("output adapter must be one of type: dtrack, interlynk, folder")
 	}
 	config := types.Config{
 		SourceType:      inputType,

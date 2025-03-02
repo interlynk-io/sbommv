@@ -16,11 +16,15 @@
 package engine
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
+	"strings"
 
 	adapter "github.com/interlynk-io/sbommv/pkg/adapter"
+	"github.com/interlynk-io/sbommv/pkg/converter"
 	"github.com/interlynk-io/sbommv/pkg/iterator"
 	"github.com/interlynk-io/sbommv/pkg/logger"
 	"github.com/interlynk-io/sbommv/pkg/tcontext"
@@ -34,8 +38,7 @@ func TransferRun(ctx context.Context, cmd *cobra.Command, config types.Config) e
 	// Initialize shared context with metadata support
 	transferCtx := tcontext.NewTransferMetadata(ctx)
 
-	var inputAdapterInstance adapter.Adapter
-	var outputAdapterInstance adapter.Adapter
+	var inputAdapterInstance, outputAdapterInstance adapter.Adapter
 	var err error
 
 	adapters, err := adapter.NewAdapter(transferCtx, config)
@@ -76,8 +79,11 @@ func TransferRun(ctx context.Context, cmd *cobra.Command, config types.Config) e
 		dryRun(*transferCtx, sbomIterator, inputAdapterInstance, outputAdapterInstance)
 	}
 
+	var convertedIterator iterator.SBOMIterator
+	convertedIterator = sbomProcessing(transferCtx, config, sbomIterator)
+
 	// Process & Upload SBOMs Sequentially
-	if err := outputAdapterInstance.UploadSBOMs(transferCtx, sbomIterator); err != nil {
+	if err := outputAdapterInstance.UploadSBOMs(transferCtx, convertedIterator); err != nil {
 		return fmt.Errorf("failed to output SBOMs: %w", err)
 	}
 
@@ -115,4 +121,106 @@ func dryRun(ctx tcontext.TransferMetadata, sbomIterator iterator.SBOMIterator, i
 	}
 
 	return nil
+}
+
+func sbomConversion(sbomIterator iterator.SBOMIterator, transferCtx tcontext.TransferMetadata) []*iterator.SBOM {
+	logger.LogDebug(transferCtx.Context, "Processing SBOM conversion")
+
+	var convertedSBOMs []*iterator.SBOM
+
+	for {
+		sbom, err := sbomIterator.Next(transferCtx.Context)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			logger.LogError(transferCtx.Context, err, "Error retrieving SBOM from iterator")
+			continue // Skip erroring SBOMs, proceed with next
+		}
+
+		// Convert SBOM to CycloneDX for Dependency-Track
+		convertedData, err := converter.ConvertSBOM(transferCtx, sbom.Data, converter.FormatCycloneDX)
+		if err != nil {
+			logger.LogInfo(transferCtx.Context, "Failed to convert SBOM to CycloneDX", "file", sbom.Path, "error", err)
+			continue // Skip unconverted SBOMs
+		}
+
+		// let's check minimfied SBOM
+		sbom.Data, err = convertMinifiedJSON(transferCtx, convertedData)
+
+		// Update SBOM data with converted content
+		sbom.Data = convertedData
+
+		if strings.Contains(sbom.Path, "spdx") {
+			sbom.Path = strings.Replace(sbom.Path, "spdx", "spdxtocdx", 1)
+			// transferCtx.FilePath = sbom.Path // Sync FilePath for logging
+		}
+
+		// err = os.WriteFile(sbom.Path, sbom.Data, 0o644)
+		// if err != nil {
+		// 	fmt.Println("Error writing formatted JSON:", err)
+		// }
+
+		convertedSBOMs = append(convertedSBOMs, sbom)
+	}
+	logger.LogDebug(transferCtx.Context, "Successfully SBOM conversion")
+
+	return convertedSBOMs
+}
+
+func sbomProcessing(transferCtx *tcontext.TransferMetadata, config types.Config, sbomIterator iterator.SBOMIterator) iterator.SBOMIterator {
+	logger.LogDebug(transferCtx.Context, "Checking adapter eligibility for undergoing conversion layer", "adapter type", config.DestinationType)
+
+	// convert sbom to cdx for DTrack adapter only
+	if types.AdapterType(config.DestinationType) == types.DtrackAdapterType {
+		logger.LogDebug(transferCtx.Context, "Adapter eligible for conversion layer", "adapter type", config.DestinationType)
+
+		logger.LogDebug(transferCtx.Context, "SBOM conversion will take place")
+		convertedSBOMs := sbomConversion(sbomIterator, *transferCtx)
+
+		return iterator.NewMemoryIterator(convertedSBOMs)
+	} else {
+		logger.LogDebug(transferCtx.Context, "Adapter not eligible for conversion layer", "adapter type", config.DestinationType)
+		logger.LogDebug(transferCtx.Context, "SBOM conversion will not take place")
+		return sbomIterator
+	}
+}
+
+func isMinifiedJSON(data []byte) (bool, []byte, []byte, error) {
+	// Try parsing the JSON
+	var jsonData map[string]interface{}
+	err := json.Unmarshal(data, &jsonData)
+	if err != nil {
+		return false, nil, nil, err
+	}
+
+	// Pretty-print the JSON
+	prettyJSON, err := json.MarshalIndent(jsonData, "", "  ")
+	if err != nil {
+		return false, nil, nil, err
+	}
+
+	// Check if original file is minified by comparing bytes
+	if bytes.Equal(data, prettyJSON) {
+		return false, data, prettyJSON, nil // Already formatted
+	}
+
+	return true, data, prettyJSON, nil // Minified JSON detected
+}
+
+func convertMinifiedJSON(transferCtx tcontext.TransferMetadata, data []byte) ([]byte, error) {
+	minified, original, formatted, err := isMinifiedJSON(data)
+	if err != nil {
+		logger.LogError(transferCtx.Context, err, "Error while isMinifiedJSON")
+		return original, nil
+	}
+
+	if minified {
+		logger.LogDebug(transferCtx.Context, "Minified JSON detected! Converting to pretty format.")
+		logger.LogDebug(transferCtx.Context, "Minified JSON converted to preety JSON!")
+
+		return formatted, nil
+
+	}
+	return original, nil
 }

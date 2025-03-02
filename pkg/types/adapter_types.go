@@ -28,6 +28,7 @@ const (
 	GithubAdapterType    AdapterType = "github"
 	InterlynkAdapterType AdapterType = "interlynk"
 	FolderAdapterType    AdapterType = "folder"
+	DtrackAdapterType    AdapterType = "dtrack"
 )
 
 type ProcessingMode string
