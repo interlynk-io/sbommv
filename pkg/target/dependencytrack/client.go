@@ -115,8 +115,13 @@ func (c *DependencyTrackClient) CreateProject(ctx *tcontext.TransferMetadata, pr
 	logger.LogDebug(ctx.Context, "Initializing Project Creation", "project", projectName, "version", projectVersion)
 
 	project := dtrack.Project{
-		Name:    projectName,
-		Version: projectVersion,
+		Name:        projectName,
+		Version:     projectVersion,
+		Active:      true,
+		Description: "Created & uploaded by sbommv",
+		Tags: []dtrack.Tag{
+			{Name: "sbommv"},
+		},
 	}
 
 	// dtrack client will create a new project
