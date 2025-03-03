@@ -17,10 +17,10 @@ package types
 
 type Config struct {
 	// source adapter type
-	SourceType string
+	SourceAdapter string
 
 	// destination adapter type
-	DestinationType string
+	DestinationAdapter string
 
 	// dry run mode
 	DryRun bool

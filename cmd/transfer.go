@@ -157,9 +157,9 @@ func parseConfig(cmd *cobra.Command) (types.Config, error) {
 		return types.Config{}, fmt.Errorf("output adapter must be one of type: dtrack, interlynk, folder")
 	}
 	config := types.Config{
-		SourceType:      inputType,
-		DestinationType: outputType,
-		DryRun:          dr,
+		SourceAdapter:      inputType,
+		DestinationAdapter: outputType,
+		DryRun:             dr,
 	}
 
 	return config, nil

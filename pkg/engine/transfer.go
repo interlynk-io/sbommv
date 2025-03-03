@@ -33,7 +33,7 @@ import (
 )
 
 func TransferRun(ctx context.Context, cmd *cobra.Command, config types.Config) error {
-	logger.LogDebug(ctx, "Starting SBOM transfer process")
+	logger.LogDebug(ctx, "Starting SBOM transfer process....")
 
 	// Initialize shared context with metadata support
 	transferCtx := tcontext.NewTransferMetadata(ctx)
@@ -59,14 +59,14 @@ func TransferRun(ctx context.Context, cmd *cobra.Command, config types.Config) e
 		return fmt.Errorf("input adapter error: %w", err)
 	}
 
-	logger.LogDebug(transferCtx.Context, "input adapter instance config", "value", inputAdapterInstance)
+	logger.LogDebug(transferCtx.Context, "Input adapter instance config", "value", inputAdapterInstance)
 
 	// Parse and validate output adapter parameters
 	if err := outputAdapterInstance.ParseAndValidateParams(cmd); err != nil {
 		return fmt.Errorf("output adapter error: %w", err)
 	}
 
-	logger.LogDebug(transferCtx.Context, "output adapter instance config", "value", outputAdapterInstance)
+	logger.LogDebug(transferCtx.Context, "Output adapter instance config", "value", outputAdapterInstance)
 
 	// Fetch SBOMs lazily using the iterator
 	sbomIterator, err := inputAdapterInstance.FetchSBOMs(transferCtx)
@@ -127,7 +127,8 @@ func sbomConversion(sbomIterator iterator.SBOMIterator, transferCtx tcontext.Tra
 	logger.LogDebug(transferCtx.Context, "Processing SBOM conversion")
 
 	var convertedSBOMs []*iterator.SBOM
-
+	var totalMinifiedSBOM int
+	var totalSBOM int
 	for {
 		sbom, err := sbomIterator.Next(transferCtx.Context)
 		if err == io.EOF {
@@ -146,7 +147,7 @@ func sbomConversion(sbomIterator iterator.SBOMIterator, transferCtx tcontext.Tra
 		}
 
 		// let's check minimfied SBOM
-		sbom.Data, err = convertMinifiedJSON(transferCtx, convertedData)
+		sbom.Data, totalMinifiedSBOM, err = convertMinifiedJSON(transferCtx, convertedData, totalMinifiedSBOM)
 
 		// Update SBOM data with converted content
 		sbom.Data = convertedData
@@ -156,31 +157,29 @@ func sbomConversion(sbomIterator iterator.SBOMIterator, transferCtx tcontext.Tra
 			// transferCtx.FilePath = sbom.Path // Sync FilePath for logging
 		}
 
-		// err = os.WriteFile(sbom.Path, sbom.Data, 0o644)
-		// if err != nil {
-		// 	fmt.Println("Error writing formatted JSON:", err)
-		// }
-
+		totalSBOM++
 		convertedSBOMs = append(convertedSBOMs, sbom)
 	}
+
+	logger.LogDebug(transferCtx.Context, "Out of total SBOM", "value", totalSBOM, "total minifiedJSONSBOM converted to preety JSON", totalMinifiedSBOM)
 	logger.LogDebug(transferCtx.Context, "Successfully SBOM conversion")
 
 	return convertedSBOMs
 }
 
 func sbomProcessing(transferCtx *tcontext.TransferMetadata, config types.Config, sbomIterator iterator.SBOMIterator) iterator.SBOMIterator {
-	logger.LogDebug(transferCtx.Context, "Checking adapter eligibility for undergoing conversion layer", "adapter type", config.DestinationType)
+	logger.LogDebug(transferCtx.Context, "Checking adapter eligibility for undergoing conversion layer", "adapter type", config.DestinationAdapter)
 
 	// convert sbom to cdx for DTrack adapter only
-	if types.AdapterType(config.DestinationType) == types.DtrackAdapterType {
-		logger.LogDebug(transferCtx.Context, "Adapter eligible for conversion layer", "adapter type", config.DestinationType)
+	if types.AdapterType(config.DestinationAdapter) == types.DtrackAdapterType {
+		logger.LogDebug(transferCtx.Context, "Adapter eligible for conversion layer", "adapter type", config.DestinationAdapter)
 
 		logger.LogDebug(transferCtx.Context, "SBOM conversion will take place")
 		convertedSBOMs := sbomConversion(sbomIterator, *transferCtx)
 
 		return iterator.NewMemoryIterator(convertedSBOMs)
 	} else {
-		logger.LogDebug(transferCtx.Context, "Adapter not eligible for conversion layer", "adapter type", config.DestinationType)
+		logger.LogDebug(transferCtx.Context, "Adapter not eligible for conversion layer", "adapter type", config.DestinationAdapter)
 		logger.LogDebug(transferCtx.Context, "SBOM conversion will not take place")
 		return sbomIterator
 	}
@@ -208,19 +207,16 @@ func isMinifiedJSON(data []byte) (bool, []byte, []byte, error) {
 	return true, data, prettyJSON, nil // Minified JSON detected
 }
 
-func convertMinifiedJSON(transferCtx tcontext.TransferMetadata, data []byte) ([]byte, error) {
+func convertMinifiedJSON(transferCtx tcontext.TransferMetadata, data []byte, totalMinifiedSBOM int) ([]byte, int, error) {
 	minified, original, formatted, err := isMinifiedJSON(data)
 	if err != nil {
 		logger.LogError(transferCtx.Context, err, "Error while isMinifiedJSON")
-		return original, nil
+		return original, totalMinifiedSBOM, nil
 	}
 
 	if minified {
-		logger.LogDebug(transferCtx.Context, "Minified JSON detected! Converting to pretty format.")
-		logger.LogDebug(transferCtx.Context, "Minified JSON converted to preety JSON!")
-
-		return formatted, nil
-
+		totalMinifiedSBOM++
+		return formatted, totalMinifiedSBOM, nil
 	}
-	return original, nil
+	return original, totalMinifiedSBOM, nil
 }

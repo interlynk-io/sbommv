@@ -57,7 +57,7 @@ func (c *DependencyTrackClient) FindProject(ctx *tcontext.TransferMetadata, proj
 		return "", err
 	}
 
-	logger.LogDebug(ctx.Context, "Total Project Found", "count", projects.TotalCount)
+	logger.LogDebug(ctx.Context, "Total Number of Projects Available in Dependency Track Platform", "count", projects.TotalCount)
 
 	for _, project := range projects.Items {
 		// lookup for the our project name with version
@@ -93,7 +93,7 @@ func (c *DependencyTrackClient) UploadSBOM(ctx *tcontext.TransferMetadata, proje
 
 // FindOrCreateProject ensures a project exists, returning its UUID after finding or creating project
 func (c *DependencyTrackClient) FindOrCreateProject(ctx *tcontext.TransferMetadata, projectName, projectVersion string) (string, error) {
-	logger.LogDebug(ctx.Context, "Finding Project", "project", projectName, "version", projectVersion)
+	logger.LogDebug(ctx.Context, "Processing finding or Creating Project", "project", projectName, "version", projectVersion)
 
 	// find project using project name and project version
 	uuid, err := c.FindProject(ctx, projectName, projectVersion)
@@ -112,7 +112,7 @@ func (c *DependencyTrackClient) FindOrCreateProject(ctx *tcontext.TransferMetada
 
 // CreateProject creates a new project if it doesn’t exist
 func (c *DependencyTrackClient) CreateProject(ctx *tcontext.TransferMetadata, projectName, projectVersion string) (string, error) {
-	logger.LogDebug(ctx.Context, "Creating Project", "project", projectName, "version", projectVersion)
+	logger.LogDebug(ctx.Context, "Initializing Project Creation", "project", projectName, "version", projectVersion)
 
 	project := dtrack.Project{
 		Name:    projectName,
@@ -125,6 +125,6 @@ func (c *DependencyTrackClient) CreateProject(ctx *tcontext.TransferMetadata, pr
 		return "", err
 	}
 
-	logger.LogDebug(ctx.Context, "Project created or verified", "project", created.Name, "version", created.Version, "uuid", created.UUID)
+	logger.LogDebug(ctx.Context, "New Project created", "project", created.Name, "version", created.Version, "uuid", created.UUID)
 	return created.UUID.String(), nil
 }

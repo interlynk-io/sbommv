@@ -101,7 +101,7 @@ func NewClient(g *GitHubAdapter) *Client {
 // filter out the particular provided release asset and
 // extract SBOMs from that
 func (c *Client) FindSBOMs(ctx *tcontext.TransferMetadata) ([]SBOMAsset, error) {
-	logger.LogDebug(ctx.Context, "Fetching GitHub releases", "repo_url", c.RepoURL, "owner", c.Owner, "repo", c.Repo)
+	logger.LogDebug(ctx.Context, "Fetching SBOMs from GitHub releases", "repo_url", c.RepoURL, "owner", c.Owner, "repo", c.Repo)
 
 	releases, err := c.GetReleases(ctx, c.Owner, c.Repo)
 	if err != nil {
@@ -249,7 +249,8 @@ func (c *Client) DownloadAsset(ctx *tcontext.TransferMetadata, downloadURL strin
 }
 
 // GetSBOMs downloads and saves all SBOM files found in the repository
-func (c *Client) GetSBOMs(ctx *tcontext.TransferMetadata) (VersionedSBOMs, error) {
+func (c *Client) FetchSBOMFromReleases(ctx *tcontext.TransferMetadata) (VersionedSBOMs, error) {
+	logger.LogDebug(ctx.Context, "Initializing fetching of SBOMs from repo release page", "repository", c.Repo, "version", c.Version)
 	// Find SBOMs in releases
 	sboms, err := c.FindSBOMs(ctx)
 	if err != nil {
@@ -259,7 +260,7 @@ func (c *Client) GetSBOMs(ctx *tcontext.TransferMetadata) (VersionedSBOMs, error
 		return nil, fmt.Errorf("no SBOMs found in repository")
 	}
 
-	logger.LogDebug(ctx.Context, "Total SBOMs found in the repository", "version", c.Version, "total sboms", len(sboms))
+	logger.LogDebug(ctx.Context, "Total SBOMs found in the repository release page", "version", c.Version, "total sboms", len(sboms))
 	ctx.WithValue("total_sboms", len(sboms))
 
 	return c.downloadSBOMs(ctx, sboms)
@@ -411,11 +412,10 @@ func (c *Client) updateRepo(repo string) {
 }
 
 func (c *Client) GetAllRepositories(ctx *tcontext.TransferMetadata) ([]string, error) {
-	logger.LogDebug(ctx.Context, "Fetching all repositories for an organization", "name", c.Owner)
-
 	if c.Repo != "" {
 		return []string{c.Repo}, nil
 	}
+	logger.LogDebug(ctx.Context, "Fetching all repositories for an organization", "name", c.Owner)
 
 	apiURL := fmt.Sprintf("https://api.github.com/orgs/%s/repos", c.Owner)
 
@@ -464,6 +464,8 @@ func (c *Client) GetAllRepositories(ctx *tcontext.TransferMetadata) ([]string, e
 	if len(repoNames) == 0 {
 		return nil, fmt.Errorf("no repositories found for organization %s", c.Owner)
 	}
+
+	logger.LogDebug(ctx.Context, "Total number of repos", "count", len(repos), "in organization", c.Owner)
 
 	return repoNames, nil
 }

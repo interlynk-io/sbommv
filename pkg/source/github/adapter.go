@@ -224,8 +224,6 @@ func (g *GitHubAdapter) FetchSBOMs(ctx *tcontext.TransferMetadata) (iterator.SBO
 		return nil, fmt.Errorf("failed to get repositories: %w", err)
 	}
 
-	logger.LogDebug(ctx.Context, "Found repos", "number", len(repos))
-
 	// filtering to include/exclude repos
 	repos = g.applyRepoFilters(repos)
 
@@ -233,7 +231,7 @@ func (g *GitHubAdapter) FetchSBOMs(ctx *tcontext.TransferMetadata) (iterator.SBO
 		return nil, fmt.Errorf("no repositories left after applying filters")
 	}
 
-	logger.LogDebug(ctx.Context, "Listing repos of organization after filtering", "values", repos)
+	logger.LogDebug(ctx.Context, "Total repos from which SBOMs needs to be fetched after filteration", "count", len(repos), "values", repos)
 
 	processingMode := types.FetchSequential
 	var sbomIterator iterator.SBOMIterator
@@ -407,13 +405,15 @@ func (g *GitHubAdapter) fetchSBOMsConcurrently(ctx *tcontext.TransferMetadata, r
 
 // fetchSBOMsSequentially: fetch SBOMs from repositories one at a time
 func (g *GitHubAdapter) fetchSBOMsSequentially(ctx *tcontext.TransferMetadata, repos []string) (iterator.SBOMIterator, error) {
+	logger.LogDebug(ctx.Context, "Fetching SBOMs sequentially")
+
 	var sbomList []*iterator.SBOM
 
 	// Iterate over repositories one by one (sequential processing)
 	for _, repo := range repos {
 		g.Repo = repo // Set current repository
 
-		logger.LogDebug(ctx.Context, "Fetching SBOMs sequentially", "repo", repo)
+		logger.LogDebug(ctx.Context, "Repository", "value", repo)
 
 		iter := NewGitHubIterator(ctx, g, repo)
 

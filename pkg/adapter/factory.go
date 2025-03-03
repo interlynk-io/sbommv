@@ -54,10 +54,10 @@ func NewAdapter(ctx *tcontext.TransferMetadata, config types.Config) (map[types.
 	adapters := make(map[types.AdapterRole]Adapter)
 
 	// Initialize Input Adapter
-	if config.SourceType != "" {
-		logger.LogDebug(ctx.Context, "Initializing Input Adapter", "adapterType", config.SourceType)
+	if config.SourceAdapter != "" {
+		logger.LogDebug(ctx.Context, "Initializing Input Adapter", "InputAdapter", config.SourceAdapter)
 
-		switch types.AdapterType(config.SourceType) {
+		switch types.AdapterType(config.SourceAdapter) {
 
 		case types.GithubAdapterType:
 			adapters[types.InputAdapterRole] = &github.GitHubAdapter{Role: types.InputAdapterRole}
@@ -69,15 +69,15 @@ func NewAdapter(ctx *tcontext.TransferMetadata, config types.Config) (map[types.
 			adapters[types.InputAdapterRole] = &interlynk.InterlynkAdapter{Role: types.InputAdapterRole}
 
 		default:
-			return nil, fmt.Errorf("unsupported input adapter type: %s", config.SourceType)
+			return nil, fmt.Errorf("unsupported input adapter type: %s", config.SourceAdapter)
 		}
 	}
 
 	// Initialize Output Adapter
-	if config.DestinationType != "" {
-		logger.LogDebug(ctx.Context, "Initializing Output Adapter", "adapterType", config.DestinationType)
+	if config.DestinationAdapter != "" {
+		logger.LogDebug(ctx.Context, "Initializing Output Adapter", "OutputAdapter", config.DestinationAdapter)
 
-		switch types.AdapterType(config.DestinationType) {
+		switch types.AdapterType(config.DestinationAdapter) {
 
 		case types.FolderAdapterType:
 			adapters[types.OutputAdapterRole] = &ofolder.FolderAdapter{Role: types.OutputAdapterRole, Uploader: &ofolder.SequentialUploader{}}
@@ -89,7 +89,7 @@ func NewAdapter(ctx *tcontext.TransferMetadata, config types.Config) (map[types.
 			adapters[types.OutputAdapterRole] = &dependencytrack.DependencyTrackAdapter{Role: types.OutputAdapterRole, Uploader: dependencytrack.NewSequentialUploader()}
 
 		default:
-			return nil, fmt.Errorf("unsupported output adapter type: %s", config.DestinationType)
+			return nil, fmt.Errorf("unsupported output adapter type: %s", config.DestinationAdapter)
 		}
 	}
 

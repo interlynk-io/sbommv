@@ -27,7 +27,7 @@ import (
 )
 
 type DependencyTrackAdapter struct {
-	config   *DependencyTrackConfig
+	Config   *DependencyTrackConfig
 	client   *DependencyTrackClient
 	Uploader SBOMUploader
 	Role     types.AdapterRole
@@ -36,7 +36,7 @@ type DependencyTrackAdapter struct {
 func NewDependencyTrackAdapter(config *DependencyTrackConfig, client *DependencyTrackClient) *DependencyTrackAdapter {
 	uploader := uploaderFactory["sequential"]
 	return &DependencyTrackAdapter{
-		config:   config,
+		Config:   config,
 		client:   client,
 		Uploader: uploader,
 	}
@@ -100,17 +100,17 @@ func (d *DependencyTrackAdapter) ParseAndValidateParams(cmd *cobra.Command) erro
 	cfg.ProjectVersion = projectVersion
 
 	// Set values to struct
-	d.config = cfg
+	d.Config = cfg
 
 	// Initialize the DependencyTrack client
-	client := NewDependencyTrackClient(d.config)
+	client := NewDependencyTrackClient(d.Config)
 	d.client = client
 
 	logger.LogDebug(cmd.Context(), "Dependency-Track parameters validated and assigned",
-		"url", d.config.APIURL,
-		"apiKey", d.config.APIKey,
-		"project_name", d.config.ProjectName,
-		"project_version", d.config.ProjectVersion,
+		"url", d.Config.APIURL,
+		"apiKey", d.Config.APIKey,
+		"project_name", d.Config.ProjectName,
+		"project_version", d.Config.ProjectVersion,
 	)
 	return nil
 }
@@ -121,10 +121,10 @@ func (d *DependencyTrackAdapter) FetchSBOMs(ctx *tcontext.TransferMetadata) (ite
 }
 
 func (d *DependencyTrackAdapter) UploadSBOMs(ctx *tcontext.TransferMetadata, iter iterator.SBOMIterator) error {
-	return d.Uploader.Upload(ctx, d.config, d.client, iter)
+	return d.Uploader.Upload(ctx, d.Config, d.client, iter)
 }
 
 func (d *DependencyTrackAdapter) DryRun(ctx *tcontext.TransferMetadata, iter iterator.SBOMIterator) error {
-	reporter := NewDependencyTrackReporter(d.config.APIURL, d.config.ProjectName)
+	reporter := NewDependencyTrackReporter(d.Config.APIURL, d.Config.ProjectName)
 	return reporter.DryRun(ctx.Context, iter)
 }
