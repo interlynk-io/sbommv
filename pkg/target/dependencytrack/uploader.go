@@ -75,7 +75,6 @@ func (u *SequentialUploader) Upload(ctx *tcontext.TransferMetadata, config *Depe
 				continue
 			}
 			u.createdProjects[projectName] = true
-			logger.LogDebug(ctx.Context, "Project created", "project", projectName)
 		}
 		u.mu.Unlock()
 

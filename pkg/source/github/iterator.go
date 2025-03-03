@@ -50,7 +50,7 @@ func NewGitHubIterator(ctx *tcontext.TransferMetadata, g *GitHubAdapter, repo st
 
 // FetchSBOMs fetches SBOMs for the given GitHubIterator instance
 func (it *GitHubIterator) HandleSBOMFetchingViaIterator(ctx *tcontext.TransferMetadata, method GitHubMethod) error {
-	logger.LogDebug(ctx.Context, "Fetching SBOMs using GitHub Iterator", "repo", it.client.Repo, "method", method)
+	logger.LogDebug(ctx.Context, "Fetching SBOMs using Lazy Iterator", "repo", it.client.Repo, "method", method)
 
 	var err error
 
@@ -111,7 +111,7 @@ func (it *GitHubIterator) fetchSBOMFromAPI(ctx *tcontext.TransferMetadata) error
 
 // Fetch SBOMs from GitHub Releases
 func (it *GitHubIterator) fetchSBOMFromReleases(ctx *tcontext.TransferMetadata) error {
-	sbomFiles, err := it.client.GetSBOMs(ctx)
+	sbomFiles, err := it.client.FetchSBOMFromReleases(ctx)
 	if err != nil {
 		return fmt.Errorf("error retrieving SBOMs from releases: %w", err)
 	}
