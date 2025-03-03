@@ -22,6 +22,7 @@ import (
 	"github.com/interlynk-io/sbommv/pkg/logger"
 	"github.com/interlynk-io/sbommv/pkg/tcontext"
 	"github.com/interlynk-io/sbommv/pkg/types"
+	"github.com/interlynk-io/sbommv/pkg/utils"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -72,6 +73,12 @@ func (d *DependencyTrackAdapter) ParseAndValidateParams(cmd *cobra.Command) erro
 	// Extract flags
 	apiURL, _ := cmd.Flags().GetString(urlFlag)
 
+	apiURL = viper.GetString("DTRACK_API_URL")
+	// Validate Interlynk URL
+	if !utils.IsValidURL(apiURL) {
+		invalidFlags = append(invalidFlags, fmt.Sprintf("invalid Interlynk API URL format: %s", apiURL))
+	}
+
 	// Check if INTERLYNK_SECURITY_TOKEN is set
 	token := viper.GetString("DTRACK_API_KEY")
 	if token == "" {
@@ -79,11 +86,6 @@ func (d *DependencyTrackAdapter) ParseAndValidateParams(cmd *cobra.Command) erro
 	}
 	projectName, _ := cmd.Flags().GetString(projectNameFlag)
 	projectVersion, _ := cmd.Flags().GetString(projectVersionFlag)
-
-	// Validate API URL and API key
-	if !strings.HasPrefix(apiURL, "http") {
-		invalidFlags = append(invalidFlags, fmt.Sprintf("invalid API URL format: %s", apiURL))
-	}
 
 	// Check missing flags
 	if len(missingFlags) > 0 {
