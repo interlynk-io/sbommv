@@ -29,6 +29,18 @@ The **Dependency-Track Adapter** allows you to upload SBOMs to Dependency Track 
    --out-dtrack-project-version=v0.1.0
    ```
 
+**NOTE**: Make sure to export `DTRACK_API_KEY` before pushing any SBOMs to dependency track platform
+
+   ```bash
+   export DTRACK_API_KEY="odt_LU1VVtDHFtSPkGOtr8QE84CFshZBCWXh"
+   ```
+
+- In case, if a Team name is **Automation**, make sure to check these all Permission:
+  - BOM_UPLOAD
+  - PORTFOLIO_MANAGEMENT
+  - VIEW_PORTFOLIO
+- Whereas for **Administrators** team, already all permissions are checked.
+
 ## 2. Interlynk
 
 The **Interlynk adapter** allows you to upload SBOMs to Interlynk Enterprise Platform. If no repository name is specified, it will auto-create projects & the env on the platform.
