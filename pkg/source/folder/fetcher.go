@@ -137,22 +137,21 @@ func (f *ParallelFetcher) Fetch(ctx *tcontext.TransferMetadata, config *FolderCo
 	return iterator.NewMemoryIterator(sboms), nil
 }
 
-// getTopLevelDirAndFile extracts the first subdirectory after basePath and the filename.
+// getTopLevelDirAndFile extracts the parent sdirectory of file and file itself
 func getTopLevelDirAndFile(basePath, fullPath string) (string, string) {
-	// Get the relative path from basePath to fullPath
 	relPath, err := filepath.Rel(basePath, fullPath)
 	if err != nil {
 		return "unknown", "unknown" // Fallback in case of error
 	}
 
-	// Split the relative path into directory components
 	parts := strings.Split(relPath, string(filepath.Separator))
 
-	// If there are at least two parts, return the first directory and the filename
+	// for multiple directories, return the direct parent of the file
 	if len(parts) > 1 {
-		return parts[0], parts[len(parts)-1] // First directory and last part (filename)
+		parentDir := filepath.Dir(relPath)
+		return filepath.Base(parentDir), parts[len(parts)-1]
 	}
 
-	// If there's no subdirectory, return "unknown" for directory and actual filename
-	return "unknown", relPath
+	// return the base folder, if the file is directly inside the base folder
+	return filepath.Base(basePath), parts[0]
 }
