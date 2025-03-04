@@ -114,10 +114,24 @@ func (c *DependencyTrackClient) FindOrCreateProject(ctx *tcontext.TransferMetada
 func (c *DependencyTrackClient) CreateProject(ctx *tcontext.TransferMetadata, projectName, projectVersion string) (string, error) {
 	logger.LogDebug(ctx.Context, "Initializing Project Creation", "project", projectName, "version", projectVersion)
 
+	sourceAdapter := ctx.Value("source")
+
+	active := true
+	description := "Created & uploaded by sbommv"
+	sbommvTag := "sbommv"
+	sourceTag := sourceAdapter.(string)
+
 	project := dtrack.Project{
-		Name:    projectName,
-		Version: projectVersion,
+		Name:        projectName,
+		Version:     projectVersion,
+		Active:      active,
+		Description: description,
+		Tags: []dtrack.Tag{
+			{Name: sbommvTag},
+			{Name: sourceTag},
+		},
 	}
+	logger.LogDebug(ctx.Context, "Project is created with following parameters", "name", projectName, "version", projectVersion, "active", active, "description", description, "tag1", sbommvTag, "tag2", sourceTag)
 
 	// dtrack client will create a new project
 	created, err := c.Client.Project.Create(ctx.Context, project)

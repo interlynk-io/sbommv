@@ -41,10 +41,14 @@ func TransferRun(ctx context.Context, cmd *cobra.Command, config types.Config) e
 	var inputAdapterInstance, outputAdapterInstance adapter.Adapter
 	var err error
 
-	adapters, err := adapter.NewAdapter(transferCtx, config)
+	adapters, iAdp, oAdp, err := adapter.NewAdapter(transferCtx, config)
 	if err != nil {
 		return fmt.Errorf("failed to initialize adapters: %v", err)
 	}
+
+	// store source adapter type and destination adapter using ctx for later use
+	transferCtx.WithValue("source", iAdp)
+	transferCtx.WithValue("destination", oAdp)
 
 	// Extract input and output adapters using predefined roles
 	inputAdapterInstance = adapters[types.InputAdapterRole]

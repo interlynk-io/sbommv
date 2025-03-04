@@ -50,8 +50,9 @@ type Adapter interface {
 }
 
 // NewAdapter initializes and returns the correct adapters (both input & output)
-func NewAdapter(ctx *tcontext.TransferMetadata, config types.Config) (map[types.AdapterRole]Adapter, error) {
+func NewAdapter(ctx *tcontext.TransferMetadata, config types.Config) (map[types.AdapterRole]Adapter, string, string, error) {
 	adapters := make(map[types.AdapterRole]Adapter)
+	var inputAdp, outputAdp string
 
 	// Initialize Input Adapter
 	if config.SourceAdapter != "" {
@@ -61,15 +62,18 @@ func NewAdapter(ctx *tcontext.TransferMetadata, config types.Config) (map[types.
 
 		case types.GithubAdapterType:
 			adapters[types.InputAdapterRole] = &github.GitHubAdapter{Role: types.InputAdapterRole}
+			inputAdp = "github"
 
 		case types.FolderAdapterType:
 			adapters[types.InputAdapterRole] = &ifolder.FolderAdapter{Role: types.InputAdapterRole, Fetcher: &ifolder.SequentialFetcher{}}
+			inputAdp = "folder"
 
 		case types.InterlynkAdapterType:
 			adapters[types.InputAdapterRole] = &interlynk.InterlynkAdapter{Role: types.InputAdapterRole}
+			inputAdp = "interlynk"
 
 		default:
-			return nil, fmt.Errorf("unsupported input adapter type: %s", config.SourceAdapter)
+			return nil, "", "", fmt.Errorf("unsupported input adapter type: %s", config.SourceAdapter)
 		}
 	}
 
@@ -81,21 +85,23 @@ func NewAdapter(ctx *tcontext.TransferMetadata, config types.Config) (map[types.
 
 		case types.FolderAdapterType:
 			adapters[types.OutputAdapterRole] = &ofolder.FolderAdapter{Role: types.OutputAdapterRole, Uploader: &ofolder.SequentialUploader{}}
+			outputAdp = "folder"
 
 		case types.InterlynkAdapterType:
 			adapters[types.OutputAdapterRole] = &interlynk.InterlynkAdapter{Role: types.OutputAdapterRole}
+			outputAdp = "interlynk"
 
 		case types.DtrackAdapterType:
 			adapters[types.OutputAdapterRole] = &dependencytrack.DependencyTrackAdapter{Role: types.OutputAdapterRole, Uploader: dependencytrack.NewSequentialUploader()}
-
+			outputAdp = "dtrack"
 		default:
-			return nil, fmt.Errorf("unsupported output adapter type: %s", config.DestinationAdapter)
+			return nil, "", "", fmt.Errorf("unsupported output adapter type: %s", config.DestinationAdapter)
 		}
 	}
 
 	if len(adapters) == 0 {
-		return nil, fmt.Errorf("no valid adapters found")
+		return nil, "", "", fmt.Errorf("no valid adapters found")
 	}
 
-	return adapters, nil
+	return adapters, inputAdp, outputAdp, nil
 }
