@@ -16,6 +16,8 @@
 package folder
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -60,11 +62,19 @@ func (f *SequentialFetcher) Fetch(ctx *tcontext.TransferMetadata, config *Folder
 				logger.LogError(ctx.Context, err, "Failed to read SBOM", "path", path)
 				return nil
 			}
-			projectName, path := getTopLevelDirAndFile(config.FolderPath, path)
+			// projectName, path := getTopLevelDirAndFile(config.FolderPath, path)
+			primaryComp, err := extractPrimaryComponentName(content)
+			if err != nil {
+				logger.LogDebug(ctx.Context, "Failed to parse SBOM for primary component", "path", path, "error", err)
+			}
+
+			logger.LogDebug(ctx.Context, "Primary Component", "value", primaryComp)
+
+			fileName := getFilePath(config.FolderPath, path)
 			sbomList = append(sbomList, &iterator.SBOM{
 				Data:      content,
-				Path:      path,
-				Namespace: projectName,
+				Path:      fileName,
+				Namespace: primaryComp,
 			})
 		}
 		return nil
@@ -108,11 +118,21 @@ func (f *ParallelFetcher) Fetch(ctx *tcontext.TransferMetadata, config *FolderCo
 					errChan <- err
 					return
 				}
-				projectName, path := getTopLevelDirAndFile(config.FolderPath, path)
+
+				// projectName, path := getTopLevelDirAndFile(config.FolderPath, path)
+				primaryComp, err := extractPrimaryComponentName(content)
+				if err != nil {
+					logger.LogDebug(ctx.Context, "Failed to parse SBOM for primary component", "path", path, "error", err)
+				}
+
+				logger.LogDebug(ctx.Context, "Primary Component", "value", primaryComp)
+
+				fileName := getFilePath(config.FolderPath, path)
+
 				sbomsChan <- &iterator.SBOM{
 					Data:      content,
-					Path:      path,
-					Namespace: projectName,
+					Path:      fileName,
+					Namespace: primaryComp,
 				}
 			}
 		}(path)
@@ -137,21 +157,69 @@ func (f *ParallelFetcher) Fetch(ctx *tcontext.TransferMetadata, config *FolderCo
 	return iterator.NewMemoryIterator(sboms), nil
 }
 
-// getTopLevelDirAndFile extracts the parent sdirectory of file and file itself
-func getTopLevelDirAndFile(basePath, fullPath string) (string, string) {
+// getFilePath returns file path
+func getFilePath(basePath, fullPath string) string {
 	relPath, err := filepath.Rel(basePath, fullPath)
 	if err != nil {
-		return "unknown", "unknown" // Fallback in case of error
+		logger.LogDebug(context.Background(), "Path resolution failed", "base", basePath, "full", fullPath, "error", err)
+		return filepath.Base(fullPath)
 	}
 
+	// Split and grab the last part—always the filename
 	parts := strings.Split(relPath, string(filepath.Separator))
-
-	// for multiple directories, return the direct parent of the file
-	if len(parts) > 1 {
-		parentDir := filepath.Dir(relPath)
-		return filepath.Base(parentDir), parts[len(parts)-1]
+	if len(parts) > 0 {
+		logger.LogDebug(context.Background(), "Path structure", "path", parts[len(parts)-1])
+		return parts[len(parts)-1]
 	}
 
-	// return the base folder, if the file is directly inside the base folder
-	return filepath.Base(basePath), parts[0]
+	logger.LogDebug(context.Background(), "Unexpected path structure", "base", basePath, "full", fullPath)
+	return filepath.Base(fullPath)
+}
+
+func extractPrimaryComponentName(content []byte) (string, error) {
+	// get primaryComp for cyclonedx
+	var cdx struct {
+		Metadata struct {
+			Component struct {
+				Name string `json:"name"`
+			} `json:"component"`
+		} `json:"metadata"`
+	}
+
+	if err := json.Unmarshal(content, &cdx); err == nil && cdx.Metadata.Component.Name != "" {
+		return cdx.Metadata.Component.Name, nil
+	}
+
+	// get primaryComp for cyclonedx
+	var spdx struct {
+		Packages []struct {
+			SPDXID string `json:"SPDXID"`
+			Name   string `json:"name"`
+		} `json:"packages"`
+		Relationships []struct {
+			SPDXElementID      string `json:"spdxElementId"`
+			RelationshipType   string `json:"relationshipType"`
+			RelatedSPDXElement string `json:"relatedSpdxElement"`
+		} `json:"relationships"`
+	}
+
+	var targetID string
+	if err := json.Unmarshal(content, &spdx); err == nil {
+
+		// Find DESCRIBES relationship from document
+		for _, rel := range spdx.Relationships {
+			if rel.SPDXElementID == "SPDXRef-DOCUMENT" && strings.ToUpper(rel.RelationshipType) == "DESCRIBES" {
+				targetID = rel.RelatedSPDXElement
+				break
+			}
+		}
+
+		// Match targetID to a package
+		for _, pkg := range spdx.Packages {
+			if pkg.SPDXID == targetID && pkg.Name != "" {
+				return pkg.Name, nil // Found it!
+			}
+		}
+	}
+	return "", fmt.Errorf("no primary component name found in SBOM")
 }

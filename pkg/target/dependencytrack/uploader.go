@@ -53,11 +53,15 @@ func (u *SequentialUploader) Upload(ctx *tcontext.TransferMetadata, config *Depe
 
 		projectName := config.ProjectName
 		if projectName == "" {
+			logger.LogDebug(ctx.Context, "Project Name is not provided by the user", "value", projectName)
 			if sbom.Namespace == "" {
 				return fmt.Errorf("no project name specified and SBOM namespace is empty")
 			}
 			projectName = sbom.Namespace
+			logger.LogDebug(ctx.Context, "Project Name as sbom.Namespace will be used", "sbom.Namespace", sbom.Namespace)
 		}
+
+		logger.LogDebug(ctx.Context, "Project Name", "value", projectName)
 
 		projectVersion := config.ProjectVersion
 		if projectVersion == "" {
