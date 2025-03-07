@@ -313,7 +313,8 @@ func (g *GitHubAdapter) FetchSBOMs(ctx *tcontext.TransferMetadata) (iterator.SBO
 
 	logger.LogDebug(ctx.Context, "Total repos from which SBOMs need to be fetched", "count", len(repos), "values", repos)
 
-	processingMode := types.FetchSequential // Adjust this based on your logic (e.g., config)
+	// processingMode := types.FetchSequential // Adjust this based on your logic (e.g., config)
+	processingMode := types.FetchParallel
 	var metadata []SBOMMetadata
 
 	switch processingMode {
@@ -361,8 +362,61 @@ func (g *GitHubAdapter) collectSBOMMetadataSequentially(ctx *tcontext.TransferMe
 	return metadata, nil
 }
 
+// func (g *GitHubAdapter) collectSBOMMetadataConcurrently(ctx *tcontext.TransferMetadata, repos []string) ([]SBOMMetadata, error) {
+// 	logger.LogDebug(ctx.Context, "Initialized to collect SBOM metadata concurrently for all repositories")
+
+// 	// Ensure the Go runtime uses all available CPU cores
+// 	runtime.GOMAXPROCS(runtime.NumCPU())
+
+// 	var wg sync.WaitGroup
+// 	method := GitHubMethod(g.Method)
+// 	resultChan := make(chan []SBOMMetadata, len(repos)) // Buffered channel for metadata results
+// 	errChan := make(chan error, len(repos))             // Buffered channel for errors
+
+// 	// Spawn goroutines for each repository
+// 	for _, repo := range repos {
+// 		wg.Add(1)
+// 		go func(repo string) {
+// 			defer wg.Done()
+// 			g.client.updateRepo(repo)
+// 			metaList, err := g.collectSBOMMetadataForRepo(ctx, repo, method)
+// 			if err != nil {
+// 				logger.LogInfo(ctx.Context, "Failed to collect metadata for", "repo", repo, "error", err)
+// 				errChan <- err
+// 				return
+// 			}
+// 			resultChan <- metaList // Send results to the channel
+// 		}(repo)
+// 	}
+
+// 	// Close channels after all goroutines complete
+// 	go func() {
+// 		wg.Wait()
+// 		close(resultChan)
+// 		close(errChan)
+// 	}()
+
+// 	// Collect metadata from the result channel
+// 	var metadata []SBOMMetadata
+// 	for metaList := range resultChan {
+// 		metadata = append(metadata, metaList...)
+// 	}
+
+// 	// Collect all errors from the error channel
+// 	var errors []error
+// 	for err := range errChan {
+// 		errors = append(errors, err)
+// 	}
+// 	if len(errors) > 0 {
+// 		return nil, fmt.Errorf("errors occurred during metadata collection: %v", errors)
+// 	}
+
+// 	logger.LogDebug(ctx.Context, "Successfully collected SBOM metadata for all repositories concurrently")
+// 	return metadata, nil
+// }
+
 func (g *GitHubAdapter) collectSBOMMetadataConcurrently(ctx *tcontext.TransferMetadata, repos []string) ([]SBOMMetadata, error) {
-	logger.LogDebug(ctx.Context, "Collecting SBOM metadata concurrently")
+	logger.LogDebug(ctx.Context, "Initialized to collect SBOM metadata concurrently for all repositories")
 
 	var metadata []SBOMMetadata
 	var mu sync.Mutex
@@ -393,6 +447,7 @@ func (g *GitHubAdapter) collectSBOMMetadataConcurrently(ctx *tcontext.TransferMe
 	if len(errChan) > 0 {
 		return nil, fmt.Errorf("errors occurred during metadata collection: %v", <-errChan)
 	}
+	logger.LogDebug(ctx.Context, "Successfully collected SBOM metadata for all repositories in concurrently method...")
 
 	return metadata, nil
 }
