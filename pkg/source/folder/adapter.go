@@ -117,5 +117,5 @@ func (f *FolderAdapter) UploadSBOMs(ctx *tcontext.TransferMetadata, iterator ite
 // DryRun for Folder Adapter: Displays all fetched SBOMs from folder adapter
 func (f *FolderAdapter) DryRun(ctx *tcontext.TransferMetadata, iter iterator.SBOMIterator) error {
 	reporter := NewFolderReporter(false, "")
-	return reporter.DryRun(ctx.Context, iter)
+	return reporter.DryRun(*ctx, iter)
 }

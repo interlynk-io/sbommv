@@ -15,10 +15,10 @@
 package folder
 
 import (
-	"context"
 	"io"
 
 	"github.com/interlynk-io/sbommv/pkg/iterator"
+	"github.com/interlynk-io/sbommv/pkg/tcontext"
 )
 
 // FolderIterator iterates over SBOMs found in a folder
@@ -36,7 +36,7 @@ func NewFolderIterator(sboms []*iterator.SBOM) *FolderIterator {
 }
 
 // Next retrieves the next SBOM in the iteration
-func (it *FolderIterator) Next(ctx context.Context) (*iterator.SBOM, error) {
+func (it *FolderIterator) Next(ctx tcontext.TransferMetadata) (*iterator.SBOM, error) {
 	if it.index >= len(it.sboms) {
 		return nil, io.EOF
 	}

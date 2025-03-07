@@ -39,10 +39,10 @@ func NewSequentialUploader() *SequentialUploader {
 }
 
 func (u *SequentialUploader) Upload(ctx *tcontext.TransferMetadata, config *DependencyTrackConfig, client *DependencyTrackClient, iter iterator.SBOMIterator) error {
-	logger.LogDebug(ctx.Context, "Uploading SBOMs to Dependency-Track sequentially")
+	logger.LogDebug(ctx.Context, "Initializing Upload process for SBOMs to Dependency-Track sequentially")
 
 	for {
-		sbom, err := iter.Next(ctx.Context)
+		sbom, err := iter.Next(*ctx)
 		if err == io.EOF {
 			break
 		}

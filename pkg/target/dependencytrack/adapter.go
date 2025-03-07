@@ -128,5 +128,5 @@ func (d *DependencyTrackAdapter) UploadSBOMs(ctx *tcontext.TransferMetadata, ite
 
 func (d *DependencyTrackAdapter) DryRun(ctx *tcontext.TransferMetadata, iter iterator.SBOMIterator) error {
 	reporter := NewDependencyTrackReporter(d.Config.APIURL, d.Config.ProjectName)
-	return reporter.DryRun(ctx.Context, iter)
+	return reporter.DryRun(*ctx, iter)
 }

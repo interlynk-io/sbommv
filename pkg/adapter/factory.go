@@ -84,7 +84,7 @@ func NewAdapter(ctx *tcontext.TransferMetadata, config types.Config) (map[types.
 		switch types.AdapterType(config.DestinationAdapter) {
 
 		case types.FolderAdapterType:
-			adapters[types.OutputAdapterRole] = &ofolder.FolderAdapter{Role: types.OutputAdapterRole, Uploader: &ofolder.SequentialUploader{}}
+			adapters[types.OutputAdapterRole] = &ofolder.FolderAdapter{Role: types.OutputAdapterRole, Uploader: &ofolder.ParallelUploader{}}
 			outputAdp = "folder"
 
 		case types.InterlynkAdapterType:

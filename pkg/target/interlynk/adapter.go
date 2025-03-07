@@ -177,7 +177,7 @@ func (i *InterlynkAdapter) uploadSequential(ctx *tcontext.TransferMetadata, sbom
 	maxRetries := 5
 
 	for {
-		sbom, err := sboms.Next(ctx.Context)
+		sbom, err := sboms.Next(*ctx)
 		if err == io.EOF {
 			logger.LogDebug(ctx.Context, "All SBOMs uploaded successfully, no more SBOMs left.")
 			break
@@ -232,7 +232,7 @@ func (i *InterlynkAdapter) DryRun(ctx *tcontext.TransferMetadata, sbomIterator i
 	uniqueFormats := make(map[string]struct{})
 
 	for {
-		sbom, err := sbomIterator.Next(ctx.Context)
+		sbom, err := sbomIterator.Next(*ctx)
 		if err == io.EOF {
 			break
 		}

@@ -16,8 +16,9 @@
 package iterator
 
 import (
-	"context"
 	"io"
+
+	"github.com/interlynk-io/sbommv/pkg/tcontext"
 )
 
 // SBOM represents a single SBOM file
@@ -31,7 +32,7 @@ type SBOM struct {
 
 // SBOMIterator provides a way to lazily fetch SBOMs one by one
 type SBOMIterator interface {
-	Next(ctx context.Context) (*SBOM, error) // Fetch the next SBOM
+	Next(ctx tcontext.TransferMetadata) (*SBOM, error) // Fetch the next SBOM
 }
 
 // MemoryIterator is an iterator that iterates over a preloaded slice of SBOMs.
@@ -49,7 +50,7 @@ func NewMemoryIterator(sboms []*SBOM) SBOMIterator {
 }
 
 // Next retrieves the next SBOM in memory.
-func (it *MemoryIterator) Next(ctx context.Context) (*SBOM, error) {
+func (it *MemoryIterator) Next(ctx tcontext.TransferMetadata) (*SBOM, error) {
 	if it.index >= len(it.sboms) {
 		return nil, io.EOF // No more SBOMs left
 	}
