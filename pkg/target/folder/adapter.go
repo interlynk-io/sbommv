@@ -83,14 +83,13 @@ func (f *FolderAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 	if len(invalidFlags) > 0 {
 		return fmt.Errorf("invalid input adapter flag usage:\n %s\n\nUse 'sbommv transfer --help' for correct usage.", strings.Join(invalidFlags, "\n "))
 	}
-
 	cfg := FolderConfig{
 		FolderPath: folderPath,
 		Settings:   types.UploadSettings{ProcessingMode: types.UploadMode(mode)},
 	}
 	f.config = &cfg
 
-	logger.LogDebug(cmd.Context(), "Folder Output Adapter Initialized", "path", f.config.FolderPath)
+	logger.LogDebug(cmd.Context(), "Folder Output Adapter Initialized", "config", cfg)
 	return nil
 }
 
@@ -108,5 +107,5 @@ func (f *FolderAdapter) UploadSBOMs(ctx *tcontext.TransferMetadata, iter iterato
 // DryRun for Output Adapter: Simulates writing SBOMs to a folder
 func (f *FolderAdapter) DryRun(ctx *tcontext.TransferMetadata, iter iterator.SBOMIterator) error {
 	reporter := NewFolderOutputReporter(f.config.FolderPath)
-	return reporter.DryRun(ctx.Context, iter)
+	return reporter.DryRun(*ctx, iter)
 }

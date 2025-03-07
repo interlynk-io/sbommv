@@ -214,43 +214,220 @@ func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 	return nil
 }
 
-// FetchSBOMs initializes the GitHub SBOM iterator using the unified method
-func (g *GitHubAdapter) FetchSBOMs(ctx *tcontext.TransferMetadata) (iterator.SBOMIterator, error) {
-	logger.LogDebug(ctx.Context, "Intializing SBOM fetching process")
+// // FetchSBOMs initializes the GitHub SBOM iterator using the unified method
+// func (g *GitHubAdapter) FetchSBOMs(ctx *tcontext.TransferMetadata) (iterator.SBOMIterator, error) {
+// 	logger.LogDebug(ctx.Context, "Intializing SBOM fetching process")
 
-	// Org Mode: Fetch all repositories
+// 	// Org Mode: Fetch all repositories
+// 	repos, err := g.client.GetAllRepositories(ctx)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("failed to get repositories: %w", err)
+// 	}
+
+// 	// filtering to include/exclude repos
+// 	repos = g.applyRepoFilters(repos)
+
+// 	if len(repos) == 0 {
+// 		return nil, fmt.Errorf("no repositories left after applying filters")
+// 	}
+
+// 	logger.LogDebug(ctx.Context, "Total repos from which SBOMs needs to be fetched after filteration", "count", len(repos), "values", repos)
+
+// 	processingMode := types.FetchSequential
+// 	var sbomIterator iterator.SBOMIterator
+
+// 	switch processingMode {
+// 	case types.FetchParallel:
+// 		sbomIterator, err = g.fetchSBOMsConcurrently(ctx, repos)
+// 	case types.FetchSequential:
+// 		sbomIterator, err = g.fetchSBOMsSequentially(ctx, repos)
+// 	default:
+// 		return nil, fmt.Errorf("Unsupported Processing Mode !!")
+// 	}
+
+// 	if err != nil {
+// 		logger.LogError(ctx.Context, err, "Failed to fetch SBOMs via Processing Mode")
+// 		return nil, err
+// 	}
+
+// 	return sbomIterator, err
+// }
+
+// func (g *GitHubAdapter) FetchSBOMs(ctx *tcontext.TransferMetadata) (iterator.SBOMIterator, error) {
+// 	logger.LogDebug(ctx.Context, "Initializing SBOM fetching process")
+
+// 	// Fetch all repositories
+// 	repos, err := g.client.GetAllRepositories(ctx)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("failed to get repositories: %w", err)
+// 	}
+
+// 	// Apply filters
+// 	repos = g.applyRepoFilters(repos)
+// 	if len(repos) == 0 {
+// 		return nil, fmt.Errorf("no repositories left after applying filters")
+// 	}
+
+// 	logger.LogDebug(ctx.Context, "Total repos after filtration", "count", len(repos), "values", repos)
+
+// 	// Collect metadata for all SBOMs across repositories
+// 	var sbomAssets []SBOMAsset
+// 	for _, repo := range repos {
+// 		g.Repo = repo
+// 		g.client.Repo = repo
+
+// 		// Hypothetical method to get SBOM metadata (you’ll need to implement this)
+// 		assets, err := g.client.RetreiveSBOMAssets(ctx)
+// 		if err != nil {
+// 			logger.LogInfo(ctx.Context, "Failed to retrieve SBOM assets for", "repo", repo)
+// 			continue
+// 		}
+// 		sbomAssets = append(sbomAssets, assets...)
+// 	}
+
+// 	if len(sbomAssets) == 0 {
+// 		return nil, fmt.Errorf("no SBOM assets found for any repository")
+// 	}
+
+// 	// Return a lazy iterator
+// 	return &GitHubIterator{
+// 		assets:   sbomAssets,
+// 		position: 0,
+// 		client:   g.client,
+// 	}, nil
+// }
+
+func (g *GitHubAdapter) FetchSBOMs(ctx *tcontext.TransferMetadata) (iterator.SBOMIterator, error) {
+	logger.LogDebug(ctx.Context, "Initializing SBOM fetching process")
+
 	repos, err := g.client.GetAllRepositories(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get repositories: %w", err)
 	}
 
-	// filtering to include/exclude repos
 	repos = g.applyRepoFilters(repos)
-
 	if len(repos) == 0 {
 		return nil, fmt.Errorf("no repositories left after applying filters")
 	}
 
-	logger.LogDebug(ctx.Context, "Total repos from which SBOMs needs to be fetched after filteration", "count", len(repos), "values", repos)
+	logger.LogDebug(ctx.Context, "Total repos from which SBOMs need to be fetched after filtration", "count", len(repos), "values", repos)
 
-	processingMode := types.FetchSequential
-	var sbomIterator iterator.SBOMIterator
+	processingMode := types.FetchSequential // Adjust this based on your logic (e.g., config)
+	var metadata []SBOMMetadata
 
 	switch processingMode {
 	case types.FetchParallel:
-		sbomIterator, err = g.fetchSBOMsConcurrently(ctx, repos)
+		metadata, err = g.collectSBOMMetadataConcurrently(ctx, repos)
 	case types.FetchSequential:
-		sbomIterator, err = g.fetchSBOMsSequentially(ctx, repos)
+		metadata, err = g.collectSBOMMetadataSequentially(ctx, repos)
 	default:
-		return nil, fmt.Errorf("Unsupported Processing Mode !!")
+		return nil, fmt.Errorf("unsupported processing mode: %v", processingMode)
 	}
 
 	if err != nil {
-		logger.LogError(ctx.Context, err, "Failed to fetch SBOMs via Processing Mode")
+		logger.LogError(ctx.Context, err, "Failed to collect SBOM metadata")
 		return nil, err
 	}
 
-	return sbomIterator, err
+	if len(metadata) == 0 {
+		return nil, fmt.Errorf("no SBOMs found for any repository")
+	}
+
+	return NewGitHubIterator(metadata, g.client, g), nil
+}
+
+func (g *GitHubAdapter) collectSBOMMetadataSequentially(ctx *tcontext.TransferMetadata, repos []string) ([]SBOMMetadata, error) {
+	logger.LogDebug(ctx.Context, "Collecting SBOM metadata sequentially")
+
+	var metadata []SBOMMetadata
+	method := GitHubMethod(g.Method)
+
+	for _, repo := range repos {
+		g.client.updateRepo(repo)
+		metaList, err := g.collectMetadataForRepo(ctx, repo, method)
+		if err != nil {
+			logger.LogInfo(ctx.Context, "Failed to collect metadata for", "repo", repo, "error", err)
+			continue
+		}
+		metadata = append(metadata, metaList...)
+	}
+
+	return metadata, nil
+}
+
+func (g *GitHubAdapter) collectSBOMMetadataConcurrently(ctx *tcontext.TransferMetadata, repos []string) ([]SBOMMetadata, error) {
+	logger.LogDebug(ctx.Context, "Collecting SBOM metadata concurrently")
+
+	var metadata []SBOMMetadata
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+	method := GitHubMethod(g.Method)
+	errChan := make(chan error, len(repos))
+
+	for _, repo := range repos {
+		wg.Add(1)
+		go func(repo string) {
+			defer wg.Done()
+			g.client.updateRepo(repo)
+			metaList, err := g.collectMetadataForRepo(ctx, repo, method)
+			if err != nil {
+				logger.LogInfo(ctx.Context, "Failed to collect metadata for", "repo", repo, "error", err)
+				errChan <- err
+				return
+			}
+			mu.Lock()
+			metadata = append(metadata, metaList...)
+			mu.Unlock()
+		}(repo)
+	}
+
+	wg.Wait()
+	close(errChan)
+
+	if len(errChan) > 0 {
+		return nil, fmt.Errorf("errors occurred during metadata collection: %v", <-errChan)
+	}
+
+	return metadata, nil
+}
+
+func (g *GitHubAdapter) collectMetadataForRepo(ctx *tcontext.TransferMetadata, repo string, method GitHubMethod) ([]SBOMMetadata, error) {
+	var metadata []SBOMMetadata
+
+	switch method {
+	case MethodReleases:
+		assets, err := g.client.RetreiveSBOMAssets(ctx)
+		if err != nil {
+			return nil, err
+		}
+		for _, asset := range assets {
+			metadata = append(metadata, SBOMMetadata{
+				Repo:     repo,
+				Method:   method,
+				Version:  asset.Release,
+				URL:      asset.DownloadURL,
+				Filename: asset.Name,
+			})
+		}
+
+	case MethodAPI:
+		metadata = append(metadata, SBOMMetadata{
+			Repo:   repo,
+			Method: method,
+		})
+
+	case MethodTool:
+		metadata = append(metadata, SBOMMetadata{
+			Repo:   repo,
+			Method: method,
+			Branch: g.client.Branch, // Assuming Branch is set in client
+		})
+
+	default:
+		return nil, fmt.Errorf("unsupported GitHub method: %v", method)
+	}
+
+	return metadata, nil
 }
 
 // OutputSBOMs should return an error since GitHub does not support SBOM uploads
@@ -272,7 +449,7 @@ func (g *GitHubAdapter) DryRun(ctx *tcontext.TransferMetadata, iterator iterator
 
 	for {
 
-		sbom, err := iterator.Next(ctx.Context)
+		sbom, err := iterator.Next(*ctx)
 		if err == io.EOF {
 			break // No more SBOMs
 		}
@@ -355,94 +532,94 @@ func (g *GitHubAdapter) applyRepoFilters(repos []string) []string {
 	return filteredRepos
 }
 
-// fetchSBOMsConcurrently: fetch SBOMs from repositories concurrently
-func (g *GitHubAdapter) fetchSBOMsConcurrently(ctx *tcontext.TransferMetadata, repos []string) (iterator.SBOMIterator, error) {
-	var wg sync.WaitGroup
-	sbomsChan := make(chan *iterator.SBOM, len(repos))
+// // fetchSBOMsConcurrently: fetch SBOMs from repositories concurrently
+// func (g *GitHubAdapter) fetchSBOMsConcurrently(ctx *tcontext.TransferMetadata, repos []string) (iterator.SBOMIterator, error) {
+// 	var wg sync.WaitGroup
+// 	sbomsChan := make(chan *iterator.SBOM, len(repos))
 
-	for _, repo := range repos {
-		wg.Add(1)
-		go func(repo string) {
-			defer wg.Done()
-			g.Repo = repo
-			g.client.Repo = repo
+// 	for _, repo := range repos {
+// 		wg.Add(1)
+// 		go func(repo string) {
+// 			defer wg.Done()
+// 			g.Repo = repo
+// 			g.client.Repo = repo
 
-			iter := NewGitHubIterator(ctx, g, repo)
+// 			iter := NewGitHubIterator(ctx, g, repo)
 
-			// Fetch SBOMs separately
-			err := iter.HandleSBOMFetchingViaIterator(ctx, GitHubMethod(g.Method))
-			if err != nil {
-				logger.LogDebug(ctx.Context, "Failed to fetch SBOMs for repo", "repo", repo)
-				return
-			}
-			for {
-				sbom, err := iter.Next(ctx.Context)
-				if err == io.EOF {
-					break
-				}
-				if err != nil {
-					logger.LogError(ctx.Context, err, "Error reading SBOM for", "repo", repo)
-					break
-				}
-				sbomsChan <- sbom
-			}
-		}(repo)
-	}
+// 			// Fetch SBOMs separately
+// 			err := iter.HandleSBOMFetchingViaIterator(ctx, GitHubMethod(g.Method))
+// 			if err != nil {
+// 				logger.LogDebug(ctx.Context, "Failed to fetch SBOMs for repo", "repo", repo)
+// 				return
+// 			}
+// 			for {
+// 				sbom, err := iter.Next(ctx.Context)
+// 				if err == io.EOF {
+// 					break
+// 				}
+// 				if err != nil {
+// 					logger.LogError(ctx.Context, err, "Error reading SBOM for", "repo", repo)
+// 					break
+// 				}
+// 				sbomsChan <- sbom
+// 			}
+// 		}(repo)
+// 	}
 
-	wg.Wait()
-	close(sbomsChan)
+// 	wg.Wait()
+// 	close(sbomsChan)
 
-	// Collect SBOMs from channel
-	var sbomList []*iterator.SBOM
-	for sbom := range sbomsChan {
-		sbomList = append(sbomList, sbom)
-	}
+// 	// Collect SBOMs from channel
+// 	var sbomList []*iterator.SBOM
+// 	for sbom := range sbomsChan {
+// 		sbomList = append(sbomList, sbom)
+// 	}
 
-	return &GitHubIterator{
-		sboms: sbomList,
-	}, nil
-}
+// 	return &GitHubIterator{
+// 		sboms: sbomList,
+// 	}, nil
+// }
 
-// fetchSBOMsSequentially: fetch SBOMs from repositories one at a time
-func (g *GitHubAdapter) fetchSBOMsSequentially(ctx *tcontext.TransferMetadata, repos []string) (iterator.SBOMIterator, error) {
-	logger.LogDebug(ctx.Context, "Fetching SBOMs sequentially")
+// // fetchSBOMsSequentially: fetch SBOMs from repositories one at a time
+// func (g *GitHubAdapter) fetchSBOMsSequentially(ctx *tcontext.TransferMetadata, repos []string) (iterator.SBOMIterator, error) {
+// 	logger.LogDebug(ctx.Context, "Fetching SBOMs sequentially")
 
-	var sbomList []*iterator.SBOM
+// 	var sbomList []*iterator.SBOM
 
-	// Iterate over repositories one by one (sequential processing)
-	for _, repo := range repos {
-		g.Repo = repo // Set current repository
+// 	// Iterate over repositories one by one (sequential processing)
+// 	for _, repo := range repos {
+// 		g.Repo = repo // Set current repository
 
-		logger.LogDebug(ctx.Context, "Repository", "value", repo)
+// 		logger.LogDebug(ctx.Context, "Repository", "value", repo)
 
-		iter := NewGitHubIterator(ctx, g, repo)
+// 		iter := NewGitHubIterator(ctx, g, repo)
 
-		// Fetch SBOMs separately
-		err := iter.HandleSBOMFetchingViaIterator(ctx, GitHubMethod(g.Method))
-		if err != nil {
-			logger.LogInfo(ctx.Context, "Failed to fetch SBOMs for", "repo", repo)
-			continue
-		}
+// 		// Fetch SBOMs separately
+// 		err := iter.HandleSBOMFetchingViaIterator(ctx, GitHubMethod(g.Method))
+// 		if err != nil {
+// 			logger.LogInfo(ctx.Context, "Failed to fetch SBOMs for", "repo", repo)
+// 			continue
+// 		}
 
-		// use iterator to add the SBOMs to the final sboms list
-		for {
-			sbom, err := iter.Next(ctx.Context)
-			if err == io.EOF {
-				break
-			}
-			if err != nil {
-				logger.LogError(ctx.Context, err, "Error reading SBOM for", "repo", repo)
-				break
-			}
-			sbomList = append(sbomList, sbom)
-		}
-	}
+// 		// use iterator to add the SBOMs to the final sboms list
+// 		for {
+// 			sbom, err := iter.Next(ctx.Context)
+// 			if err == io.EOF {
+// 				break
+// 			}
+// 			if err != nil {
+// 				logger.LogError(ctx.Context, err, "Error reading SBOM for", "repo", repo)
+// 				break
+// 			}
+// 			sbomList = append(sbomList, sbom)
+// 		}
+// 	}
 
-	if len(sbomList) == 0 {
-		return nil, fmt.Errorf("no SBOMs found for any repository")
-	}
+// 	if len(sbomList) == 0 {
+// 		return nil, fmt.Errorf("no SBOMs found for any repository")
+// 	}
 
-	return &GitHubIterator{
-		sboms: sbomList,
-	}, nil
-}
+// 	return &GitHubIterator{
+// 		sboms: sbomList,
+// 	}, nil
+// }

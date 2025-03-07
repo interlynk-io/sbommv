@@ -33,15 +33,17 @@ type SBOMUploader interface {
 
 var uploaderFactory = map[types.UploadMode]SBOMUploader{
 	types.UploadSequential: &SequentialUploader{},
+	// types.UploadParallel:   &ParallelUploader{},
 	// Add parallel uploader later
 }
 
 type SequentialUploader struct{}
 
+// Upload: sequentially, one at a time
 func (u *SequentialUploader) Upload(ctx *tcontext.TransferMetadata, config *FolderConfig, iter iterator.SBOMIterator) error {
 	logger.LogDebug(ctx.Context, "Writing SBOMs sequentially", "folder", config.FolderPath)
 	for {
-		sbom, err := iter.Next(ctx.Context)
+		sbom, err := iter.Next(*ctx)
 		if err == io.EOF {
 			break
 		}
@@ -71,3 +73,5 @@ func (u *SequentialUploader) Upload(ctx *tcontext.TransferMetadata, config *Fold
 	}
 	return nil
 }
+
+type ParallelUploader struct{}
