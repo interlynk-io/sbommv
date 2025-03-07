@@ -305,12 +305,13 @@ func (g *GitHubAdapter) FetchSBOMs(ctx *tcontext.TransferMetadata) (iterator.SBO
 		return nil, fmt.Errorf("failed to get repositories: %w", err)
 	}
 
+	// filter on the basis of include or exclude flag
 	repos = g.applyRepoFilters(repos)
 	if len(repos) == 0 {
 		return nil, fmt.Errorf("no repositories left after applying filters")
 	}
 
-	logger.LogDebug(ctx.Context, "Total repos from which SBOMs need to be fetched after filtration", "count", len(repos), "values", repos)
+	logger.LogDebug(ctx.Context, "Total repos from which SBOMs need to be fetched", "count", len(repos), "values", repos)
 
 	processingMode := types.FetchSequential // Adjust this based on your logic (e.g., config)
 	var metadata []SBOMMetadata
@@ -332,25 +333,30 @@ func (g *GitHubAdapter) FetchSBOMs(ctx *tcontext.TransferMetadata) (iterator.SBO
 	if len(metadata) == 0 {
 		return nil, fmt.Errorf("no SBOMs found for any repository")
 	}
+	logger.LogDebug(ctx.Context, "Successfully SBOM Metadta feched...", "count", len(metadata))
 
 	return NewGitHubIterator(metadata, g.client, g), nil
 }
 
+// collectSBOMMetadataSequentially: collects metadata of SBOMs for all repos in a sequential manner
 func (g *GitHubAdapter) collectSBOMMetadataSequentially(ctx *tcontext.TransferMetadata, repos []string) ([]SBOMMetadata, error) {
-	logger.LogDebug(ctx.Context, "Collecting SBOM metadata sequentially")
+	logger.LogDebug(ctx.Context, "Initialized to collect SBOM metadata sequentially for all repositories")
 
 	var metadata []SBOMMetadata
 	method := GitHubMethod(g.Method)
 
 	for _, repo := range repos {
+		logger.LogDebug(ctx.Context, "Processing repo", "value", repo)
 		g.client.updateRepo(repo)
-		metaList, err := g.collectMetadataForRepo(ctx, repo, method)
+		metaList, err := g.collectSBOMMetadataForRepo(ctx, repo, method)
 		if err != nil {
 			logger.LogInfo(ctx.Context, "Failed to collect metadata for", "repo", repo, "error", err)
 			continue
 		}
 		metadata = append(metadata, metaList...)
 	}
+
+	logger.LogDebug(ctx.Context, "Successfully collected SBOM metadata for all repositories in sequential method...")
 
 	return metadata, nil
 }
@@ -369,7 +375,7 @@ func (g *GitHubAdapter) collectSBOMMetadataConcurrently(ctx *tcontext.TransferMe
 		go func(repo string) {
 			defer wg.Done()
 			g.client.updateRepo(repo)
-			metaList, err := g.collectMetadataForRepo(ctx, repo, method)
+			metaList, err := g.collectSBOMMetadataForRepo(ctx, repo, method)
 			if err != nil {
 				logger.LogInfo(ctx.Context, "Failed to collect metadata for", "repo", repo, "error", err)
 				errChan <- err
@@ -391,33 +397,36 @@ func (g *GitHubAdapter) collectSBOMMetadataConcurrently(ctx *tcontext.TransferMe
 	return metadata, nil
 }
 
-func (g *GitHubAdapter) collectMetadataForRepo(ctx *tcontext.TransferMetadata, repo string, method GitHubMethod) ([]SBOMMetadata, error) {
-	var metadata []SBOMMetadata
+// collectSBOMMetadataForRepo: it collects SBOMs metadata from a repository
+func (g *GitHubAdapter) collectSBOMMetadataForRepo(ctx *tcontext.TransferMetadata, repo string, method GitHubMethod) ([]SBOMMetadata, error) {
+	logger.LogDebug(ctx.Context, "Initializing to collect SBOM Metadata for repo", "repo", repo, "method", method)
+	var collectSBOMsMetadataOfRepo []SBOMMetadata
 
 	switch method {
 	case MethodReleases:
-		assets, err := g.client.RetreiveSBOMAssets(ctx)
+		sbomAssets, err := g.client.RetreiveSBOMAssets(ctx)
 		if err != nil {
 			return nil, err
 		}
-		for _, asset := range assets {
-			metadata = append(metadata, SBOMMetadata{
+		for _, sbomAsset := range sbomAssets {
+			collectSBOMsMetadataOfRepo = append(collectSBOMsMetadataOfRepo, SBOMMetadata{
 				Repo:     repo,
 				Method:   method,
-				Version:  asset.Release,
-				URL:      asset.DownloadURL,
-				Filename: asset.Name,
+				Version:  sbomAsset.Release,
+				URL:      sbomAsset.DownloadURL,
+				Filename: sbomAsset.Name,
+				Size:     sbomAsset.Size,
 			})
 		}
 
 	case MethodAPI:
-		metadata = append(metadata, SBOMMetadata{
+		collectSBOMsMetadataOfRepo = append(collectSBOMsMetadataOfRepo, SBOMMetadata{
 			Repo:   repo,
 			Method: method,
 		})
 
 	case MethodTool:
-		metadata = append(metadata, SBOMMetadata{
+		collectSBOMsMetadataOfRepo = append(collectSBOMsMetadataOfRepo, SBOMMetadata{
 			Repo:   repo,
 			Method: method,
 			Branch: g.client.Branch, // Assuming Branch is set in client
@@ -427,7 +436,7 @@ func (g *GitHubAdapter) collectMetadataForRepo(ctx *tcontext.TransferMetadata, r
 		return nil, fmt.Errorf("unsupported GitHub method: %v", method)
 	}
 
-	return metadata, nil
+	return collectSBOMsMetadataOfRepo, nil
 }
 
 // OutputSBOMs should return an error since GitHub does not support SBOM uploads

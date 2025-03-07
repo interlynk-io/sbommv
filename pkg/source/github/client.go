@@ -116,42 +116,43 @@ func (c *Client) FetchSBOMFromReleases(ctx *tcontext.TransferMetadata) (Versione
 	return c.DownloadSBOMs(ctx, sboms)
 }
 
-// RetreiveSBOMAssets gets all releases assets from github release page
-// filter out the particular provided release asset and
-// extract SBOMs details from that
+// RetreiveSBOMAssets fetches all releases of a repo, filter out particular release
+// and then retreives all SBOMs artifacts details
 func (c *Client) RetreiveSBOMAssets(ctx *tcontext.TransferMetadata) ([]SBOMAsset, error) {
-	logger.LogDebug(ctx.Context, "Fetching SBOMs from GitHub releases", "repo_url", c.RepoURL, "owner", c.Owner, "repo", c.Repo)
+	logger.LogDebug(ctx.Context, "Retreiving SBOMs Assets Details from GitHub releases", "repo_url", c.RepoURL, "release_tag", c.Version)
 
-	releases, err := c.GetReleases(ctx, c.Owner, c.Repo)
+	// get all releases assets of the repository
+	allReleaseAssets, err := c.GetReleases(ctx, c.Owner, c.Repo)
 	if err != nil {
 		return nil, fmt.Errorf("error retrieving releases: %w", err)
 	}
 
-	if len(releases) == 0 {
-		return nil, fmt.Errorf("no releases found for repository %s/%s", c.Owner, c.Repo)
+	if len(allReleaseAssets) == 0 {
+		return nil, fmt.Errorf("no release assets found in the repository %s/%s", c.Owner, c.Repo)
 	}
 
-	// Select target releases (single version or all versions)
-	targetReleases := c.filterReleases(releases, c.Version)
-	if len(targetReleases) == 0 {
+	logger.LogDebug(ctx.Context, "Release Assets are available for the repo", "value", c.Repo, "count", len(allReleaseAssets))
+
+	// filter out specific version or release assets
+	specificVersionAssets := c.filterReleaseAssets(allReleaseAssets, c.Version)
+	if len(specificVersionAssets) == 0 {
 		return nil, fmt.Errorf("no matching release found for version: %s", c.Version)
 	}
-	logger.LogDebug(ctx.Context, "Total number of Releases", "value", len(targetReleases))
 
-	// Extract SBOM assets from target release
-	sboms := c.extractSBOMs(targetReleases)
+	// Extract SBOM assets from specific release
+	sbomAssets := c.extractSBOMs(specificVersionAssets)
 
-	if len(sboms) == 0 {
-		logger.LogInfo(ctx.Context, "No SBOM files found for", "repo", c.Repo, "owner", c.Owner)
+	if len(sbomAssets) == 0 {
+		logger.LogInfo(ctx.Context, "No SBOM assets found from a specific release assets", "repo", c.Repo, "owner", c.Owner)
 		return nil, nil
 	}
-	logger.LogDebug(ctx.Context, "Successfully retrieved SBOMs", "total_sboms", len(sboms), "repo_url", c.RepoURL)
+	logger.LogDebug(ctx.Context, "SBOMs metadata retrieved for repo", "repo_url", c.RepoURL, "total_assets", len(sbomAssets))
 
-	return sboms, nil
+	return sbomAssets, nil
 }
 
 // filterReleases filters releases based on version input
-func (c *Client) filterReleases(releases []Release, version string) []Release {
+func (c *Client) filterReleaseAssets(releases []Release, version string) []Release {
 	if version == "" {
 		// Return all refilterReleasesleases
 		return releases
@@ -159,6 +160,7 @@ func (c *Client) filterReleases(releases []Release, version string) []Release {
 	if version == "latest" {
 		// Return latest release
 		return []Release{releases[0]}
+		// return releases
 	}
 
 	// Return the matching release version

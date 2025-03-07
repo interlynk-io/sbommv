@@ -21,6 +21,7 @@ import (
 	"path/filepath"
 
 	"github.com/interlynk-io/sbommv/pkg/iterator"
+	"github.com/interlynk-io/sbommv/pkg/logger"
 	"github.com/interlynk-io/sbommv/pkg/tcontext"
 )
 
@@ -31,6 +32,7 @@ type SBOMMetadata struct {
 	URL      string       // For Releases: SBOM download URL
 	Filename string       // For Releases: SBOM file name
 	Branch   string       // For Tool: branch to clone (e.g., "main")
+	Size     int
 }
 
 // // GitHubIterator iterates over SBOMs fetched from GitHub (API, Release, Tool)
@@ -118,6 +120,7 @@ func NewGitHubIterator(metadata []SBOMMetadata, client *Client, adapter *GitHubA
 // }
 
 func (it *GitHubIterator) Next(ctx tcontext.TransferMetadata) (*iterator.SBOM, error) {
+	logger.LogDebug(ctx.Context, "Next iteration for github data")
 	if it.position >= len(it.sbomsMetadata) {
 		return nil, io.EOF
 	}
