@@ -18,8 +18,10 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/http"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/interlynk-io/sbommv/pkg/iterator"
 	"github.com/interlynk-io/sbommv/pkg/logger"
@@ -29,6 +31,7 @@ import (
 	"github.com/interlynk-io/sbommv/pkg/utils"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"golang.org/x/time/rate"
 )
 
 // GitHubAdapter handles fetching SBOMs from GitHub releases
@@ -234,6 +237,8 @@ func (g *GitHubAdapter) FetchSBOMs(ctx *tcontext.TransferMetadata) (iterator.SBO
 	logger.LogDebug(ctx.Context, "Total repos from which SBOMs needs to be fetched after filteration", "count", len(repos), "values", repos)
 
 	processingMode := types.FetchSequential
+	// processingMode := types.FetchParallel
+
 	var sbomIterator iterator.SBOMIterator
 
 	switch processingMode {
@@ -355,92 +360,173 @@ func (g *GitHubAdapter) applyRepoFilters(repos []string) []string {
 	return filteredRepos
 }
 
-// fetchSBOMsConcurrently: fetch SBOMs from repositories concurrently
 func (g *GitHubAdapter) fetchSBOMsConcurrently(ctx *tcontext.TransferMetadata, repos []string) (iterator.SBOMIterator, error) {
+	logger.LogDebug(ctx.Context, "Fetching SBOMs cuncurrently")
+	fmt.Println("Fetching SBOMs cuncurrently")
+	const maxWorkers = 5        // Number of concurrent workers (adjustable)
+	const requestsPerSecond = 5 // Rate limit for GitHub API requests
+
+	// Channels for distributing work and collecting results
+	repoChan := make(chan string, len(repos))
+	sbomsChan := make(chan []*iterator.SBOM, len(repos))
+
+	// WaitGroup to track worker completion
 	var wg sync.WaitGroup
-	sbomsChan := make(chan *iterator.SBOM, len(repos))
 
-	for _, repo := range repos {
+	// Rate limiter to respect GitHub API limits
+	limiter := rate.NewLimiter(rate.Every(time.Second/requestsPerSecond), requestsPerSecond)
+
+	// Start worker goroutines
+	for i := 0; i < maxWorkers; i++ {
 		wg.Add(1)
-		go func(repo string) {
+		go func() {
 			defer wg.Done()
-			g.Repo = repo
-			g.client.Repo = repo
+			for repo := range repoChan {
 
-			iter := NewGitHubIterator(ctx, g, repo)
+				repoURL := fmt.Sprintf("https://github.com/%s/%s", g.Owner, repo)
+				logger.LogDebug(ctx.Context, "Fetching SBOMs", "repo", repo, "url", repoURL)
+				// Create a local Client instance for this goroutine
+				client := &Client{
+					httpClient:   http.DefaultClient, // Reuse a shared HTTP client or customize as needed
+					BaseURL:      "https://api.github.com",
+					RepoURL:      repoURL,
+					Organization: g.Owner,
+					Owner:        g.Owner,
+					Repo:         repo, // Repository-specific
+					Version:      g.Version,
+					Method:       g.Method,
+					Branch:       g.Branch,
+					Token:        g.GithubToken,
+				}
+				g.client = client
 
-			// Fetch SBOMs separately
-			err := iter.HandleSBOMFetchingViaIterator(ctx, GitHubMethod(g.Method))
-			if err != nil {
-				logger.LogDebug(ctx.Context, "Failed to fetch SBOMs for repo", "repo", repo)
-				return
-			}
-			for {
-				sbom, err := iter.Next(ctx.Context)
-				if err == io.EOF {
-					break
+				iter := NewGitHubIterator(ctx, g, repo)
+
+				var repoSboms []*iterator.SBOM
+
+				// Apply rate limiting
+				if err := limiter.Wait(ctx.Context); err != nil {
+					logger.LogDebug(ctx.Context, "Rate limiter error", "repo", repo, "error", err)
+					continue
 				}
-				if err != nil {
-					logger.LogError(ctx.Context, err, "Error reading SBOM for", "repo", repo)
-					break
+
+				// Fetch SBOMs with retry logic
+				for attempt := 1; attempt <= 3; attempt++ {
+					var err error
+					switch GitHubMethod(g.Method) {
+					case MethodAPI:
+						repoSboms, err = iter.fetchSBOMFromAPI(ctx)
+					case MethodReleases:
+						repoSboms, err = iter.fetchSBOMFromReleases(ctx)
+						fmt.Println("releaseSBOMs: ", len(repoSboms))
+
+					case MethodTool:
+						repoSboms, err = iter.fetchSBOMFromTool(ctx)
+					default:
+						logger.LogInfo(ctx.Context, "Unsupported method", "repo", repo, "method", g.Method)
+						continue
+					}
+
+					if err == nil {
+						break // Success, exit retry loop
+					}
+					logger.LogInfo(ctx.Context, "Retry attempt", "attempt", attempt, "repo", repo, "error", err)
+					time.Sleep(time.Duration(attempt) * time.Second) // Exponential backoff
 				}
-				sbomsChan <- sbom
+
+				if len(repoSboms) == 0 {
+					logger.LogInfo(ctx.Context, "No SBOMs found", "repo", repo)
+					continue
+				}
+
+				logger.LogDebug(ctx.Context, "Fetched SBOMs", "repo", repo, "count", len(repoSboms))
+				sbomsChan <- repoSboms
 			}
-		}(repo)
+		}()
 	}
 
+	// Distribute repositories to workers
+	for _, repo := range repos {
+		repoChan <- repo
+	}
+	close(repoChan)
+
+	// Wait for all workers to complete and close the results channel
 	wg.Wait()
 	close(sbomsChan)
 
-	// Collect SBOMs from channel
-	var sbomList []*iterator.SBOM
-	for sbom := range sbomsChan {
-		sbomList = append(sbomList, sbom)
+	// Collect all SBOMs
+	var finalSbomList []*iterator.SBOM
+	for repoSboms := range sbomsChan {
+		finalSbomList = append(finalSbomList, repoSboms...)
+	}
+	fmt.Println("finalSbomList: ", len(finalSbomList))
+
+	if len(finalSbomList) == 0 {
+		return nil, fmt.Errorf("no SBOMs found for any repository")
 	}
 
-	return &GitHubIterator{
-		sboms: sbomList,
-	}, nil
+	// Return an iterator with the collected SBOMs
+	return &GitHubIterator{sboms: finalSbomList}, nil
 }
 
 // fetchSBOMsSequentially: fetch SBOMs from repositories one at a time
 func (g *GitHubAdapter) fetchSBOMsSequentially(ctx *tcontext.TransferMetadata, repos []string) (iterator.SBOMIterator, error) {
 	logger.LogDebug(ctx.Context, "Fetching SBOMs sequentially")
+	fmt.Println("Fetching SBOMs sequentially")
 
 	var sbomList []*iterator.SBOM
+	giter := &GitHubIterator{client: g.client}
 
 	// Iterate over repositories one by one (sequential processing)
 	for _, repo := range repos {
 		g.Repo = repo // Set current repository
 
+		giter.client.Repo = repo
+
 		logger.LogDebug(ctx.Context, "Repository", "value", repo)
 
-		iter := NewGitHubIterator(ctx, g, repo)
+		switch GitHubMethod(g.Method) {
 
-		// Fetch SBOMs separately
-		err := iter.HandleSBOMFetchingViaIterator(ctx, GitHubMethod(g.Method))
-		if err != nil {
-			logger.LogInfo(ctx.Context, "Failed to fetch SBOMs for", "repo", repo)
-			continue
-		}
+		case MethodAPI:
 
-		// use iterator to add the SBOMs to the final sboms list
-		for {
-			sbom, err := iter.Next(ctx.Context)
-			if err == io.EOF {
-				break
-			}
+			releaseSBOM, err := giter.fetchSBOMFromAPI(ctx)
 			if err != nil {
-				logger.LogError(ctx.Context, err, "Error reading SBOM for", "repo", repo)
-				break
+				logger.LogInfo(ctx.Context, "Failed to fetch SBOMs from API Method for", "repo", repo)
+				continue
 			}
-			sbomList = append(sbomList, sbom)
+			sbomList = append(sbomList, releaseSBOM...)
+
+		case MethodReleases:
+
+			releaseSBOMs, err := giter.fetchSBOMFromReleases(ctx)
+			if err != nil {
+				logger.LogInfo(ctx.Context, "Failed to fetch SBOMs from Release Method for", "repo", repo)
+				continue
+			}
+			fmt.Println("releaseSBOMs: ", len(releaseSBOMs))
+			sbomList = append(sbomList, releaseSBOMs...)
+
+		case MethodTool:
+
+			releaseSBOM, err := giter.fetchSBOMFromTool(ctx)
+			if err != nil {
+				logger.LogInfo(ctx.Context, "Failed to fetch SBOMs from Tool Method for", "repo", repo)
+				continue
+			}
+			sbomList = append(sbomList, releaseSBOM...)
+
+		default:
+			return nil, fmt.Errorf("unsupported GitHub method: %s", g.Method)
 		}
+
 	}
 
 	if len(sbomList) == 0 {
 		return nil, fmt.Errorf("no SBOMs found for any repository")
 	}
+
+	fmt.Println("finalSbomList: ", len(sbomList))
 
 	return &GitHubIterator{
 		sboms: sbomList,

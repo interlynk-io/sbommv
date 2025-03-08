@@ -140,6 +140,7 @@ func (c *Client) filterReleases(releases []Release, version string) []Release {
 	if version == "latest" {
 		// Return latest release
 		return []Release{releases[0]}
+		// return releases
 	}
 
 	// Return the matching release version
