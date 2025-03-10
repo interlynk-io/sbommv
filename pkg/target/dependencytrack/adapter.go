@@ -28,20 +28,21 @@ import (
 )
 
 type DependencyTrackAdapter struct {
-	Config   *DependencyTrackConfig
-	client   *DependencyTrackClient
-	Uploader SBOMUploader
-	Role     types.AdapterRole
+	Config         *DependencyTrackConfig
+	client         *DependencyTrackClient
+	Uploader       SBOMUploader
+	Role           types.AdapterRole
+	ProcessingMode types.ProcessingMode
 }
 
-func NewDependencyTrackAdapter(config *DependencyTrackConfig, client *DependencyTrackClient) *DependencyTrackAdapter {
-	uploader := uploaderFactory["sequential"]
-	return &DependencyTrackAdapter{
-		Config:   config,
-		client:   client,
-		Uploader: uploader,
-	}
-}
+// func NewDependencyTrackAdapter(config *DependencyTrackConfig, client *DependencyTrackClient) *DependencyTrackAdapter {
+// 	uploader := uploaderFactory["sequential"]
+// 	return &DependencyTrackAdapter{
+// 		Config:   config,
+// 		client:   client,
+// 		Uploader: uploader,
+// 	}
+// }
 
 func (d *DependencyTrackAdapter) AddCommandParams(cmd *cobra.Command) {
 	cmd.Flags().String("out-dtrack-url", "", "Dependency Track API URL")
@@ -95,6 +96,15 @@ func (d *DependencyTrackAdapter) ParseAndValidateParams(cmd *cobra.Command) erro
 		return fmt.Errorf("invalid flag usage:\n- %s\nUse 'sbommv transfer --help' for correct usage.", strings.Join(invalidFlags, "\n- "))
 	}
 
+	var uploader SBOMUploader
+	// SequentialFetcher
+	if d.ProcessingMode == types.FetchSequential {
+		uploader = NewSequentialUploader()
+	} else if d.ProcessingMode == types.FetchParallel {
+		uploader = NewParallelUploader()
+	}
+
+	fmt.Println("uploader: ", uploader)
 	cfg := NewDependencyTrackConfig()
 	cfg.APIURL = apiURL
 	cfg.APIKey = token
@@ -107,6 +117,7 @@ func (d *DependencyTrackAdapter) ParseAndValidateParams(cmd *cobra.Command) erro
 	// Initialize the DependencyTrack client
 	client := NewDependencyTrackClient(d.Config)
 	d.client = client
+	d.Uploader = uploader
 
 	logger.LogDebug(cmd.Context(), "Dependency-Track parameters validated and assigned",
 		"url", d.Config.APIURL,
