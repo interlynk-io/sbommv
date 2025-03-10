@@ -125,7 +125,6 @@ func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 	if version == "" {
 		version = "latest"
 	}
-	fmt.Printf("owner: %s repo: %s version: %s", owner, repo, version)
 
 	// If repo is present (i.e., single repo URL), filtering flags should NOT be used
 	if repo != "" {
@@ -199,7 +198,6 @@ func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 	} else {
 		g.URL = fmt.Sprintf("https://github.com/%s/%s", owner, repo)
 	}
-	fmt.Println("version: ", version)
 
 	g.Owner = owner
 	g.Repo = repo
@@ -247,7 +245,6 @@ func (g *GitHubAdapter) FetchSBOMs(ctx *tcontext.TransferMetadata) (iterator.SBO
 	logger.LogDebug(ctx.Context, "Total repos from which SBOMs needs to be fetched after filteration", "count", len(repos), "values", repos)
 
 	logger.LogDebug(ctx.Context, "Processing Mode", "strategy", g.ProcessingMode)
-	fmt.Println("processing-mode: ", g.ProcessingMode)
 
 	var sbomIterator iterator.SBOMIterator
 

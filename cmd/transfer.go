@@ -133,19 +133,31 @@ func parseConfig(cmd *cobra.Command) (types.Config, error) {
 	inputType, _ := cmd.Flags().GetString("input-adapter")
 	outputType, _ := cmd.Flags().GetString("output-adapter")
 	dr, _ := cmd.Flags().GetBool("dry-run")
-	pr, _ := cmd.Flags().GetString("processing-mode")
+	processingMode, _ := cmd.Flags().GetString("processing-mode")
 
 	validInputAdapter := map[string]bool{"github": true, "folder": true}
 	validOutputAdapter := map[string]bool{"interlynk": true, "folder": true, "dtrack": true}
 
 	// Custom validation for required flags
 	missingFlags := []string{}
+	invalidFlags := []string{}
+
 	if inputType == "" {
 		missingFlags = append(missingFlags, "--input-adapter")
 	}
 
 	if outputType == "" {
 		missingFlags = append(missingFlags, "--output-adapter")
+	}
+
+	validModes := map[string]bool{"sequential": true, "parallel": true}
+	if !validModes[processingMode] {
+		invalidFlags = append(invalidFlags, fmt.Sprintf("%s=%s (must be one of: sequential, parallel)", "--processing-mode", processingMode))
+	}
+
+	// Show error message if required flags are missing
+	if len(invalidFlags) > 0 {
+		return types.Config{}, fmt.Errorf("missing required flags: %v\n\nUse 'sbommv transfer --help' for usage details.", invalidFlags)
 	}
 
 	// Show error message if required flags are missing
@@ -164,7 +176,7 @@ func parseConfig(cmd *cobra.Command) (types.Config, error) {
 		SourceAdapter:      inputType,
 		DestinationAdapter: outputType,
 		DryRun:             dr,
-		ProcessingStrategy: pr,
+		ProcessingStrategy: processingMode,
 	}
 
 	return config, nil
