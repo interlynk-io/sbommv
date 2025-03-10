@@ -41,8 +41,9 @@ type InterlynkAdapter struct {
 	Role    types.AdapterRole
 
 	// HTTP client for API requests
-	client   *http.Client
-	settings types.UploadSettings
+	client         *http.Client
+	settings       types.UploadSettings
+	ProcessingMode types.ProcessingMode
 }
 
 // AddCommandParams adds GitHub-specific CLI flags
@@ -115,7 +116,7 @@ func (i *InterlynkAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 	i.ProjectName = projectName
 	i.ProjectEnv = projectEnv
 	i.ApiKey = token
-	i.settings = types.UploadSettings{ProcessingMode: types.UploadSequential}
+	i.settings = types.UploadSettings{ProcessingMode: types.UploadMode(i.ProcessingMode)}
 
 	logger.LogDebug(cmd.Context(), "Interlynk parameters validated and assigned",
 		"url", i.BaseURL,
