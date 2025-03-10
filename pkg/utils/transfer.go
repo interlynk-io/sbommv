@@ -69,75 +69,25 @@ func GetBinaryPath() (string, error) {
 	return syftBinary, nil
 }
 
-// ParseRepoVersion extracts the repository URL without version and version from a GitHub URL.
-// For URLs like "https://github.com/owner/repo", returns ("https://github.com/owner/repo", "latest", nil).
-// For URLs like "https://github.com/owner/repo@v1.0.0", returns ("https://github.com/owner/repo", "v1.0.0", nil).
-func ParseRepoVersion(repoURL string) (string, string, error) {
-	// Remove any trailing slashes
-	repoURL = strings.TrimRight(repoURL, "/")
-
-	// Check if URL is a GitHub URL
-	if !strings.Contains(repoURL, "github.com") {
-		return "", "", fmt.Errorf("not a GitHub URL: %s", repoURL)
-	}
-
-	// Split on @ to separate repo URL from version
-	parts := strings.Split(repoURL, "@")
-	if len(parts) > 2 {
-		return "", "", fmt.Errorf("invalid GitHub URL format: %s", repoURL)
-	}
-
-	baseURL := parts[0]
-	version := "latest"
-
-	// Normalize the base URL format
-	if !strings.HasPrefix(baseURL, "http") {
-		baseURL = "https://" + baseURL
-	}
-
-	// Validate repository path format (github.com/owner/repo)
-	urlParts := strings.Split(baseURL, "/")
-	if len(urlParts) < 4 || urlParts[len(urlParts)-2] == "" || urlParts[len(urlParts)-1] == "" {
-		return "", "", fmt.Errorf("invalid repository path format: %s", baseURL)
-	}
-
-	// Get version if specified
-	if len(parts) == 2 {
-		version = parts[1]
-		// Validate version format
-		if !strings.HasPrefix(version, "v") {
-			return "", "", fmt.Errorf("invalid version format (should start with 'v'): %s", version)
-		}
-	}
-
-	return baseURL, version, nil
-}
-
-// ParseGithubURL extracts the repository owner, repo name, and it's version.
-// For URLs like "https://github.com/interlynk-io/sbomqs@v1.0.0", returns "interlynk-io", "sbomqs", "v1.0.0", nil).
-// For URLs like "https://github.com/interlynk-io/sbomqs", returns "interlynk-io", "sbomqs", "", nil).
-// For URLs like "https://github.com/interlynk-io/", returns "interlynk-io", "", "", nil).
-func ParseGithubURL(githubURL string) (owner, repo, version string, err error) {
+// ParseGithubURL extracts the repository owner, repo name.
+// For URLs like "https://github.com/interlynk-io/sbomqs", returns "interlynk-io", "sbomqs", nil).
+func ParseGithubURL(githubURL string) (owner, repo string, err error) {
 	parsedURL, err := url.Parse(githubURL)
 	if err != nil {
-		return "", "", "", fmt.Errorf("invalid GitHub URL: %w", err)
+		return "", "", fmt.Errorf("invalid GitHub URL: %w", err)
 	}
 
-	// Example: https://github.com/interlynk-io/sbomqs@v1.0.0
+	// Example: https://github.com/interlynk-io/sbomqs
 	pathParts := strings.Split(strings.Trim(parsedURL.Path, "/"), "/")
 	if len(pathParts) < 1 {
-		return "", "", "", fmt.Errorf("invalid GitHub URL format")
+		return "", "", fmt.Errorf("invalid GitHub URL format")
 	}
 
 	owner = pathParts[0]
 	if len(pathParts) > 1 {
-		repoVersionParts := strings.Split(pathParts[1], "@")
-		repo = repoVersionParts[0]
-		if len(repoVersionParts) > 1 {
-			version = repoVersionParts[1]
-		}
+		repo = pathParts[1]
 	}
-	return owner, repo, version, nil
+	return owner, repo, nil
 }
 
 // isValidURL checks if the given string is a valid URL

@@ -58,10 +58,11 @@ func NewAdapter(ctx *tcontext.TransferMetadata, config types.Config) (map[types.
 	if config.SourceAdapter != "" {
 		logger.LogDebug(ctx.Context, "Initializing Input Adapter", "InputAdapter", config.SourceAdapter)
 
+		processingMode := types.ProcessingMode(config.ProcessingStrategy)
 		switch types.AdapterType(config.SourceAdapter) {
 
 		case types.GithubAdapterType:
-			adapters[types.InputAdapterRole] = &github.GitHubAdapter{Role: types.InputAdapterRole}
+			adapters[types.InputAdapterRole] = &github.GitHubAdapter{Role: types.InputAdapterRole, ProcessingMode: processingMode}
 			inputAdp = "github"
 
 		case types.FolderAdapterType:

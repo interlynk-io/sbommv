@@ -133,14 +133,13 @@ func (c *Client) FindSBOMs(ctx *tcontext.TransferMetadata) ([]SBOMAsset, error) 
 
 // filterReleases filters releases based on version input
 func (c *Client) filterReleases(releases []Release, version string) []Release {
-	if version == "" {
+	if version == "*" {
 		// Return all refilterReleasesleases
 		return releases
 	}
 	if version == "latest" {
 		// Return latest release
 		return []Release{releases[0]}
-		// return releases
 	}
 
 	// Return the matching release version

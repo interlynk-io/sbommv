@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"net/http"
 	"strings"
 	"sync"
 	"time"
@@ -36,16 +35,17 @@ import (
 
 // GitHubAdapter handles fetching SBOMs from GitHub releases
 type GitHubAdapter struct {
-	URL         string
-	Repo        string
-	Owner       string
-	Version     string
-	Branch      string
-	Method      string
-	BinaryPath  string
-	client      *Client
-	GithubToken string
-	Role        types.AdapterRole
+	URL            string
+	Repo           string
+	Owner          string
+	Version        string
+	Branch         string
+	Method         string
+	BinaryPath     string
+	client         *Client
+	GithubToken    string
+	Role           types.AdapterRole
+	ProcessingMode types.ProcessingMode
 
 	// Comma-separated list (e.g., "repo1,repo2")
 	IncludeRepos []string
@@ -70,6 +70,7 @@ func (g *GitHubAdapter) AddCommandParams(cmd *cobra.Command) {
 	cmd.Flags().String("in-github-url", "", "GitHub organization or repository URL")
 	cmd.Flags().String("in-github-method", "api", "GitHub method: release, api, or tool")
 	cmd.Flags().String("in-github-branch", "", "Github repository branch")
+	cmd.Flags().String("in-github-version", "", "github repo version")
 
 	// Updated to StringSlice to support multiple values (comma-separated)
 	cmd.Flags().StringSlice("in-github-include-repos", nil, "Include only these repositories e.g sbomqs,sbomasm")
@@ -82,9 +83,9 @@ func (g *GitHubAdapter) AddCommandParams(cmd *cobra.Command) {
 // ParseAndValidateParams validates the GitHub adapter params
 func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 	var (
-		urlFlag, methodFlag, includeFlag, excludeFlag, githubBranchFlag string
-		missingFlags                                                    []string
-		invalidFlags                                                    []string
+		urlFlag, methodFlag, includeFlag, excludeFlag, githubBranchFlag, githubVersionFlag string
+		missingFlags                                                                       []string
+		invalidFlags                                                                       []string
 	)
 
 	switch g.Role {
@@ -94,6 +95,7 @@ func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 		includeFlag = "in-github-include-repos"
 		excludeFlag = "in-github-exclude-repos"
 		githubBranchFlag = "in-github-branch"
+		githubVersionFlag = "in-github-version"
 
 	case types.OutputAdapterRole:
 		return fmt.Errorf("The GitHub adapter doesn't support output adapter functionalities.")
@@ -114,10 +116,16 @@ func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 	excludeRepos, _ := cmd.Flags().GetStringSlice(excludeFlag)
 
 	// Validate GitHub URL to determine if it's an org or repo
-	owner, repo, version, err := utils.ParseGithubURL(githubURL)
+	owner, repo, err := utils.ParseGithubURL(githubURL)
 	if err != nil {
 		return fmt.Errorf("invalid GitHub URL format: %w", err)
 	}
+
+	version, _ := cmd.Flags().GetString(githubVersionFlag)
+	if version == "" {
+		version = "latest"
+	}
+	fmt.Printf("owner: %s repo: %s version: %s", owner, repo, version)
 
 	// If repo is present (i.e., single repo URL), filtering flags should NOT be used
 	if repo != "" {
@@ -191,6 +199,7 @@ func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 	} else {
 		g.URL = fmt.Sprintf("https://github.com/%s/%s", owner, repo)
 	}
+	fmt.Println("version: ", version)
 
 	g.Owner = owner
 	g.Repo = repo
@@ -213,6 +222,7 @@ func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 		"exclude_repos", g.ExcludeRepos,
 		"method", g.Method,
 		"token", g.GithubToken,
+		"processing_mode", g.ProcessingMode,
 	)
 	return nil
 }
@@ -236,12 +246,12 @@ func (g *GitHubAdapter) FetchSBOMs(ctx *tcontext.TransferMetadata) (iterator.SBO
 
 	logger.LogDebug(ctx.Context, "Total repos from which SBOMs needs to be fetched after filteration", "count", len(repos), "values", repos)
 
-	processingMode := types.FetchSequential
-	// processingMode := types.FetchParallel
+	logger.LogDebug(ctx.Context, "Processing Mode", "strategy", g.ProcessingMode)
+	fmt.Println("processing-mode: ", g.ProcessingMode)
 
 	var sbomIterator iterator.SBOMIterator
 
-	switch processingMode {
+	switch g.ProcessingMode {
 	case types.FetchParallel:
 		sbomIterator, err = g.fetchSBOMsConcurrently(ctx, repos)
 	case types.FetchSequential:
@@ -361,7 +371,7 @@ func (g *GitHubAdapter) applyRepoFilters(repos []string) []string {
 }
 
 func (g *GitHubAdapter) fetchSBOMsConcurrently(ctx *tcontext.TransferMetadata, repos []string) (iterator.SBOMIterator, error) {
-	logger.LogDebug(ctx.Context, "Fetching SBOMs cuncurrently")
+	logger.LogDebug(ctx.Context, "Fetching SBOMs concurrently")
 	fmt.Println("Fetching SBOMs cuncurrently")
 	const maxWorkers = 5        // Number of concurrent workers (adjustable)
 	const requestsPerSecond = 5 // Rate limit for GitHub API requests
@@ -385,20 +395,9 @@ func (g *GitHubAdapter) fetchSBOMsConcurrently(ctx *tcontext.TransferMetadata, r
 
 				repoURL := fmt.Sprintf("https://github.com/%s/%s", g.Owner, repo)
 				logger.LogDebug(ctx.Context, "Fetching SBOMs", "repo", repo, "url", repoURL)
-				// Create a local Client instance for this goroutine
-				client := &Client{
-					httpClient:   http.DefaultClient, // Reuse a shared HTTP client or customize as needed
-					BaseURL:      "https://api.github.com",
-					RepoURL:      repoURL,
-					Organization: g.Owner,
-					Owner:        g.Owner,
-					Repo:         repo, // Repository-specific
-					Version:      g.Version,
-					Method:       g.Method,
-					Branch:       g.Branch,
-					Token:        g.GithubToken,
-				}
-				g.client = client
+
+				g.client.Repo = repo
+				g.client.RepoURL = repoURL
 
 				iter := NewGitHubIterator(ctx, g, repo)
 
@@ -413,15 +412,19 @@ func (g *GitHubAdapter) fetchSBOMsConcurrently(ctx *tcontext.TransferMetadata, r
 				// Fetch SBOMs with retry logic
 				for attempt := 1; attempt <= 3; attempt++ {
 					var err error
+
 					switch GitHubMethod(g.Method) {
+
 					case MethodAPI:
 						repoSboms, err = iter.fetchSBOMFromAPI(ctx)
+
 					case MethodReleases:
 						repoSboms, err = iter.fetchSBOMFromReleases(ctx)
 						fmt.Println("releaseSBOMs: ", len(repoSboms))
 
 					case MethodTool:
 						repoSboms, err = iter.fetchSBOMFromTool(ctx)
+
 					default:
 						logger.LogInfo(ctx.Context, "Unsupported method", "repo", repo, "method", g.Method)
 						continue
