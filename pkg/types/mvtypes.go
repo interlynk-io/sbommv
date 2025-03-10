@@ -16,11 +16,14 @@
 package types
 
 type Config struct {
-	// source adapter type
+	// source adapter type(folder, github)
 	SourceAdapter string
 
-	// destination adapter type
+	// destination adapter type(folder, dtrack, interlynk)
 	DestinationAdapter string
+
+	// processing strategy(parallel, sequential)
+	ProcessingStrategy string
 
 	// dry run mode
 	DryRun bool

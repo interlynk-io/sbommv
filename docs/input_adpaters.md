@@ -40,7 +40,8 @@ The **GitHub adapter** allows you to extract/download SBOMs from GitHub. This ad
 2. **For a particular release (`v1.0.0`) of `sbomqs` using the release method**:
 
    ```bash
-   --in-github-url=https://github.com/interlynk-io/sbomqs@v1.0.0
+   --in-github-url=https://github.com/interlynk-io/sbomqs
+   --in-github-version="v1.0.0"
    --in-github-method="release"
    ```
 

@@ -28,31 +28,30 @@ import (
 
 // FolderAdapter handles fetching SBOMs from folders
 type FolderAdapter struct {
-	config  *FolderConfig
-	Role    types.AdapterRole // "input" or "output" adapter type
-	Fetcher SBOMFetcher
+	config         *FolderConfig
+	Role           types.AdapterRole // "input" or "output" adapter type
+	Fetcher        SBOMFetcher
+	ProcessingMode types.ProcessingMode
 }
 
 // AddCommandParams adds Folder-specific CLI flags
 func (f *FolderAdapter) AddCommandParams(cmd *cobra.Command) {
 	cmd.Flags().String("in-folder-path", "", "Folder path")
 	cmd.Flags().Bool("in-folder-recursive", false, "Folder recurssive (default: false)")
-	cmd.Flags().String("in-folder-processing-mode", "sequential", "Folder processing mode (sequential/parallel)")
 }
 
 // ParseAndValidateParams validates the Folder adapter params
 func (f *FolderAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 	var (
-		pathFlag, recursiveFlag, processingModeFlag string
-		missingFlags                                []string
-		invalidFlags                                []string
+		pathFlag, recursiveFlag string
+		missingFlags            []string
+		invalidFlags            []string
 	)
 
 	switch f.Role {
 	case types.InputAdapterRole:
 		pathFlag = "in-folder-path"
 		recursiveFlag = "in-folder-recursive"
-		processingModeFlag = "in-folder-processing-mode"
 
 	case types.OutputAdapterRole:
 		return fmt.Errorf("The Folder adapter doesn't support output adapter functionalities.")
@@ -74,14 +73,6 @@ func (f *FolderAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 	// Extract Folder Path
 	folderRecurse, _ := cmd.Flags().GetBool(recursiveFlag)
 
-	validModes := map[string]bool{"sequential": true, "parallel": true}
-
-	// Extract the processing mode: sequential/parallel
-	mode, _ := cmd.Flags().GetString(processingModeFlag)
-	if !validModes[mode] {
-		invalidFlags = append(invalidFlags, fmt.Sprintf("%s=%s (must be one of: sequential, parallel mode)", processingModeFlag, mode))
-	}
-
 	// Validate required flags
 	if len(missingFlags) > 0 {
 		return fmt.Errorf("missing input adapter required flags: %v\n\nUse 'sbommv transfer --help' for usage details.", missingFlags)
@@ -91,14 +82,22 @@ func (f *FolderAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 	if len(invalidFlags) > 0 {
 		return fmt.Errorf("invalid input adapter flag usage:\n %s\n\nUse 'sbommv transfer --help' for correct usage.", strings.Join(invalidFlags, "\n "))
 	}
+	var fetcher SBOMFetcher
+
+	// SequentialFetcher
+	if f.ProcessingMode == types.FetchSequential {
+		fetcher = &SequentialFetcher{}
+	} else if f.ProcessingMode == types.FetchParallel {
+		fetcher = &ParallelFetcher{}
+	}
 
 	cfg := FolderConfig{
-		FolderPath:     folderPath,
-		Recursive:      folderRecurse,
-		ProcessingMode: types.ProcessingMode(mode),
+		FolderPath: folderPath,
+		Recursive:  folderRecurse,
 	}
 
 	f.config = &cfg
+	f.Fetcher = fetcher
 
 	return nil
 }

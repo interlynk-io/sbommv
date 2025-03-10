@@ -17,7 +17,6 @@ package folder
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -26,18 +25,13 @@ import (
 
 	"github.com/interlynk-io/sbommv/pkg/iterator"
 	"github.com/interlynk-io/sbommv/pkg/logger"
+	"github.com/interlynk-io/sbommv/pkg/sbom"
 	"github.com/interlynk-io/sbommv/pkg/source"
 	"github.com/interlynk-io/sbommv/pkg/tcontext"
-	"github.com/interlynk-io/sbommv/pkg/types"
 )
 
 type SBOMFetcher interface {
 	Fetch(ctx *tcontext.TransferMetadata, config *FolderConfig) (iterator.SBOMIterator, error)
-}
-
-var fetcherFactory = map[types.ProcessingMode]SBOMFetcher{
-	types.FetchSequential: &SequentialFetcher{},
-	types.FetchParallel:   &ParallelFetcher{},
 }
 
 type SequentialFetcher struct{}
@@ -47,6 +41,8 @@ type SequentialFetcher struct{}
 // 2. Detects valid SBOMs using source.IsSBOMFile().
 // 3. Reads the content & adds it to the iterator along with path.
 func (f *SequentialFetcher) Fetch(ctx *tcontext.TransferMetadata, config *FolderConfig) (iterator.SBOMIterator, error) {
+	logger.LogDebug(ctx.Context, "Fetching SBOMs Sequentially")
+
 	var sbomList []*iterator.SBOM
 	err := filepath.Walk(config.FolderPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -63,7 +59,7 @@ func (f *SequentialFetcher) Fetch(ctx *tcontext.TransferMetadata, config *Folder
 				return nil
 			}
 			// projectName, path := getTopLevelDirAndFile(config.FolderPath, path)
-			primaryComp, err := extractPrimaryComponentName(content)
+			primaryComp, err := sbom.ExtractPrimaryComponentName(content)
 			if err != nil {
 				logger.LogDebug(ctx.Context, "Failed to parse SBOM for primary component", "path", path, "error", err)
 			}
@@ -90,71 +86,88 @@ func (f *SequentialFetcher) Fetch(ctx *tcontext.TransferMetadata, config *Folder
 
 type ParallelFetcher struct{}
 
-// ParallelFetcher Fetch() scans the folder for SBOMs using parallel processing
-// 1. Walks through the folder file-by-file.
-// 2. Launch a goroutine for each file.
-// 3. Detects valid SBOMs using source.IsSBOMFile().
-// 4. Uses channels to store SBOMs & errors.
-// 5. Reads the content & adds it to the iterator along with path.
+// Fetch scans the folder for SBOMs concurrently.
+// It walks through the directory to collect file paths, then spawns a fixed number of worker goroutines
+// to read and process those files concurrently.
 func (f *ParallelFetcher) Fetch(ctx *tcontext.TransferMetadata, config *FolderConfig) (iterator.SBOMIterator, error) {
+	logger.LogDebug(ctx.Context, "Fetching SBOMs Parallely")
+	filePaths := make(chan string, 100)
 	var wg sync.WaitGroup
-	sbomsChan := make(chan *iterator.SBOM, 100)
-	errChan := make(chan error, 10)
+	var mu sync.Mutex
+	var sbomList []*iterator.SBOM
 
-	err := filepath.Walk(config.FolderPath, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			errChan <- err
-			return nil
-		}
-		if info.IsDir() && !config.Recursive && path != config.FolderPath {
-			return filepath.SkipDir
-		}
+	numWorkers := 5
+	for i := 0; i < numWorkers; i++ {
 		wg.Add(1)
-		go func(path string) {
+		go func() {
 			defer wg.Done()
-			if source.IsSBOMFile(path) {
-				content, err := os.ReadFile(path)
+			for path := range filePaths {
+
+				// skip directories.
+				info, err := os.Stat(path)
 				if err != nil {
-					errChan <- err
-					return
+					logger.LogError(ctx.Context, err, "Failed to stat file", "path", path)
+					continue
+				}
+				if info.IsDir() {
+					continue
 				}
 
-				// projectName, path := getTopLevelDirAndFile(config.FolderPath, path)
-				primaryComp, err := extractPrimaryComponentName(content)
+				if !source.IsSBOMFile(path) {
+					continue
+				}
+
+				content, err := os.ReadFile(path)
+				if err != nil {
+					logger.LogError(ctx.Context, err, "Failed to read SBOM", "path", path)
+					continue
+				}
+
+				// extract a primary component name from the content.
+				primaryComp, err := sbom.ExtractPrimaryComponentName(content)
 				if err != nil {
 					logger.LogDebug(ctx.Context, "Failed to parse SBOM for primary component", "path", path, "error", err)
 				}
 
-				logger.LogDebug(ctx.Context, "Primary Component", "value", primaryComp)
-
+				//  get a relative file path.
 				fileName := getFilePath(config.FolderPath, path)
 
-				sbomsChan <- &iterator.SBOM{
+				mu.Lock()
+				sbomList = append(sbomList, &iterator.SBOM{
 					Data:      content,
 					Path:      fileName,
 					Namespace: primaryComp,
-				}
+				})
+				mu.Unlock()
 			}
-		}(path)
+		}()
+	}
+
+	// walk the folder and send each file path into the channel.
+	err := filepath.Walk(config.FolderPath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			logger.LogError(ctx.Context, err, "Error accessing file", "path", path)
+			return nil
+		}
+
+		// if not recursive and the current path is a subdirectory, skip it.
+		if info.IsDir() && !config.Recursive && path != config.FolderPath {
+			return filepath.SkipDir
+		}
+
+		filePaths <- path
 		return nil
 	})
-	go func() {
-		wg.Wait()
-		close(sbomsChan)
-		close(errChan)
-	}()
+	close(filePaths)
+	wg.Wait()
 
-	var sboms []*iterator.SBOM
-	for sbom := range sbomsChan {
-		sboms = append(sboms, sbom)
-	}
-	for err := range errChan {
-		logger.LogError(ctx.Context, err, "Error in parallel fetch")
-	}
 	if err != nil {
 		return nil, err
 	}
-	return iterator.NewMemoryIterator(sboms), nil
+	if len(sbomList) == 0 {
+		return nil, fmt.Errorf("no SBOMs found in folder")
+	}
+	return NewFolderIterator(sbomList), nil
 }
 
 // getFilePath returns file path
@@ -174,52 +187,4 @@ func getFilePath(basePath, fullPath string) string {
 
 	logger.LogDebug(context.Background(), "Unexpected path structure", "base", basePath, "full", fullPath)
 	return filepath.Base(fullPath)
-}
-
-func extractPrimaryComponentName(content []byte) (string, error) {
-	// get primaryComp for cyclonedx
-	var cdx struct {
-		Metadata struct {
-			Component struct {
-				Name string `json:"name"`
-			} `json:"component"`
-		} `json:"metadata"`
-	}
-
-	if err := json.Unmarshal(content, &cdx); err == nil && cdx.Metadata.Component.Name != "" {
-		return cdx.Metadata.Component.Name, nil
-	}
-
-	// get primaryComp for cyclonedx
-	var spdx struct {
-		Packages []struct {
-			SPDXID string `json:"SPDXID"`
-			Name   string `json:"name"`
-		} `json:"packages"`
-		Relationships []struct {
-			SPDXElementID      string `json:"spdxElementId"`
-			RelationshipType   string `json:"relationshipType"`
-			RelatedSPDXElement string `json:"relatedSpdxElement"`
-		} `json:"relationships"`
-	}
-
-	var targetID string
-	if err := json.Unmarshal(content, &spdx); err == nil {
-
-		// Find DESCRIBES relationship from document
-		for _, rel := range spdx.Relationships {
-			if rel.SPDXElementID == "SPDXRef-DOCUMENT" && strings.ToUpper(rel.RelationshipType) == "DESCRIBES" {
-				targetID = rel.RelatedSPDXElement
-				break
-			}
-		}
-
-		// Match targetID to a package
-		for _, pkg := range spdx.Packages {
-			if pkg.SPDXID == targetID && pkg.Name != "" {
-				return pkg.Name, nil // Found it!
-			}
-		}
-	}
-	return "", fmt.Errorf("no primary component name found in SBOM")
 }

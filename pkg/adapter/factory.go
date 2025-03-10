@@ -54,6 +54,8 @@ func NewAdapter(ctx *tcontext.TransferMetadata, config types.Config) (map[types.
 	adapters := make(map[types.AdapterRole]Adapter)
 	var inputAdp, outputAdp string
 
+	processingMode := types.ProcessingMode(config.ProcessingStrategy)
+
 	// Initialize Input Adapter
 	if config.SourceAdapter != "" {
 		logger.LogDebug(ctx.Context, "Initializing Input Adapter", "InputAdapter", config.SourceAdapter)
@@ -61,16 +63,16 @@ func NewAdapter(ctx *tcontext.TransferMetadata, config types.Config) (map[types.
 		switch types.AdapterType(config.SourceAdapter) {
 
 		case types.GithubAdapterType:
-			adapters[types.InputAdapterRole] = &github.GitHubAdapter{Role: types.InputAdapterRole}
+			adapters[types.InputAdapterRole] = &github.GitHubAdapter{Role: types.InputAdapterRole, ProcessingMode: processingMode}
 			inputAdp = "github"
 
 		case types.FolderAdapterType:
-			adapters[types.InputAdapterRole] = &ifolder.FolderAdapter{Role: types.InputAdapterRole, Fetcher: &ifolder.SequentialFetcher{}}
+			adapters[types.InputAdapterRole] = &ifolder.FolderAdapter{Role: types.InputAdapterRole, ProcessingMode: processingMode}
 			inputAdp = "folder"
 
-		case types.InterlynkAdapterType:
-			adapters[types.InputAdapterRole] = &interlynk.InterlynkAdapter{Role: types.InputAdapterRole}
-			inputAdp = "interlynk"
+		// case types.InterlynkAdapterType:
+		// 	adapters[types.InputAdapterRole] = &interlynk.InterlynkAdapter{Role: types.InputAdapterRole}
+		// 	inputAdp = "interlynk"
 
 		default:
 			return nil, "", "", fmt.Errorf("unsupported input adapter type: %s", config.SourceAdapter)
@@ -88,11 +90,13 @@ func NewAdapter(ctx *tcontext.TransferMetadata, config types.Config) (map[types.
 			outputAdp = "folder"
 
 		case types.InterlynkAdapterType:
-			adapters[types.OutputAdapterRole] = &interlynk.InterlynkAdapter{Role: types.OutputAdapterRole}
+			adapters[types.OutputAdapterRole] = &interlynk.InterlynkAdapter{Role: types.OutputAdapterRole, ProcessingMode: processingMode}
 			outputAdp = "interlynk"
 
 		case types.DtrackAdapterType:
-			adapters[types.OutputAdapterRole] = &dependencytrack.DependencyTrackAdapter{Role: types.OutputAdapterRole, Uploader: dependencytrack.NewSequentialUploader()}
+			// adapters[types.OutputAdapterRole] = &dependencytrack.DependencyTrackAdapter{Role: types.OutputAdapterRole, Uploader: dependencytrack.NewSequentialUploader()}
+			adapters[types.OutputAdapterRole] = &dependencytrack.DependencyTrackAdapter{Role: types.OutputAdapterRole, ProcessingMode: processingMode}
+
 			outputAdp = "dtrack"
 		default:
 			return nil, "", "", fmt.Errorf("unsupported output adapter type: %s", config.DestinationAdapter)
