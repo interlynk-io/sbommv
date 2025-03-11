@@ -187,8 +187,8 @@ func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 		logger.LogDebug(cmd.Context(), "GitHub Token not found in environment")
 	}
 
-	if version != "" && method == "api" {
-		return fmt.Errorf("version flag is not supported for GitHub API method")
+	if method == "api" && version != "latest" {
+		fmt.Println("Github API method calculates SBOM for a complete repo not for any particular version: ", version)
 	}
 
 	// Assign extracted values to struct
@@ -238,11 +238,13 @@ func (g *GitHubAdapter) FetchSBOMs(ctx *tcontext.TransferMetadata) (iterator.SBO
 	// filtering to include/exclude repos
 	repos = g.applyRepoFilters(repos)
 
+	if len(repos) == 1 {
+	}
 	if len(repos) == 0 {
 		return nil, fmt.Errorf("no repositories left after applying filters")
 	}
 
-	logger.LogDebug(ctx.Context, "Total repos from which SBOMs needs to be fetched after filteration", "count", len(repos), "values", repos)
+	logger.LogDebug(ctx.Context, "SBOMs will be fetched from these repos", "values", repos, "count", len(repos))
 
 	logger.LogDebug(ctx.Context, "Processing Mode", "strategy", g.ProcessingMode)
 
@@ -369,7 +371,6 @@ func (g *GitHubAdapter) applyRepoFilters(repos []string) []string {
 
 func (g *GitHubAdapter) fetchSBOMsConcurrently(ctx *tcontext.TransferMetadata, repos []string) (iterator.SBOMIterator, error) {
 	logger.LogDebug(ctx.Context, "Fetching SBOMs concurrently")
-	fmt.Println("Fetching SBOMs cuncurrently")
 	const maxWorkers = 5        // Number of concurrent workers (adjustable)
 	const requestsPerSecond = 5 // Rate limit for GitHub API requests
 
@@ -414,13 +415,15 @@ func (g *GitHubAdapter) fetchSBOMsConcurrently(ctx *tcontext.TransferMetadata, r
 
 					case MethodAPI:
 						repoSboms, err = iter.fetchSBOMFromAPI(ctx)
+						logger.LogDebug(ctx.Context, "Total SBOM detched from API method", "count", len(repoSboms), "repo", repo)
 
 					case MethodReleases:
 						repoSboms, err = iter.fetchSBOMFromReleases(ctx)
-						fmt.Println("releaseSBOMs: ", len(repoSboms))
+						logger.LogDebug(ctx.Context, "Total SBOM detched from release method", "count", len(repoSboms), "repo", repo)
 
 					case MethodTool:
 						repoSboms, err = iter.fetchSBOMFromTool(ctx)
+						logger.LogDebug(ctx.Context, "Total SBOM detched from release", "count", len(repoSboms), "repo", repo)
 
 					default:
 						logger.LogInfo(ctx.Context, "Unsupported method", "repo", repo, "method", g.Method)
@@ -460,7 +463,7 @@ func (g *GitHubAdapter) fetchSBOMsConcurrently(ctx *tcontext.TransferMetadata, r
 	for repoSboms := range sbomsChan {
 		finalSbomList = append(finalSbomList, repoSboms...)
 	}
-	fmt.Println("finalSbomList: ", len(finalSbomList))
+	logger.LogDebug(ctx.Context, "Total SBOMs fetched from all repos", "count", len(finalSbomList))
 
 	if len(finalSbomList) == 0 {
 		return nil, fmt.Errorf("no SBOMs found for any repository")

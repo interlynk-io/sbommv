@@ -117,7 +117,7 @@ func (c *Client) FindSBOMs(ctx *tcontext.TransferMetadata) ([]SBOMAsset, error) 
 	if len(targetReleases) == 0 {
 		return nil, fmt.Errorf("no matching release found for version: %s", c.Version)
 	}
-	logger.LogDebug(ctx.Context, "Total number of Releases", "value", len(targetReleases))
+	logger.LogDebug(ctx.Context, "Total Releases from SBOM is fetched", "value", len(targetReleases))
 
 	// Extract SBOM assets from target release
 	sboms := c.extractSBOMs(targetReleases)
@@ -250,7 +250,7 @@ func (c *Client) DownloadAsset(ctx *tcontext.TransferMetadata, downloadURL strin
 
 // GetSBOMs downloads and saves all SBOM files found in the repository
 func (c *Client) FetchSBOMFromReleases(ctx *tcontext.TransferMetadata) (VersionedSBOMs, error) {
-	logger.LogDebug(ctx.Context, "Initializing fetching of SBOMs from repo release page", "repository", c.Repo, "version", c.Version)
+	logger.LogDebug(ctx.Context, "Initializing fetching of SBOMs from repo", "repository", c.Repo, "version", c.Version)
 	// Find SBOMs in releases
 	sboms, err := c.FindSBOMs(ctx)
 	if err != nil {

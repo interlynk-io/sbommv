@@ -113,7 +113,7 @@ func (c *Client) FindOrCreateProjectGroup(ctx *tcontext.TransferMetadata, repoNa
 		} else {
 			projectID, err = c.CreateProjectGroup(ctx, projectName, env)
 			if err != nil {
-				return "", fmt.Errorf("failed to create project: %s or env %s ", projectName, env)
+				return "", fmt.Errorf("failed to create project: %s on env %s ", projectName, env)
 			}
 		}
 	}

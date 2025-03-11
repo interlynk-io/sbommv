@@ -40,11 +40,18 @@ type SequentialUploader struct{}
 
 func (u *SequentialUploader) Upload(ctx *tcontext.TransferMetadata, config *FolderConfig, iter iterator.SBOMIterator) error {
 	logger.LogDebug(ctx.Context, "Writing SBOMs sequentially", "folder", config.FolderPath)
+	totalSBOMs := 0
+	successfullyUploaded := 0
+
 	for {
 		sbom, err := iter.Next(ctx.Context)
 		if err == io.EOF {
+			logger.LogInfo(ctx.Context, "All SBOMs uploaded successfully, no more SBOMs left")
+			logger.LogInfo(ctx.Context, "Total SBOMs", "count", totalSBOMs)
+			logger.LogInfo(ctx.Context, "Successfully Uploaded", "count", successfullyUploaded)
 			break
 		}
+		totalSBOMs++
 		if err != nil {
 			logger.LogError(ctx.Context, err, "Error retrieving SBOM from iterator")
 			return err
@@ -67,6 +74,7 @@ func (u *SequentialUploader) Upload(ctx *tcontext.TransferMetadata, config *Fold
 			logger.LogError(ctx.Context, err, "Failed to write SBOM file", "path", outputFile)
 			return err
 		}
+		successfullyUploaded++
 		logger.LogDebug(ctx.Context, "Successfully written SBOM", "path", outputFile)
 	}
 	return nil
