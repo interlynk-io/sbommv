@@ -183,7 +183,7 @@ func sbomProcessing(transferCtx *tcontext.TransferMetadata, config types.Config,
 
 		return iterator.NewMemoryIterator(convertedSBOMs)
 	} else {
-		logger.LogDebug(transferCtx.Context, "Adapter not eligible for conversion layer", "adapter type", config.DestinationAdapter)
+		logger.LogDebug(transferCtx.Context, "Adapter accept both SPDX and CDX SBOM, therefore doesn't require conversion layer", "adapter type", config.DestinationAdapter)
 		logger.LogDebug(transferCtx.Context, "SBOM conversion will not take place")
 		return sbomIterator
 	}

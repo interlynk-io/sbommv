@@ -116,7 +116,8 @@ func (i *InterlynkAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 	i.ProjectName = projectName
 	i.ProjectEnv = projectEnv
 	i.ApiKey = token
-	i.settings = types.UploadSettings{ProcessingMode: types.UploadMode(i.ProcessingMode)}
+	// i.settings = types.UploadSettings{ProcessingMode: types.UploadMode(i.ProcessingMode)}
+	i.settings = types.UploadSettings{ProcessingMode: types.UploadMode(types.UploadSequential)}
 
 	logger.LogDebug(cmd.Context(), "Interlynk parameters validated and assigned",
 		"url", i.BaseURL,
@@ -176,13 +177,17 @@ func (i *InterlynkAdapter) uploadSequential(ctx *tcontext.TransferMetadata, sbom
 
 	errorCount := 0
 	maxRetries := 5
-
+	totalSBOMs := 0
+	successfullyUploaded := 0
 	for {
 		sbom, err := sboms.Next(ctx.Context)
 		if err == io.EOF {
-			logger.LogDebug(ctx.Context, "All SBOMs uploaded successfully, no more SBOMs left.")
+			logger.LogInfo(ctx.Context, "All SBOMs uploaded successfully, no more SBOMs left")
+			logger.LogInfo(ctx.Context, "Total SBOMs", "count", totalSBOMs)
+			logger.LogInfo(ctx.Context, "Successfully Uploaded", "count", successfullyUploaded)
 			break
 		}
+		totalSBOMs++
 		if err != nil {
 			logger.LogInfo(ctx.Context, "Failed to retrieve SBOM from iterator", err)
 			errorCount++
@@ -207,6 +212,7 @@ func (i *InterlynkAdapter) uploadSequential(ctx *tcontext.TransferMetadata, sbom
 		if err != nil {
 			logger.LogInfo(ctx.Context, "Failed to upload SBOM", "repo", sbom.Namespace, "version", sbom.Version)
 		} else {
+			successfullyUploaded++
 			logger.LogDebug(ctx.Context, "Successfully uploaded SBOM", "repo", sbom.Namespace, "version", sbom.Version)
 		}
 	}

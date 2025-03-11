@@ -90,7 +90,9 @@ func NewAdapter(ctx *tcontext.TransferMetadata, config types.Config) (map[types.
 			outputAdp = "folder"
 
 		case types.InterlynkAdapterType:
-			adapters[types.OutputAdapterRole] = &interlynk.InterlynkAdapter{Role: types.OutputAdapterRole, ProcessingMode: processingMode}
+
+			// TODO: hard-coded, processing mode as sequential. Currently it doesn't support parallel processing-mode.
+			adapters[types.OutputAdapterRole] = &interlynk.InterlynkAdapter{Role: types.OutputAdapterRole, ProcessingMode: types.ProcessingMode("sequential")}
 			outputAdp = "interlynk"
 
 		case types.DtrackAdapterType:

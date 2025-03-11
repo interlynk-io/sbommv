@@ -40,12 +40,17 @@ func NewSequentialUploader() *SequentialUploader {
 
 func (u *SequentialUploader) Upload(ctx *tcontext.TransferMetadata, config *DependencyTrackConfig, client *DependencyTrackClient, iter iterator.SBOMIterator) error {
 	logger.LogDebug(ctx.Context, "Uploading SBOMs to Dependency-Track sequentially")
-	fmt.Println("Uploading SBOMs to Dependency-Track sequentially")
+	totalSBOMs := 0
+	successfullyUploaded := 0
 	for {
 		sbom, err := iter.Next(ctx.Context)
 		if err == io.EOF {
+			logger.LogInfo(ctx.Context, "All SBOMs uploaded successfully, no more SBOMs left")
+			logger.LogInfo(ctx.Context, "Total SBOMs", "count", totalSBOMs)
+			logger.LogInfo(ctx.Context, "Successfully Uploaded", "count", successfullyUploaded)
 			break
 		}
+		totalSBOMs++
 		if err != nil {
 			logger.LogError(ctx.Context, err, "Error retrieving SBOM from iterator")
 			return err
@@ -90,6 +95,7 @@ func (u *SequentialUploader) Upload(ctx *tcontext.TransferMetadata, config *Depe
 			logger.LogInfo(ctx.Context, "Failed to upload SBOM", "project", projectName, "file", sbom.Path, "error", err)
 			continue
 		}
+		successfullyUploaded++
 		logger.LogDebug(ctx.Context, "Successfully uploaded SBOM file", "file", sbom.Path)
 	}
 	return nil
@@ -111,16 +117,21 @@ func NewParallelUploader() *ParallelUploader {
 // Upload implements the SBOMUploader interface for ParallelUploader.
 func (u *ParallelUploader) Upload(ctx *tcontext.TransferMetadata, config *DependencyTrackConfig, client *DependencyTrackClient, iter iterator.SBOMIterator) error {
 	logger.LogDebug(ctx.Context, "Uploading SBOMs to Dependency-Track in parallel mode")
-	fmt.Println("Uploading SBOMs to Dependency-Track in PARALLEL mode")
-	sbomChan := make(chan *iterator.SBOM, 100)
 
+	sbomChan := make(chan *iterator.SBOM, 100)
+	totalSBOMs := 0
+	successfullyUploaded := 0
 	// multiple goroutines will read SBOMs from the iterator.
 	go func() {
 		for {
 			sbom, err := iter.Next(ctx.Context)
 			if err == io.EOF {
+				logger.LogInfo(ctx.Context, "All SBOMs uploaded successfully, no more SBOMs left")
+				logger.LogInfo(ctx.Context, "Total SBOMs", "count", totalSBOMs)
+				logger.LogInfo(ctx.Context, "Successfully Uploaded", "count", successfullyUploaded)
 				break
 			}
+			totalSBOMs++
 			if err != nil {
 				logger.LogError(ctx.Context, err, "Error retrieving SBOM from iterator")
 				continue
@@ -177,6 +188,7 @@ func (u *ParallelUploader) Upload(ctx *tcontext.TransferMetadata, config *Depend
 					logger.LogInfo(ctx.Context, "Failed to upload SBOM", "project", projectName, "file", sbom.Path, "error", err)
 					continue
 				}
+				successfullyUploaded++
 				logger.LogDebug(ctx.Context, "Successfully uploaded SBOM file", "file", sbom.Path)
 			}
 		}()
