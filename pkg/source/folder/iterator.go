@@ -16,6 +16,7 @@ package folder
 
 import (
 	"context"
+	"fmt"
 	"io"
 
 	"github.com/interlynk-io/sbommv/pkg/iterator"
@@ -44,4 +45,21 @@ func (it *FolderIterator) Next(ctx context.Context) (*iterator.SBOM, error) {
 	sbom := it.sboms[it.index]
 	it.index++
 	return sbom, nil
+}
+
+// watchiterator collects sbom on the real time via channel
+type WatcherIterator struct {
+	sbomChan chan *iterator.SBOM
+}
+
+func (it *WatcherIterator) Next(ctx context.Context) (*iterator.SBOM, error) {
+	select {
+	case sbom, ok := <-it.sbomChan:
+		if !ok {
+			return nil, fmt.Errorf("watcher channel closed")
+		}
+		return sbom, nil
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
 }

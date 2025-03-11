@@ -27,4 +27,7 @@ type Config struct {
 
 	// dry run mode
 	DryRun bool
+
+	// daemon mode
+	Daemon bool
 }

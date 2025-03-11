@@ -46,6 +46,7 @@ type GitHubAdapter struct {
 	GithubToken    string
 	Role           types.AdapterRole
 	ProcessingMode types.ProcessingMode
+	Daemon         bool
 
 	// Comma-separated list (e.g., "repo1,repo2")
 	IncludeRepos []string

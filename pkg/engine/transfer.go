@@ -27,6 +27,7 @@ import (
 	"github.com/interlynk-io/sbommv/pkg/converter"
 	"github.com/interlynk-io/sbommv/pkg/iterator"
 	"github.com/interlynk-io/sbommv/pkg/logger"
+	"github.com/interlynk-io/sbommv/pkg/monitor"
 	"github.com/interlynk-io/sbommv/pkg/tcontext"
 	"github.com/interlynk-io/sbommv/pkg/types"
 	"github.com/spf13/cobra"
@@ -72,11 +73,23 @@ func TransferRun(ctx context.Context, cmd *cobra.Command, config types.Config) e
 
 	logger.LogDebug(transferCtx.Context, "Output adapter instance config", "value", outputAdapterInstance)
 
+	var sbomIterator iterator.SBOMIterator
 	// Fetch SBOMs lazily using the iterator
-	sbomIterator, err := inputAdapterInstance.FetchSBOMs(transferCtx)
-	if err != nil {
-		return fmt.Errorf("failed to fetch SBOMs: %w", err)
+	if config.Daemon {
+		if ma, ok := inputAdapterInstance.(monitor.MonitorAdapter); ok {
+			sbomIterator, err = ma.Monitor(transferCtx)
+		} else {
+			return fmt.Errorf("input adapter %s does not support daemon mode", config.SourceAdapter)
+		}
+	} else {
+		sbomIterator, err = inputAdapterInstance.FetchSBOMs(transferCtx)
+		if err != nil {
+			return fmt.Errorf("failed to fetch SBOMs: %w", err)
+		}
 	}
+	// if err != nil {
+	// 	return fmt.Errorf("failed to fetch SBOMs: %w", err)
+	// }
 
 	if config.DryRun {
 		logger.LogDebug(transferCtx.Context, "Dry-run mode enabled: Displaying retrieved SBOMs", "values", config.DryRun)

@@ -28,7 +28,7 @@ import (
 
 // FolderAdapter handles fetching SBOMs from folders
 type FolderAdapter struct {
-	config         *FolderConfig
+	Config         *FolderConfig
 	Role           types.AdapterRole // "input" or "output" adapter type
 	Fetcher        SBOMFetcher
 	ProcessingMode types.ProcessingMode
@@ -83,9 +83,12 @@ func (f *FolderAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 		return fmt.Errorf("invalid input adapter flag usage:\n %s\n\nUse 'sbommv transfer --help' for correct usage.", strings.Join(invalidFlags, "\n "))
 	}
 	var fetcher SBOMFetcher
+	daemon := f.Config.Daemon
 
-	// SequentialFetcher
-	if f.ProcessingMode == types.FetchSequential {
+	if daemon {
+		// daemon fether initialized
+		fetcher = NewWatcherFetcher()
+	} else if f.ProcessingMode == types.FetchSequential {
 		fetcher = &SequentialFetcher{}
 	} else if f.ProcessingMode == types.FetchParallel {
 		fetcher = &ParallelFetcher{}
@@ -94,9 +97,10 @@ func (f *FolderAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 	cfg := FolderConfig{
 		FolderPath: folderPath,
 		Recursive:  folderRecurse,
+		Daemon:     daemon,
 	}
 
-	f.config = &cfg
+	f.Config = &cfg
 	f.Fetcher = fetcher
 
 	return nil
@@ -104,8 +108,17 @@ func (f *FolderAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 
 // FetchSBOMs initializes the Folder SBOM iterator using the unified method
 func (f *FolderAdapter) FetchSBOMs(ctx *tcontext.TransferMetadata) (iterator.SBOMIterator, error) {
-	logger.LogDebug(ctx.Context, "Initializing SBOM fetching", "mode", f.config.ProcessingMode)
-	return f.Fetcher.Fetch(ctx, f.config)
+	logger.LogDebug(ctx.Context, "Initializing SBOM fetching", "mode", f.Config.ProcessingMode)
+	return f.Fetcher.Fetch(ctx, f.Config)
+}
+
+func (f *FolderAdapter) Monitor(ctx *tcontext.TransferMetadata) (iterator.SBOMIterator, error) {
+	if !f.Config.Daemon {
+		return nil, fmt.Errorf("daemon mode not enabled for folder adapter")
+	}
+
+	logger.LogDebug(ctx.Context, "Initializing SBOM monitoring")
+	return f.Fetcher.Fetch(ctx, f.Config)
 }
 
 // OutputSBOMs should return an error since Folder does not support SBOM uploads
