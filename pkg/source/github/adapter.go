@@ -268,6 +268,10 @@ func (g *GitHubAdapter) FetchSBOMs(ctx *tcontext.TransferMetadata) (iterator.SBO
 	return sbomIterator, err
 }
 
+func (g *GitHubAdapter) Monitor(ctx *tcontext.TransferMetadata) (iterator.SBOMIterator, *tcontext.TransferMetadata, error) {
+	return nil, ctx, fmt.Errorf("Currently gitHub adapter does not support monitoring")
+}
+
 // OutputSBOMs should return an error since GitHub does not support SBOM uploads
 func (g *GitHubAdapter) UploadSBOMs(ctx *tcontext.TransferMetadata, iterator iterator.SBOMIterator) error {
 	return fmt.Errorf("GitHub adapter does not support SBOM uploading")
@@ -368,6 +372,11 @@ func (g *GitHubAdapter) applyRepoFilters(repos []string) []string {
 	}
 
 	return filteredRepos
+}
+
+func (g *GitHubAdapter) fetchWatcher(ctx *tcontext.TransferMetadata, repos []string) (iterator.SBOMIterator, error) {
+	logger.LogInfo(ctx.Context, "Monitoring SBOM via github adapter currently doesn't support")
+	return nil, nil
 }
 
 func (g *GitHubAdapter) fetchSBOMsConcurrently(ctx *tcontext.TransferMetadata, repos []string) (iterator.SBOMIterator, error) {
