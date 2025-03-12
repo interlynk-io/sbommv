@@ -227,7 +227,7 @@ func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 }
 
 // FetchSBOMs initializes the GitHub SBOM iterator using the unified method
-func (g *GitHubAdapter) FetchSBOMs(ctx *tcontext.TransferMetadata) (iterator.SBOMIterator, error) {
+func (g *GitHubAdapter) FetchSBOMs(ctx tcontext.TransferMetadata) (iterator.SBOMIterator, error) {
 	logger.LogDebug(ctx.Context, "Intializing SBOM fetching process")
 
 	// Org Mode: Fetch all repositories
@@ -268,17 +268,17 @@ func (g *GitHubAdapter) FetchSBOMs(ctx *tcontext.TransferMetadata) (iterator.SBO
 	return sbomIterator, err
 }
 
-func (g *GitHubAdapter) Monitor(ctx *tcontext.TransferMetadata) (iterator.SBOMIterator, *tcontext.TransferMetadata, error) {
+func (g *GitHubAdapter) Monitor(ctx tcontext.TransferMetadata) (iterator.SBOMIterator, tcontext.TransferMetadata, error) {
 	return nil, ctx, fmt.Errorf("Currently gitHub adapter does not support monitoring")
 }
 
 // OutputSBOMs should return an error since GitHub does not support SBOM uploads
-func (g *GitHubAdapter) UploadSBOMs(ctx *tcontext.TransferMetadata, iterator iterator.SBOMIterator) error {
+func (g *GitHubAdapter) UploadSBOMs(ctx tcontext.TransferMetadata, iterator iterator.SBOMIterator) error {
 	return fmt.Errorf("GitHub adapter does not support SBOM uploading")
 }
 
 // DryRun for Input Adapter: Displays all fetched SBOMs from input adapter
-func (g *GitHubAdapter) DryRun(ctx *tcontext.TransferMetadata, iterator iterator.SBOMIterator) error {
+func (g *GitHubAdapter) DryRun(ctx tcontext.TransferMetadata, iterator iterator.SBOMIterator) error {
 	logger.LogDebug(ctx.Context, "Dry-run mode: Displaying SBOMs fetched from input adapter")
 
 	var outputDir string
@@ -291,7 +291,7 @@ func (g *GitHubAdapter) DryRun(ctx *tcontext.TransferMetadata, iterator iterator
 
 	for {
 
-		sbom, err := iterator.Next(ctx.Context)
+		sbom, err := iterator.Next(ctx)
 		if err == io.EOF {
 			break // No more SBOMs
 		}
@@ -374,12 +374,12 @@ func (g *GitHubAdapter) applyRepoFilters(repos []string) []string {
 	return filteredRepos
 }
 
-func (g *GitHubAdapter) fetchWatcher(ctx *tcontext.TransferMetadata, repos []string) (iterator.SBOMIterator, error) {
+func (g *GitHubAdapter) fetchWatcher(ctx tcontext.TransferMetadata, repos []string) (iterator.SBOMIterator, error) {
 	logger.LogInfo(ctx.Context, "Monitoring SBOM via github adapter currently doesn't support")
 	return nil, nil
 }
 
-func (g *GitHubAdapter) fetchSBOMsConcurrently(ctx *tcontext.TransferMetadata, repos []string) (iterator.SBOMIterator, error) {
+func (g *GitHubAdapter) fetchSBOMsConcurrently(ctx tcontext.TransferMetadata, repos []string) (iterator.SBOMIterator, error) {
 	logger.LogDebug(ctx.Context, "Fetching SBOMs concurrently")
 	const maxWorkers = 5        // Number of concurrent workers (adjustable)
 	const requestsPerSecond = 5 // Rate limit for GitHub API requests
@@ -484,7 +484,7 @@ func (g *GitHubAdapter) fetchSBOMsConcurrently(ctx *tcontext.TransferMetadata, r
 }
 
 // fetchSBOMsSequentially: fetch SBOMs from repositories one at a time
-func (g *GitHubAdapter) fetchSBOMsSequentially(ctx *tcontext.TransferMetadata, repos []string) (iterator.SBOMIterator, error) {
+func (g *GitHubAdapter) fetchSBOMsSequentially(ctx tcontext.TransferMetadata, repos []string) (iterator.SBOMIterator, error) {
 	logger.LogDebug(ctx.Context, "Fetching SBOMs sequentially")
 	fmt.Println("Fetching SBOMs sequentially")
 

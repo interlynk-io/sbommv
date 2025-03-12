@@ -104,7 +104,6 @@ func (d *DependencyTrackAdapter) ParseAndValidateParams(cmd *cobra.Command) erro
 		uploader = NewParallelUploader()
 	}
 
-	fmt.Println("uploader: ", uploader)
 	cfg := NewDependencyTrackConfig()
 	cfg.APIURL = apiURL
 	cfg.APIKey = token
@@ -129,15 +128,15 @@ func (d *DependencyTrackAdapter) ParseAndValidateParams(cmd *cobra.Command) erro
 }
 
 // FetchSBOMs returns an error since Dependency-Track is an output adapter
-func (d *DependencyTrackAdapter) FetchSBOMs(ctx *tcontext.TransferMetadata) (iterator.SBOMIterator, error) {
+func (d *DependencyTrackAdapter) FetchSBOMs(ctx tcontext.TransferMetadata) (iterator.SBOMIterator, error) {
 	return nil, fmt.Errorf("Dependency-Track adapter does not support SBOM fetching")
 }
 
-func (d *DependencyTrackAdapter) UploadSBOMs(ctx *tcontext.TransferMetadata, iter iterator.SBOMIterator) error {
+func (d *DependencyTrackAdapter) UploadSBOMs(ctx tcontext.TransferMetadata, iter iterator.SBOMIterator) error {
 	return d.Uploader.Upload(ctx, d.Config, d.client, iter)
 }
 
-func (d *DependencyTrackAdapter) DryRun(ctx *tcontext.TransferMetadata, iter iterator.SBOMIterator) error {
+func (d *DependencyTrackAdapter) DryRun(ctx tcontext.TransferMetadata, iter iterator.SBOMIterator) error {
 	reporter := NewDependencyTrackReporter(d.Config.APIURL, d.Config.ProjectName)
-	return reporter.DryRun(ctx.Context, iter)
+	return reporter.DryRun(ctx, iter)
 }

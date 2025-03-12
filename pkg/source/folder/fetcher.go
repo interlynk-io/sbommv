@@ -31,7 +31,7 @@ import (
 )
 
 type SBOMFetcher interface {
-	Fetch(ctx *tcontext.TransferMetadata, config *FolderConfig) (iterator.SBOMIterator, error)
+	Fetch(ctx tcontext.TransferMetadata, config *FolderConfig) (iterator.SBOMIterator, error)
 }
 
 type SequentialFetcher struct{}
@@ -40,7 +40,7 @@ type SequentialFetcher struct{}
 // 1. Walks through the folder file-by-file
 // 2. Detects valid SBOMs using source.IsSBOMFile().
 // 3. Reads the content & adds it to the iterator along with path.
-func (f *SequentialFetcher) Fetch(ctx *tcontext.TransferMetadata, config *FolderConfig) (iterator.SBOMIterator, error) {
+func (f *SequentialFetcher) Fetch(ctx tcontext.TransferMetadata, config *FolderConfig) (iterator.SBOMIterator, error) {
 	logger.LogDebug(ctx.Context, "Fetching SBOMs Sequentially")
 
 	var sbomList []*iterator.SBOM
@@ -89,7 +89,7 @@ type ParallelFetcher struct{}
 // Fetch scans the folder for SBOMs concurrently.
 // It walks through the directory to collect file paths, then spawns a fixed number of worker goroutines
 // to read and process those files concurrently.
-func (f *ParallelFetcher) Fetch(ctx *tcontext.TransferMetadata, config *FolderConfig) (iterator.SBOMIterator, error) {
+func (f *ParallelFetcher) Fetch(ctx tcontext.TransferMetadata, config *FolderConfig) (iterator.SBOMIterator, error) {
 	logger.LogDebug(ctx.Context, "Fetching SBOMs Parallely")
 	filePaths := make(chan string, 100)
 	var wg sync.WaitGroup

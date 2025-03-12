@@ -91,7 +91,7 @@ func NewClient(config Config) *Client {
 	}
 }
 
-func (c *Client) FindOrCreateProjectGroup(ctx *tcontext.TransferMetadata, repoName string) (string, error) {
+func (c *Client) FindOrCreateProjectGroup(ctx tcontext.TransferMetadata, repoName string) (string, error) {
 	projectName := ""
 	if c.ProjectName != "" {
 		projectName = c.ProjectName
@@ -122,7 +122,7 @@ func (c *Client) FindOrCreateProjectGroup(ctx *tcontext.TransferMetadata, repoNa
 }
 
 // UploadSBOM uploads a single SBOM from memory to Interlynk
-func (c *Client) UploadSBOM(ctx *tcontext.TransferMetadata, projectID string, sbomData []byte) error {
+func (c *Client) UploadSBOM(ctx tcontext.TransferMetadata, projectID string, sbomData []byte) error {
 	if len(sbomData) == 0 {
 		return fmt.Errorf("SBOM data is empty")
 	}
@@ -137,7 +137,7 @@ func (c *Client) UploadSBOM(ctx *tcontext.TransferMetadata, projectID string, sb
 	return c.executeUploadRequest(ctx, req)
 }
 
-func (c *Client) createUploadRequest(ctx *tcontext.TransferMetadata, projectID string, sbomData []byte) (*http.Request, error) {
+func (c *Client) createUploadRequest(ctx tcontext.TransferMetadata, projectID string, sbomData []byte) (*http.Request, error) {
 	const uploadMutation = `
         mutation uploadSbom($doc: Upload!, $projectId: ID!) {
             sbomUpload(input: { doc: $doc, projectId: $projectId }) {
@@ -219,7 +219,7 @@ func writeJSONField(writer *multipart.Writer, fieldName string, data interface{}
 	return nil
 }
 
-func (c *Client) executeUploadRequest(ctx *tcontext.TransferMetadata, req *http.Request) error {
+func (c *Client) executeUploadRequest(ctx tcontext.TransferMetadata, req *http.Request) error {
 	resp, err := c.client.Do(req)
 	if err != nil {
 		return fmt.Errorf("sending request: %w", err)
@@ -261,7 +261,7 @@ func (c *Client) executeUploadRequest(ctx *tcontext.TransferMetadata, req *http.
 	return nil
 }
 
-func (c *Client) FindProjectGroup(ctx *tcontext.TransferMetadata, name string, env string) (string, error) {
+func (c *Client) FindProjectGroup(ctx tcontext.TransferMetadata, name string, env string) (string, error) {
 	const findProjectGroupMutation = `
 		query FindProjectGroup($search: String) {
 			  organization {
@@ -371,7 +371,7 @@ func (c *Client) FindProjectGroup(ctx *tcontext.TransferMetadata, name string, e
 }
 
 // CreateProjectGroup creates a new project group and returns the default project's ID
-func (c *Client) CreateProjectGroup(ctx *tcontext.TransferMetadata, name, env string) (string, error) {
+func (c *Client) CreateProjectGroup(ctx tcontext.TransferMetadata, name, env string) (string, error) {
 	const createProjectGroupMutation = `
         mutation CreateProjectGroup($name: String!, $desc: String, $enabled: Boolean) {
             projectGroupCreate(

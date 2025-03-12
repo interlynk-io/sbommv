@@ -15,7 +15,6 @@
 package github
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"os"
@@ -35,7 +34,7 @@ type GitHubIterator struct {
 }
 
 // NewGitHubIterator initializes and returns a new GitHubIterator instance
-func NewGitHubIterator(ctx *tcontext.TransferMetadata, g *GitHubAdapter, repo string) *GitHubIterator {
+func NewGitHubIterator(ctx tcontext.TransferMetadata, g *GitHubAdapter, repo string) *GitHubIterator {
 	logger.LogDebug(ctx.Context, "Initializing GitHub Iterator", "repo", g.URL, "method", g.Method, "repo", repo)
 
 	g.client.updateRepo(repo)
@@ -49,7 +48,7 @@ func NewGitHubIterator(ctx *tcontext.TransferMetadata, g *GitHubAdapter, repo st
 }
 
 // Next returns the next SBOM from the stored list
-func (it *GitHubIterator) Next(ctx context.Context) (*iterator.SBOM, error) {
+func (it *GitHubIterator) Next(ctx tcontext.TransferMetadata) (*iterator.SBOM, error) {
 	if it.position >= len(it.sboms) {
 		return nil, io.EOF // No more SBOMs left
 	}
@@ -60,7 +59,7 @@ func (it *GitHubIterator) Next(ctx context.Context) (*iterator.SBOM, error) {
 }
 
 // Fetch SBOM via GitHub API
-func (it *GitHubIterator) fetchSBOMFromAPI(ctx *tcontext.TransferMetadata) ([]*iterator.SBOM, error) {
+func (it *GitHubIterator) fetchSBOMFromAPI(ctx tcontext.TransferMetadata) ([]*iterator.SBOM, error) {
 	sbomData, err := it.client.FetchSBOMFromAPI(ctx)
 	if err != nil {
 		return nil, err
@@ -78,7 +77,7 @@ func (it *GitHubIterator) fetchSBOMFromAPI(ctx *tcontext.TransferMetadata) ([]*i
 }
 
 // Fetch SBOMs from GitHub Releases
-func (it *GitHubIterator) fetchSBOMFromReleases(ctx *tcontext.TransferMetadata) ([]*iterator.SBOM, error) {
+func (it *GitHubIterator) fetchSBOMFromReleases(ctx tcontext.TransferMetadata) ([]*iterator.SBOM, error) {
 	sbomFiles, err := it.client.FetchSBOMFromReleases(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("error retrieving SBOMs from releases: %w", err)
@@ -100,7 +99,7 @@ func (it *GitHubIterator) fetchSBOMFromReleases(ctx *tcontext.TransferMetadata) 
 	return sbomSlice, nil
 }
 
-func (it *GitHubIterator) fetchSBOMFromTool(ctx *tcontext.TransferMetadata) ([]*iterator.SBOM, error) {
+func (it *GitHubIterator) fetchSBOMFromTool(ctx tcontext.TransferMetadata) ([]*iterator.SBOM, error) {
 	logger.LogDebug(ctx.Context, "Generating SBOM using Tool", "repository", it.client.RepoURL)
 
 	var sbomSlice []*iterator.SBOM

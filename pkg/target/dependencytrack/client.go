@@ -48,7 +48,7 @@ type Project struct {
 	Version string `json:"version"`
 }
 
-func (c *DependencyTrackClient) FindProject(ctx *tcontext.TransferMetadata, projectName, projectVersion string) (string, error) {
+func (c *DependencyTrackClient) FindProject(ctx tcontext.TransferMetadata, projectName, projectVersion string) (string, error) {
 	logger.LogDebug(ctx.Context, "Finding Project", "project", projectName, "version", projectVersion)
 
 	// dtrack client, retrives all projects
@@ -72,7 +72,7 @@ func (c *DependencyTrackClient) FindProject(ctx *tcontext.TransferMetadata, proj
 }
 
 // UploadSBOM uploads an SBOM to a Dependency-Track project
-func (c *DependencyTrackClient) UploadSBOM(ctx *tcontext.TransferMetadata, projectName, projectVersion string, sbomData []byte) error {
+func (c *DependencyTrackClient) UploadSBOM(ctx tcontext.TransferMetadata, projectName, projectVersion string, sbomData []byte) error {
 	logger.LogDebug(ctx.Context, "Processing Uploading SBOMs", "project", projectName, "version", projectVersion)
 
 	bomReq := dtrack.BOMUploadRequest{
@@ -92,7 +92,7 @@ func (c *DependencyTrackClient) UploadSBOM(ctx *tcontext.TransferMetadata, proje
 }
 
 // FindOrCreateProject ensures a project exists, returning its UUID after finding or creating project
-func (c *DependencyTrackClient) FindOrCreateProject(ctx *tcontext.TransferMetadata, projectName, projectVersion string) (string, error) {
+func (c *DependencyTrackClient) FindOrCreateProject(ctx tcontext.TransferMetadata, projectName, projectVersion string) (string, error) {
 	logger.LogDebug(ctx.Context, "Processing finding or Creating Project", "project", projectName, "version", projectVersion)
 
 	// find project using project name and project version
@@ -111,7 +111,7 @@ func (c *DependencyTrackClient) FindOrCreateProject(ctx *tcontext.TransferMetada
 }
 
 // CreateProject creates a new project if it doesn’t exist
-func (c *DependencyTrackClient) CreateProject(ctx *tcontext.TransferMetadata, projectName, projectVersion string) (string, error) {
+func (c *DependencyTrackClient) CreateProject(ctx tcontext.TransferMetadata, projectName, projectVersion string) (string, error) {
 	logger.LogDebug(ctx.Context, "Initializing Project Creation", "project", projectName, "version", projectVersion)
 
 	sourceAdapter := ctx.Value("source")

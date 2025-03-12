@@ -16,8 +16,11 @@
 package iterator
 
 import (
-	"context"
 	"io"
+
+	"github.com/interlynk-io/sbommv/pkg/converter"
+	"github.com/interlynk-io/sbommv/pkg/logger"
+	"github.com/interlynk-io/sbommv/pkg/tcontext"
 )
 
 // SBOM represents a single SBOM file
@@ -31,7 +34,7 @@ type SBOM struct {
 
 // SBOMIterator provides a way to lazily fetch SBOMs one by one
 type SBOMIterator interface {
-	Next(ctx context.Context) (*SBOM, error) // Fetch the next SBOM
+	Next(ctx tcontext.TransferMetadata) (*SBOM, error) // Fetch the next SBOM
 }
 
 // MemoryIterator is an iterator that iterates over a preloaded slice of SBOMs.
@@ -49,12 +52,38 @@ func NewMemoryIterator(sboms []*SBOM) SBOMIterator {
 }
 
 // Next retrieves the next SBOM in memory.
-func (it *MemoryIterator) Next(ctx context.Context) (*SBOM, error) {
+func (it *MemoryIterator) Next(ctx tcontext.TransferMetadata) (*SBOM, error) {
 	if it.index >= len(it.sboms) {
 		return nil, io.EOF // No more SBOMs left
 	}
 
 	sbom := it.sboms[it.index]
 	it.index++
+	return sbom, nil
+}
+
+type ConvertedIterator struct {
+	inner        SBOMIterator
+	targetFormat converter.FormatSpec
+}
+
+func NewConvertedIterator(inner SBOMIterator, targetFormat converter.FormatSpec) *ConvertedIterator {
+	return &ConvertedIterator{
+		inner:        inner,
+		targetFormat: targetFormat,
+	}
+}
+
+func (ci *ConvertedIterator) Next(ctx tcontext.TransferMetadata) (*SBOM, error) {
+	sbom, err := ci.inner.Next(ctx)
+	if err != nil {
+		return nil, err
+	}
+	convertedData, err := converter.ConvertSBOM(ctx, sbom.Data, ci.targetFormat)
+	if err != nil {
+		logger.LogInfo(ctx.Context, "Failed to convert SBOM", "file", sbom.Path, "error", err)
+		return sbom, nil // Fallback to original on error
+	}
+	sbom.Data = convertedData
 	return sbom, nil
 }

@@ -22,5 +22,5 @@ import (
 // MonitorAdapter only for input adapter
 type MonitorAdapter interface {
 	// it watches sboms and triggers as soon as the new sbom comes
-	Monitor(ctx *tcontext.TransferMetadata) (iterator.SBOMIterator, error)
+	Monitor(ctx tcontext.TransferMetadata) (iterator.SBOMIterator, error)
 }

@@ -107,12 +107,12 @@ func (f *FolderAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 }
 
 // FetchSBOMs initializes the Folder SBOM iterator using the unified method
-func (f *FolderAdapter) FetchSBOMs(ctx *tcontext.TransferMetadata) (iterator.SBOMIterator, error) {
+func (f *FolderAdapter) FetchSBOMs(ctx tcontext.TransferMetadata) (iterator.SBOMIterator, error) {
 	logger.LogDebug(ctx.Context, "Initializing SBOM fetching", "mode", f.Config.ProcessingMode)
 	return f.Fetcher.Fetch(ctx, f.Config)
 }
 
-func (f *FolderAdapter) Monitor(ctx *tcontext.TransferMetadata) (iterator.SBOMIterator, error) {
+func (f *FolderAdapter) Monitor(ctx tcontext.TransferMetadata) (iterator.SBOMIterator, error) {
 	if !f.Config.Daemon {
 		return nil, fmt.Errorf("daemon mode not enabled for folder adapter")
 	}
@@ -122,12 +122,12 @@ func (f *FolderAdapter) Monitor(ctx *tcontext.TransferMetadata) (iterator.SBOMIt
 }
 
 // OutputSBOMs should return an error since Folder does not support SBOM uploads
-func (f *FolderAdapter) UploadSBOMs(ctx *tcontext.TransferMetadata, iterator iterator.SBOMIterator) error {
+func (f *FolderAdapter) UploadSBOMs(ctx tcontext.TransferMetadata, iterator iterator.SBOMIterator) error {
 	return fmt.Errorf("Folder adapter does not support SBOM uploading")
 }
 
 // DryRun for Folder Adapter: Displays all fetched SBOMs from folder adapter
-func (f *FolderAdapter) DryRun(ctx *tcontext.TransferMetadata, iter iterator.SBOMIterator) error {
+func (f *FolderAdapter) DryRun(ctx tcontext.TransferMetadata, iter iterator.SBOMIterator) error {
 	reporter := NewFolderReporter(false, "")
-	return reporter.DryRun(ctx.Context, iter)
+	return reporter.DryRun(ctx, iter)
 }

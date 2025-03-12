@@ -42,7 +42,7 @@ func TransferRun(ctx context.Context, cmd *cobra.Command, config types.Config) e
 	var inputAdapterInstance, outputAdapterInstance adapter.Adapter
 	var err error
 
-	adapters, iAdp, oAdp, err := adapter.NewAdapter(transferCtx, config)
+	adapters, iAdp, oAdp, err := adapter.NewAdapter(*transferCtx, config)
 	if err != nil {
 		return fmt.Errorf("failed to initialize adapters: %v", err)
 	}
@@ -77,12 +77,12 @@ func TransferRun(ctx context.Context, cmd *cobra.Command, config types.Config) e
 	// Fetch SBOMs lazily using the iterator
 	if config.Daemon {
 		if ma, ok := inputAdapterInstance.(monitor.MonitorAdapter); ok {
-			sbomIterator, err = ma.Monitor(transferCtx)
+			sbomIterator, err = ma.Monitor(*transferCtx)
 		} else {
 			return fmt.Errorf("input adapter %s does not support daemon mode", config.SourceAdapter)
 		}
 	} else {
-		sbomIterator, err = inputAdapterInstance.FetchSBOMs(transferCtx)
+		sbomIterator, err = inputAdapterInstance.FetchSBOMs(*transferCtx)
 		if err != nil {
 			return fmt.Errorf("failed to fetch SBOMs: %w", err)
 		}
@@ -97,10 +97,10 @@ func TransferRun(ctx context.Context, cmd *cobra.Command, config types.Config) e
 	}
 
 	var convertedIterator iterator.SBOMIterator
-	convertedIterator = sbomProcessing(transferCtx, config, sbomIterator)
+	convertedIterator = sbomProcessing(*transferCtx, config, sbomIterator)
 
 	// Process & Upload SBOMs Sequentially
-	if err := outputAdapterInstance.UploadSBOMs(transferCtx, convertedIterator); err != nil {
+	if err := outputAdapterInstance.UploadSBOMs(*transferCtx, convertedIterator); err != nil {
 		return fmt.Errorf("failed to output SBOMs: %w", err)
 	}
 
@@ -112,7 +112,7 @@ func dryRun(ctx tcontext.TransferMetadata, sbomIterator iterator.SBOMIterator, i
 	// Step 1: Store SBOMs in memory (avoid consuming iterator)
 	var sboms []*iterator.SBOM
 	for {
-		sbom, err := sbomIterator.Next(ctx.Context)
+		sbom, err := sbomIterator.Next(ctx)
 		if err == io.EOF {
 			break
 		}
@@ -126,14 +126,14 @@ func dryRun(ctx tcontext.TransferMetadata, sbomIterator iterator.SBOMIterator, i
 
 	fmt.Println("-----------------🌐 INPUT ADAPTER DRY-RUN OUTPUT 🌐-----------------")
 	// Step 2: Use stored SBOMs for input dry-run
-	if err := input.DryRun(&ctx, iterator.NewMemoryIterator(sboms)); err != nil {
+	if err := input.DryRun(ctx, iterator.NewMemoryIterator(sboms)); err != nil {
 		return fmt.Errorf("failed to execute dry-run mode for input adapter: %v", err)
 	}
 	fmt.Println()
 	fmt.Println("-----------------🌐 OUTPUT ADAPTER DRY-RUN OUTPUT 🌐-----------------")
 
 	// Step 3: Use the same stored SBOMs for output dry-run
-	if err := output.DryRun(&ctx, iterator.NewMemoryIterator(sboms)); err != nil {
+	if err := output.DryRun(ctx, iterator.NewMemoryIterator(sboms)); err != nil {
 		return fmt.Errorf("failed to execute dry-run mode for output adapter: %v", err)
 	}
 
@@ -147,7 +147,7 @@ func sbomConversion(sbomIterator iterator.SBOMIterator, transferCtx tcontext.Tra
 	var totalMinifiedSBOM int
 	var totalSBOM int
 	for {
-		sbom, err := sbomIterator.Next(transferCtx.Context)
+		sbom, err := sbomIterator.Next(transferCtx)
 		if err == io.EOF {
 			break
 		}
@@ -184,20 +184,20 @@ func sbomConversion(sbomIterator iterator.SBOMIterator, transferCtx tcontext.Tra
 	return convertedSBOMs
 }
 
-func sbomProcessing(transferCtx *tcontext.TransferMetadata, config types.Config, sbomIterator iterator.SBOMIterator) iterator.SBOMIterator {
-	logger.LogDebug(transferCtx.Context, "Checking adapter eligibility for undergoing conversion layer", "adapter type", config.DestinationAdapter)
+func sbomProcessing(ctx tcontext.TransferMetadata, config types.Config, sbomIterator iterator.SBOMIterator) iterator.SBOMIterator {
+	logger.LogDebug(ctx.Context, "Checking adapter eligibility for undergoing conversion layer", "adapter type", config.DestinationAdapter)
 
 	// convert sbom to cdx for DTrack adapter only
 	if types.AdapterType(config.DestinationAdapter) == types.DtrackAdapterType {
-		logger.LogDebug(transferCtx.Context, "Adapter eligible for conversion layer", "adapter type", config.DestinationAdapter)
+		logger.LogDebug(ctx.Context, "Adapter eligible for conversion layer", "adapter type", config.DestinationAdapter)
 
-		logger.LogDebug(transferCtx.Context, "SBOM conversion will take place")
-		convertedSBOMs := sbomConversion(sbomIterator, *transferCtx)
+		logger.LogDebug(ctx.Context, "SBOM conversion will take place")
+		convertedSBOMs := sbomConversion(sbomIterator, ctx)
 
 		return iterator.NewMemoryIterator(convertedSBOMs)
 	} else {
-		logger.LogDebug(transferCtx.Context, "Adapter accept both SPDX and CDX SBOM, therefore doesn't require conversion layer", "adapter type", config.DestinationAdapter)
-		logger.LogDebug(transferCtx.Context, "SBOM conversion will not take place")
+		logger.LogDebug(ctx.Context, "Adapter accept both SPDX and CDX SBOM, therefore doesn't require conversion layer", "adapter type", config.DestinationAdapter)
+		logger.LogDebug(ctx.Context, "SBOM conversion will not take place")
 		return sbomIterator
 	}
 }

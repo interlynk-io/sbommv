@@ -33,7 +33,7 @@ var SupportedTools = map[string]string{
 	"spdxgen": "https://github.com/spdx/spdx-sbom-generator.git",
 }
 
-func GenerateSBOM(ctx *tcontext.TransferMetadata, repoDir, binaryPath string) (string, error) {
+func GenerateSBOM(ctx tcontext.TransferMetadata, repoDir, binaryPath string) (string, error) {
 	logger.LogDebug(ctx.Context, "Generating SBOM using Syft", "repo_dir", repoDir)
 
 	// Ensure Syft binary is executable
@@ -78,7 +78,7 @@ func GenerateSBOM(ctx *tcontext.TransferMetadata, repoDir, binaryPath string) (s
 }
 
 // CloneRepoWithGit clones a GitHub repository using the Git command-line tool.
-func CloneRepoWithGit(ctx *tcontext.TransferMetadata, repoURL, branch, targetDir string) error {
+func CloneRepoWithGit(ctx tcontext.TransferMetadata, repoURL, branch, targetDir string) error {
 	// Ensure Git is installed
 	if _, err := exec.LookPath("git"); err != nil {
 		return fmt.Errorf("git is not installed, install Git or use --method=api")

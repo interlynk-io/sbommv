@@ -128,11 +128,11 @@ func (i *InterlynkAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 }
 
 // FetchSBOMs retrieves SBOMs lazily
-func (i *InterlynkAdapter) FetchSBOMs(ctx *tcontext.TransferMetadata) (iterator.SBOMIterator, error) {
+func (i *InterlynkAdapter) FetchSBOMs(ctx tcontext.TransferMetadata) (iterator.SBOMIterator, error) {
 	return nil, fmt.Errorf("Interlynk adapter does not support SBOM Fetching")
 }
 
-func (i *InterlynkAdapter) UploadSBOMs(ctx *tcontext.TransferMetadata, iterator iterator.SBOMIterator) error {
+func (i *InterlynkAdapter) UploadSBOMs(ctx tcontext.TransferMetadata, iterator iterator.SBOMIterator) error {
 	logger.LogDebug(ctx.Context, "Starting SBOM upload", "mode", i.settings.ProcessingMode)
 
 	if i.settings.ProcessingMode != "sequential" {
@@ -164,7 +164,7 @@ func (i *InterlynkAdapter) UploadSBOMs(ctx *tcontext.TransferMetadata, iterator 
 }
 
 // uploadSequential handles sequential SBOM processing and uploading
-func (i *InterlynkAdapter) uploadSequential(ctx *tcontext.TransferMetadata, sboms iterator.SBOMIterator) error {
+func (i *InterlynkAdapter) uploadSequential(ctx tcontext.TransferMetadata, sboms iterator.SBOMIterator) error {
 	logger.LogDebug(ctx.Context, "Uploading SBOMs in sequential mode")
 
 	// Initialize Interlynk API client
@@ -180,7 +180,7 @@ func (i *InterlynkAdapter) uploadSequential(ctx *tcontext.TransferMetadata, sbom
 	totalSBOMs := 0
 	successfullyUploaded := 0
 	for {
-		sbom, err := sboms.Next(ctx.Context)
+		sbom, err := sboms.Next(ctx)
 		if err == io.EOF {
 			logger.LogInfo(ctx.Context, "All SBOMs uploaded successfully, no more SBOMs left")
 			logger.LogInfo(ctx.Context, "Total SBOMs", "count", totalSBOMs)
@@ -221,7 +221,7 @@ func (i *InterlynkAdapter) uploadSequential(ctx *tcontext.TransferMetadata, sbom
 }
 
 // DryRunUpload simulates SBOM upload to Interlynk without actual data transfer.
-func (i *InterlynkAdapter) DryRun(ctx *tcontext.TransferMetadata, sbomIterator iterator.SBOMIterator) error {
+func (i *InterlynkAdapter) DryRun(ctx tcontext.TransferMetadata, sbomIterator iterator.SBOMIterator) error {
 	logger.LogDebug(ctx.Context, "🔄 Dry-Run Mode: Simulating Upload to Interlynk...")
 
 	// Step 1: Validate Interlynk Connection
@@ -239,7 +239,7 @@ func (i *InterlynkAdapter) DryRun(ctx *tcontext.TransferMetadata, sbomIterator i
 	uniqueFormats := make(map[string]struct{})
 
 	for {
-		sbom, err := sbomIterator.Next(ctx.Context)
+		sbom, err := sbomIterator.Next(ctx)
 		if err == io.EOF {
 			break
 		}

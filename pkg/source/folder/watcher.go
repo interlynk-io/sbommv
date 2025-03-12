@@ -35,7 +35,7 @@ func NewWatcherFetcher() *WatcherFetcher {
 	return &WatcherFetcher{}
 }
 
-func (f *WatcherFetcher) Fetch(ctx *tcontext.TransferMetadata, config *FolderConfig) (iterator.SBOMIterator, error) {
+func (f *WatcherFetcher) Fetch(ctx tcontext.TransferMetadata, config *FolderConfig) (iterator.SBOMIterator, error) {
 	logger.LogDebug(ctx.Context, "Starting folder watcher", "path", config.FolderPath, "recurssive", config.ProcessingMode)
 
 	// Create new watcher.
@@ -122,19 +122,3 @@ func (f *WatcherFetcher) Fetch(ctx *tcontext.TransferMetadata, config *FolderCon
 
 	return &WatcherIterator{sbomChan: sbomChan}, nil
 }
-
-// type WatcherIterator struct {
-// 	sbomChan chan *iterator.SBOM
-// }
-
-// func (it *WatcherIterator) Next(ctx context.Context) (*iterator.SBOM, error) {
-// 	select {
-// 	case sbom, ok := <-it.sbomChan:
-// 		if !ok {
-// 			return nil, fmt.Errorf("watcher channel closed")
-// 		}
-// 		return sbom, nil
-// 	case <-ctx.Done():
-// 		return nil, ctx.Err()
-// 	}
-// }

@@ -15,7 +15,6 @@
 package folder
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -23,6 +22,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/interlynk-io/sbommv/pkg/iterator"
 	"github.com/interlynk-io/sbommv/pkg/logger"
+	"github.com/interlynk-io/sbommv/pkg/tcontext"
 )
 
 type FolderOutputReporter struct {
@@ -33,8 +33,8 @@ func NewFolderOutputReporter(folderPath string) *FolderOutputReporter {
 	return &FolderOutputReporter{folderPath: folderPath}
 }
 
-func (r *FolderOutputReporter) DryRun(ctx context.Context, iter iterator.SBOMIterator) error {
-	logger.LogDebug(ctx, "Dry-run mode: Displaying SBOMs for folder output")
+func (r *FolderOutputReporter) DryRun(ctx tcontext.TransferMetadata, iter iterator.SBOMIterator) error {
+	logger.LogDebug(ctx.Context, "Dry-run mode: Displaying SBOMs for folder output")
 	fmt.Println("\n📦 **Folder Output Adapter Dry-Run**")
 	sbomCount := 0
 
@@ -44,7 +44,7 @@ func (r *FolderOutputReporter) DryRun(ctx context.Context, iter iterator.SBOMIte
 			break
 		}
 		if err != nil {
-			logger.LogError(ctx, err, "Error retrieving SBOM from iterator")
+			logger.LogError(ctx.Context, err, "Error retrieving SBOM from iterator")
 			return err
 		}
 
@@ -63,6 +63,6 @@ func (r *FolderOutputReporter) DryRun(ctx context.Context, iter iterator.SBOMIte
 	}
 
 	fmt.Printf("\n📊 Total SBOMs to be stored: %d\n", sbomCount)
-	logger.LogDebug(ctx, "Dry-run completed", "total_sboms", sbomCount)
+	logger.LogDebug(ctx.Context, "Dry-run completed", "total_sboms", sbomCount)
 	return nil
 }
