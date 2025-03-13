@@ -16,6 +16,7 @@
 package iterator
 
 import (
+	"context"
 	"io"
 
 	"github.com/interlynk-io/sbommv/pkg/converter"
@@ -77,12 +78,20 @@ func NewConvertedIterator(inner SBOMIterator, targetFormat converter.FormatSpec)
 func (ci *ConvertedIterator) Next(ctx tcontext.TransferMetadata) (*SBOM, error) {
 	sbom, err := ci.inner.Next(ctx)
 	if err != nil {
+		if err == io.EOF {
+			return nil, io.EOF // EOF for one-time mode
+		}
+		if err == context.Canceled || err == context.DeadlineExceeded {
+			logger.LogDebug(ctx.Context, "Iterator stopped due to context cancellation")
+			return nil, err // Exit for daemon mode
+		}
+		logger.LogInfo(ctx.Context, "Error retrieving SBOM from inner iterator", "error", err)
 		return nil, err
 	}
 	convertedData, err := converter.ConvertSBOM(ctx, sbom.Data, ci.targetFormat)
 	if err != nil {
 		logger.LogInfo(ctx.Context, "Failed to convert SBOM", "file", sbom.Path, "error", err)
-		return sbom, nil // Fallback to original on error
+		return sbom, nil
 	}
 	sbom.Data = convertedData
 	return sbom, nil

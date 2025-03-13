@@ -486,7 +486,6 @@ func (g *GitHubAdapter) fetchSBOMsConcurrently(ctx tcontext.TransferMetadata, re
 // fetchSBOMsSequentially: fetch SBOMs from repositories one at a time
 func (g *GitHubAdapter) fetchSBOMsSequentially(ctx tcontext.TransferMetadata, repos []string) (iterator.SBOMIterator, error) {
 	logger.LogDebug(ctx.Context, "Fetching SBOMs sequentially")
-	fmt.Println("Fetching SBOMs sequentially")
 
 	var sbomList []*iterator.SBOM
 	giter := &GitHubIterator{client: g.client}
@@ -517,7 +516,6 @@ func (g *GitHubAdapter) fetchSBOMsSequentially(ctx tcontext.TransferMetadata, re
 				logger.LogInfo(ctx.Context, "Failed to fetch SBOMs from Release Method for", "repo", repo)
 				continue
 			}
-			fmt.Println("releaseSBOMs: ", len(releaseSBOMs))
 			sbomList = append(sbomList, releaseSBOMs...)
 
 		case MethodTool:
@@ -538,8 +536,6 @@ func (g *GitHubAdapter) fetchSBOMsSequentially(ctx tcontext.TransferMetadata, re
 	if len(sbomList) == 0 {
 		return nil, fmt.Errorf("no SBOMs found for any repository")
 	}
-
-	fmt.Println("finalSbomList: ", len(sbomList))
 
 	return &GitHubIterator{
 		sboms: sbomList,

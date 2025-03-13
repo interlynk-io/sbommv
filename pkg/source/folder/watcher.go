@@ -17,7 +17,6 @@ package folder
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 
@@ -81,12 +80,12 @@ func (f *WatcherFetcher) Fetch(ctx tcontext.TransferMetadata, config *FolderConf
 					close(sbomChan)
 					return
 				}
-				log.Println("event:", event)
-				// if event.Has(fsnotify.Write) {
-				// 	log.Println("modified file:", event.Name)
-				// }
+				logger.LogDebug(ctx.Context, "Event Triggered", "name", event)
+				if event.Has(fsnotify.Write) {
+					logger.LogInfo(ctx.Context, "Event Triggered", "name", event)
+				}
 
-				if event.Op&(fsnotify.Create|fsnotify.Write) != 0 && source.IsSBOMFile(event.Name) {
+				if event.Op&(fsnotify.Write) != 0 && source.IsSBOMFile(event.Name) {
 					content, err := os.ReadFile(event.Name)
 					if err != nil {
 						logger.LogError(ctx.Context, err, "Failed to read SBOM", "path", event.Name)
