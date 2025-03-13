@@ -57,11 +57,11 @@ func (u *SequentialUploader) Upload(ctx tcontext.TransferMetadata, config *Folde
 			return err
 		}
 
-		namespace := filepath.Base(sbom.Namespace)
-		if namespace == "" {
-			namespace = fmt.Sprintf("sbom_%s.json", uuid.New().String())
+		outputDir := config.FolderPath
+		if outputDir == "" {
+			outputDir = sbom.Namespace
 		}
-		outputDir := filepath.Join(config.FolderPath, namespace)
+
 		if err := os.MkdirAll(outputDir, 0o755); err != nil {
 			logger.LogError(ctx.Context, err, "Failed to create folder", "path", outputDir)
 			return err

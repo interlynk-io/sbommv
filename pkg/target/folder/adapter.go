@@ -76,12 +76,12 @@ func (f *FolderAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 
 	// Validate required flags
 	if len(missingFlags) > 0 {
-		return fmt.Errorf("missing input adapter required flags: %v\n\nUse 'sbommv transfer --help' for usage details.", missingFlags)
+		return fmt.Errorf("missing output adapter required flags: %v\n\nUse 'sbommv transfer --help' for usage details.", missingFlags)
 	}
 
 	// Validate incorrect flag usage
 	if len(invalidFlags) > 0 {
-		return fmt.Errorf("invalid input adapter flag usage:\n %s\n\nUse 'sbommv transfer --help' for correct usage.", strings.Join(invalidFlags, "\n "))
+		return fmt.Errorf("invalid output adapter flag usage:\n %s\n\nUse 'sbommv transfer --help' for correct usage.", strings.Join(invalidFlags, "\n "))
 	}
 
 	cfg := FolderConfig{
