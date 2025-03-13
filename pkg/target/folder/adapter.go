@@ -95,18 +95,18 @@ func (f *FolderAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 }
 
 // FetchSBOMs retrieves SBOMs lazily
-func (i *FolderAdapter) FetchSBOMs(ctx *tcontext.TransferMetadata) (iterator.SBOMIterator, error) {
+func (i *FolderAdapter) FetchSBOMs(ctx tcontext.TransferMetadata) (iterator.SBOMIterator, error) {
 	return nil, fmt.Errorf("Folder adapter does not support SBOM Fetching")
 }
 
 // UploadSBOMs writes SBOMs to the output folder
-func (f *FolderAdapter) UploadSBOMs(ctx *tcontext.TransferMetadata, iter iterator.SBOMIterator) error {
+func (f *FolderAdapter) UploadSBOMs(ctx tcontext.TransferMetadata, iter iterator.SBOMIterator) error {
 	logger.LogDebug(ctx.Context, "Starting SBOM upload", "mode", f.config.Settings.ProcessingMode)
 	return f.Uploader.Upload(ctx, f.config, iter)
 }
 
 // DryRun for Output Adapter: Simulates writing SBOMs to a folder
-func (f *FolderAdapter) DryRun(ctx *tcontext.TransferMetadata, iter iterator.SBOMIterator) error {
+func (f *FolderAdapter) DryRun(ctx tcontext.TransferMetadata, iter iterator.SBOMIterator) error {
 	reporter := NewFolderOutputReporter(f.config.FolderPath)
-	return reporter.DryRun(ctx.Context, iter)
+	return reporter.DryRun(ctx, iter)
 }

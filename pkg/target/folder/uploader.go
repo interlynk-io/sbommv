@@ -28,7 +28,7 @@ import (
 )
 
 type SBOMUploader interface {
-	Upload(ctx *tcontext.TransferMetadata, config *FolderConfig, iter iterator.SBOMIterator) error
+	Upload(ctx tcontext.TransferMetadata, config *FolderConfig, iter iterator.SBOMIterator) error
 }
 
 var uploaderFactory = map[types.UploadMode]SBOMUploader{
@@ -38,13 +38,13 @@ var uploaderFactory = map[types.UploadMode]SBOMUploader{
 
 type SequentialUploader struct{}
 
-func (u *SequentialUploader) Upload(ctx *tcontext.TransferMetadata, config *FolderConfig, iter iterator.SBOMIterator) error {
+func (u *SequentialUploader) Upload(ctx tcontext.TransferMetadata, config *FolderConfig, iter iterator.SBOMIterator) error {
 	logger.LogDebug(ctx.Context, "Writing SBOMs sequentially", "folder", config.FolderPath)
 	totalSBOMs := 0
 	successfullyUploaded := 0
 
 	for {
-		sbom, err := iter.Next(ctx.Context)
+		sbom, err := iter.Next(ctx)
 		if err == io.EOF {
 			logger.LogInfo(ctx.Context, "All SBOMs successfully saved to provided directory")
 			logger.LogInfo(ctx.Context, "Total SBOMs", "count", totalSBOMs)

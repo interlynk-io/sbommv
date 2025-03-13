@@ -100,7 +100,7 @@ func NewClient(g *GitHubAdapter) *Client {
 // FindSBOMs gets all releases assets from github release page
 // filter out the particular provided release asset and
 // extract SBOMs from that
-func (c *Client) FindSBOMs(ctx *tcontext.TransferMetadata) ([]SBOMAsset, error) {
+func (c *Client) FindSBOMs(ctx tcontext.TransferMetadata) ([]SBOMAsset, error) {
 	logger.LogDebug(ctx.Context, "Fetching SBOMs from GitHub releases", "repo_url", c.RepoURL, "owner", c.Owner, "repo", c.Repo)
 
 	releases, err := c.GetReleases(ctx, c.Owner, c.Repo)
@@ -170,7 +170,7 @@ func (c *Client) extractSBOMs(releases []Release) []SBOMAsset {
 }
 
 // GetReleases fetches all releases for a repository
-func (c *Client) GetReleases(ctx *tcontext.TransferMetadata, owner, repo string) ([]Release, error) {
+func (c *Client) GetReleases(ctx tcontext.TransferMetadata, owner, repo string) ([]Release, error) {
 	url := fmt.Sprintf("%s/repos/%s/%s/releases", c.BaseURL, owner, repo)
 	logger.LogDebug(ctx.Context, "Constructed GitHub Releases", "url", url)
 
@@ -229,7 +229,7 @@ func (c *Client) GetReleases(ctx *tcontext.TransferMetadata, owner, repo string)
 }
 
 // DownloadAsset downloads a release asset from download url of SBOM
-func (c *Client) DownloadAsset(ctx *tcontext.TransferMetadata, downloadURL string) (io.ReadCloser, error) {
+func (c *Client) DownloadAsset(ctx tcontext.TransferMetadata, downloadURL string) (io.ReadCloser, error) {
 	req, err := http.NewRequestWithContext(ctx.Context, "GET", downloadURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("creating request failed: %w", err)
@@ -249,7 +249,7 @@ func (c *Client) DownloadAsset(ctx *tcontext.TransferMetadata, downloadURL strin
 }
 
 // GetSBOMs downloads and saves all SBOM files found in the repository
-func (c *Client) FetchSBOMFromReleases(ctx *tcontext.TransferMetadata) (VersionedSBOMs, error) {
+func (c *Client) FetchSBOMFromReleases(ctx tcontext.TransferMetadata) (VersionedSBOMs, error) {
 	logger.LogDebug(ctx.Context, "Initializing fetching of SBOMs from repo", "repository", c.Repo, "version", c.Version)
 	// Find SBOMs in releases
 	sboms, err := c.FindSBOMs(ctx)
@@ -267,7 +267,7 @@ func (c *Client) FetchSBOMFromReleases(ctx *tcontext.TransferMetadata) (Versione
 }
 
 // downloadSBOMs handles the concurrent downloading of multiple SBOM files
-func (c *Client) downloadSBOMs(ctx *tcontext.TransferMetadata, sboms []SBOMAsset) (VersionedSBOMs, error) {
+func (c *Client) downloadSBOMs(ctx tcontext.TransferMetadata, sboms []SBOMAsset) (VersionedSBOMs, error) {
 	var (
 		wg             sync.WaitGroup                        // Coordinates all goroutines
 		mu             sync.Mutex                            // Protects shared resources
@@ -329,7 +329,7 @@ func (c *Client) downloadSBOMs(ctx *tcontext.TransferMetadata, sboms []SBOMAsset
 }
 
 // downloadSingleSBOM downloads a single SBOM and stores it in memory
-func (c *Client) downloadSingleSBOM(ctx *tcontext.TransferMetadata, sbom SBOMAsset) ([]byte, error) {
+func (c *Client) downloadSingleSBOM(ctx tcontext.TransferMetadata, sbom SBOMAsset) ([]byte, error) {
 	reader, err := c.DownloadAsset(ctx, sbom.DownloadURL)
 	if err != nil {
 		return nil, fmt.Errorf("downloading asset: %w", err)
@@ -346,7 +346,7 @@ func (c *Client) downloadSingleSBOM(ctx *tcontext.TransferMetadata, sbom SBOMAss
 	return sbomData, nil
 }
 
-func (c *Client) FetchSBOMFromAPI(ctx *tcontext.TransferMetadata) ([]byte, error) {
+func (c *Client) FetchSBOMFromAPI(ctx tcontext.TransferMetadata) ([]byte, error) {
 	owner, repo, err := source.ParseGitHubURL(c.RepoURL)
 	if err != nil {
 		return nil, fmt.Errorf("parsing GitHub URL: %w", err)
@@ -411,7 +411,7 @@ func (c *Client) updateRepo(repo string) {
 	c.RepoURL = fmt.Sprintf("https://github.com/%s/%s", c.Owner, repo)
 }
 
-func (c *Client) GetAllRepositories(ctx *tcontext.TransferMetadata) ([]string, error) {
+func (c *Client) GetAllRepositories(ctx tcontext.TransferMetadata) ([]string, error) {
 	if c.Repo != "" {
 		return []string{c.Repo}, nil
 	}

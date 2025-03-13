@@ -40,17 +40,17 @@ type Adapter interface {
 	ParseAndValidateParams(cmd *cobra.Command) error
 
 	// Fetch SBOMs lazily using iterator
-	FetchSBOMs(ctx *tcontext.TransferMetadata) (iterator.SBOMIterator, error)
+	FetchSBOMs(ctx tcontext.TransferMetadata) (iterator.SBOMIterator, error)
 
 	// Outputs SBOMs (uploading)
-	UploadSBOMs(ctx *tcontext.TransferMetadata, iterator iterator.SBOMIterator) error
+	UploadSBOMs(ctx tcontext.TransferMetadata, iterator iterator.SBOMIterator) error
 
 	// Dry-Run: to be used to display fetched and uploaded SBOMs by input and output adapter respectively.
-	DryRun(ctx *tcontext.TransferMetadata, iterator iterator.SBOMIterator) error
+	DryRun(ctx tcontext.TransferMetadata, iterator iterator.SBOMIterator) error
 }
 
 // NewAdapter initializes and returns the correct adapters (both input & output)
-func NewAdapter(ctx *tcontext.TransferMetadata, config types.Config) (map[types.AdapterRole]Adapter, string, string, error) {
+func NewAdapter(ctx tcontext.TransferMetadata, config types.Config) (map[types.AdapterRole]Adapter, string, string, error) {
 	adapters := make(map[types.AdapterRole]Adapter)
 	var inputAdp, outputAdp string
 
@@ -63,11 +63,11 @@ func NewAdapter(ctx *tcontext.TransferMetadata, config types.Config) (map[types.
 		switch types.AdapterType(config.SourceAdapter) {
 
 		case types.GithubAdapterType:
-			adapters[types.InputAdapterRole] = &github.GitHubAdapter{Role: types.InputAdapterRole, ProcessingMode: processingMode}
+			adapters[types.InputAdapterRole] = &github.GitHubAdapter{Role: types.InputAdapterRole, ProcessingMode: processingMode, Daemon: config.Daemon}
 			inputAdp = "github"
 
 		case types.FolderAdapterType:
-			adapters[types.InputAdapterRole] = &ifolder.FolderAdapter{Role: types.InputAdapterRole, ProcessingMode: processingMode}
+			adapters[types.InputAdapterRole] = &ifolder.FolderAdapter{Role: types.InputAdapterRole, ProcessingMode: processingMode, Config: &ifolder.FolderConfig{Daemon: config.Daemon}}
 			inputAdp = "folder"
 
 		// case types.InterlynkAdapterType:
