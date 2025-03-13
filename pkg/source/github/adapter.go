@@ -287,7 +287,7 @@ func (g *GitHubAdapter) DryRun(ctx tcontext.TransferMetadata, iterator iterator.
 	processor := sbom.NewSBOMProcessor(outputDir, verbose)
 	sbomCount := 0
 	fmt.Println()
-	fmt.Printf("📦 Details of all Fetched SBOMs by Input Adapter\n")
+	fmt.Printf("📦 Details of all Fetched SBOMs by Github Input Adapter\n")
 
 	for {
 

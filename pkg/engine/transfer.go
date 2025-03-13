@@ -93,6 +93,7 @@ func TransferRun(ctx context.Context, cmd *cobra.Command, config types.Config) e
 	if config.DryRun {
 		logger.LogDebug(transferCtx.Context, "Dry-run mode enabled: Displaying retrieved SBOMs", "values", config.DryRun)
 		dryRun(*transferCtx, sbomIterator, inputAdapterInstance, outputAdapterInstance)
+		return nil
 	}
 
 	var convertedIterator iterator.SBOMIterator

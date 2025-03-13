@@ -38,9 +38,9 @@ func NewDependencyTrackReporter(apiURL, projectName string) *DependencyTrackRepo
 
 func (r *DependencyTrackReporter) DryRun(ctx tcontext.TransferMetadata, iter iterator.SBOMIterator) error {
 	logger.LogDebug(ctx.Context, "Dry-run mode: Simulating SBOM upload to Dependency-Track")
-	fmt.Println("\n📦 **Dependency-Track Output Adapter Dry-Run**")
-	fmt.Printf("API Endpoint: %s\n", r.apiURL)
-	fmt.Printf("Target Project: %s\n", r.projectName)
+	fmt.Println("\n📦 Dependency-Track Output Adapter Dry-Run")
+	fmt.Printf("📦 API Endpoint: %s\n", r.apiURL)
+	fmt.Printf("📦 Target Project: %s\n", r.projectName)
 	sbomCount := 0
 
 	processor := sbom.NewSBOMProcessor("", false)
@@ -67,6 +67,6 @@ func (r *DependencyTrackReporter) DryRun(ctx tcontext.TransferMetadata, iter ite
 			projectName, doc.Format, doc.SpecVersion)
 		sbomCount++
 	}
-	fmt.Printf("📊 \nTotal SBOMs to upload: %d\n", sbomCount)
+	fmt.Printf("\n 📊 Total SBOMs to upload: %d\n", sbomCount)
 	return nil
 }
