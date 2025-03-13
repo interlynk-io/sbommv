@@ -182,9 +182,6 @@ func (i *InterlynkAdapter) uploadSequential(ctx tcontext.TransferMetadata, sboms
 	for {
 		sbom, err := sboms.Next(ctx)
 		if err == io.EOF {
-			logger.LogInfo(ctx.Context, "All SBOMs uploaded successfully, no more SBOMs left")
-			logger.LogInfo(ctx.Context, "Total SBOMs", "count", totalSBOMs)
-			logger.LogInfo(ctx.Context, "Successfully Uploaded", "count", successfullyUploaded)
 			break
 		}
 		totalSBOMs++
@@ -199,23 +196,28 @@ func (i *InterlynkAdapter) uploadSequential(ctx tcontext.TransferMetadata, sboms
 		}
 		errorCount = 0 // Reset error counter on successful iteration
 
-		logger.LogDebug(ctx.Context, "Uploading SBOM", "repo", sbom.Namespace, "version", sbom.Version, "data size", len(sbom.Data))
+		logger.LogDebug(ctx.Context, "Uploading SBOM", "file", sbom.Path, "data size", len(sbom.Data))
 
-		projectID, err := client.FindOrCreateProjectGroup(ctx, sbom.Namespace)
+		projectID, projectName, err := client.FindOrCreateProjectGroup(ctx, sbom.Namespace)
 		if err != nil {
 			logger.LogInfo(ctx.Context, "error", err)
 			continue
 		}
+		logger.LogDebug(ctx.Context, "SBOMs uploaded to project", "name", projectName, "id", projectID)
 
 		// Upload SBOM content (stored in memory)
 		err = client.UploadSBOM(ctx, projectID, sbom.Data)
 		if err != nil {
-			logger.LogInfo(ctx.Context, "Failed to upload SBOM", "repo", sbom.Namespace, "version", sbom.Version)
+			logger.LogInfo(ctx.Context, "Failed to upload SBOM", "file", sbom.Path, "project name", projectName)
 		} else {
 			successfullyUploaded++
-			logger.LogDebug(ctx.Context, "Successfully uploaded SBOM", "repo", sbom.Namespace, "version", sbom.Version)
+			logger.LogDebug(ctx.Context, "Successfully uploaded SBOM", "file", sbom.Path, "project name", projectName)
 		}
 	}
+
+	logger.LogInfo(ctx.Context, "All SBOMs uploaded successfully, no more SBOMs left")
+	logger.LogInfo(ctx.Context, "Total SBOMs", "count", totalSBOMs)
+	logger.LogInfo(ctx.Context, "Successfully Uploaded", "count", successfullyUploaded)
 
 	return nil
 }

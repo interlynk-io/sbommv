@@ -72,15 +72,17 @@ func (d *DependencyTrackAdapter) ParseAndValidateParams(cmd *cobra.Command) erro
 	}
 
 	// Extract flags
-	apiURL, _ := cmd.Flags().GetString(urlFlag)
+	apiURL := viper.GetString("DTRACK_API_URL")
 
-	apiURL = viper.GetString("DTRACK_API_URL")
-	// Validate Interlynk URL
-	if !utils.IsValidURL(apiURL) {
-		invalidFlags = append(invalidFlags, fmt.Sprintf("invalid Interlynk API URL format: %s", apiURL))
+	if apiURL == "" {
+		apiURL, _ = cmd.Flags().GetString(urlFlag)
 	}
 
-	// Check if INTERLYNK_SECURITY_TOKEN is set
+	if !utils.IsValidURL(apiURL) {
+		invalidFlags = append(invalidFlags, fmt.Sprintf("invalid DTrack API URL format: %s", apiURL))
+	}
+
+	// Check if DTRACK_API_KEY is set
 	token := viper.GetString("DTRACK_API_KEY")
 	if token == "" {
 		return fmt.Errorf("missing DTRACK_API_KEY: authentication required")

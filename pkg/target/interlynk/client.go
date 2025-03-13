@@ -25,6 +25,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/interlynk-io/sbommv/pkg/logger"
 	"github.com/interlynk-io/sbommv/pkg/tcontext"
 )
 
@@ -91,13 +92,14 @@ func NewClient(config Config) *Client {
 	}
 }
 
-func (c *Client) FindOrCreateProjectGroup(ctx tcontext.TransferMetadata, repoName string) (string, error) {
+func (c *Client) FindOrCreateProjectGroup(ctx tcontext.TransferMetadata, repoName string) (string, string, error) {
 	projectName := ""
 	if c.ProjectName != "" {
 		projectName = c.ProjectName
 	} else {
 		projectName = fmt.Sprintf("%s", repoName)
 	}
+	logger.LogDebug(ctx.Context, "SBOMs will be uploaded to project", "name", projectName)
 
 	env := ""
 	if c.ProjectEnv != "" {
@@ -109,16 +111,16 @@ func (c *Client) FindOrCreateProjectGroup(ctx tcontext.TransferMetadata, repoNam
 	projectID, err := c.FindProjectGroup(ctx, projectName, env)
 	if err != nil {
 		if c.ProjectName != "" {
-			return "", fmt.Errorf("failed to find project: %s or env %s", projectName, env)
+			return "", "", fmt.Errorf("failed to find project: %s or env %s", projectName, env)
 		} else {
 			projectID, err = c.CreateProjectGroup(ctx, projectName, env)
 			if err != nil {
-				return "", fmt.Errorf("failed to create project: %s on env %s ", projectName, env)
+				return "", "", fmt.Errorf("failed to create project: %s on env %s ", projectName, env)
 			}
 		}
 	}
 
-	return projectID, nil
+	return projectID, projectName, nil
 }
 
 // UploadSBOM uploads a single SBOM from memory to Interlynk
