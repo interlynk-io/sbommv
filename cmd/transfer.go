@@ -73,6 +73,9 @@ func init() {
 	// processing mode: sequential or parallel
 	transferCmd.Flags().String("processing-mode", "parallel", "processing strategy (parallel, sequential)")
 
+	// enable daemon mode
+	transferCmd.Flags().BoolP("daemon", "d", false, "enable daemon mode")
+
 	transferCmd.Flags().BoolP("debug", "D", false, "enable debug logging")
 
 	// Manually register adapter flags for each adapter
@@ -134,6 +137,7 @@ func parseConfig(cmd *cobra.Command) (types.Config, error) {
 	outputType, _ := cmd.Flags().GetString("output-adapter")
 	dr, _ := cmd.Flags().GetBool("dry-run")
 	processingMode, _ := cmd.Flags().GetString("processing-mode")
+	daemon, _ := cmd.Flags().GetBool("daemon")
 
 	validInputAdapter := map[string]bool{"github": true, "folder": true}
 	validOutputAdapter := map[string]bool{"interlynk": true, "folder": true, "dtrack": true}
@@ -177,6 +181,7 @@ func parseConfig(cmd *cobra.Command) (types.Config, error) {
 		DestinationAdapter: outputType,
 		DryRun:             dr,
 		ProcessingStrategy: processingMode,
+		Daemon:             daemon,
 	}
 
 	return config, nil

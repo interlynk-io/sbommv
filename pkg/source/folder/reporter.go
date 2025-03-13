@@ -16,13 +16,13 @@
 package folder
 
 import (
-	"context"
 	"fmt"
 	"io"
 
 	"github.com/interlynk-io/sbommv/pkg/iterator"
 	"github.com/interlynk-io/sbommv/pkg/logger"
 	"github.com/interlynk-io/sbommv/pkg/sbom"
+	"github.com/interlynk-io/sbommv/pkg/tcontext"
 )
 
 type FolderReporter struct {
@@ -34,8 +34,8 @@ func NewFolderReporter(verbose bool, outputDir string) *FolderReporter {
 	return &FolderReporter{verbose: verbose, outputDir: outputDir}
 }
 
-func (r *FolderReporter) DryRun(ctx context.Context, iter iterator.SBOMIterator) error {
-	logger.LogDebug(ctx, "Dry-run mode: Displaying SBOMs fetched from folder")
+func (r *FolderReporter) DryRun(ctx tcontext.TransferMetadata, iter iterator.SBOMIterator) error {
+	logger.LogDebug(ctx.Context, "Dry-run mode: Displaying SBOMs fetched from folder")
 	processor := sbom.NewSBOMProcessor(r.outputDir, r.verbose)
 	sbomCount := 0
 	fmt.Println("\n📦 Details of all Fetched SBOMs by Folder Input Adapter")
@@ -46,18 +46,18 @@ func (r *FolderReporter) DryRun(ctx context.Context, iter iterator.SBOMIterator)
 			break
 		}
 		if err != nil {
-			logger.LogError(ctx, err, "Error retrieving SBOM from iterator")
+			logger.LogError(ctx.Context, err, "Error retrieving SBOM from iterator")
 			return err
 		}
 		processor.Update(sbom.Data, "", sbom.Path)
 		doc, err := processor.ProcessSBOMs()
 		if err != nil {
-			logger.LogError(ctx, err, "Failed to process SBOM")
+			logger.LogError(ctx.Context, err, "Failed to process SBOM")
 			return err
 		}
 		if r.outputDir != "" {
 			if err := processor.WriteSBOM(doc, ""); err != nil {
-				logger.LogError(ctx, err, "Failed to write SBOM")
+				logger.LogError(ctx.Context, err, "Failed to write SBOM")
 				return err
 			}
 		}

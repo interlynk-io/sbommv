@@ -11,21 +11,16 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-// -------------------------------------------------------------------------
 
-package folder
+package monitor
 
-import "github.com/interlynk-io/sbommv/pkg/types"
+import (
+	"github.com/interlynk-io/sbommv/pkg/iterator"
+	"github.com/interlynk-io/sbommv/pkg/tcontext"
+)
 
-type FolderConfig struct {
-	FolderPath     string
-	Recursive      bool
-	ProcessingMode types.ProcessingMode
-	Daemon         bool
-}
-
-func NewFolderConfig() *FolderConfig {
-	return &FolderConfig{
-		ProcessingMode: types.FetchSequential, // Default
-	}
+// MonitorAdapter only for input adapter
+type MonitorAdapter interface {
+	// it watches sboms and triggers as soon as the new sbom comes
+	Monitor(ctx tcontext.TransferMetadata) (iterator.SBOMIterator, error)
 }

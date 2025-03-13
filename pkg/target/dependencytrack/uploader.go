@@ -24,7 +24,7 @@ import (
 )
 
 type SBOMUploader interface {
-	Upload(ctx *tcontext.TransferMetadata, config *DependencyTrackConfig, client *DependencyTrackClient, iter iterator.SBOMIterator) error
+	Upload(ctx tcontext.TransferMetadata, config *DependencyTrackConfig, client *DependencyTrackClient, iter iterator.SBOMIterator) error
 }
 
 type SequentialUploader struct {
@@ -38,12 +38,13 @@ func NewSequentialUploader() *SequentialUploader {
 	}
 }
 
-func (u *SequentialUploader) Upload(ctx *tcontext.TransferMetadata, config *DependencyTrackConfig, client *DependencyTrackClient, iter iterator.SBOMIterator) error {
+func (u *SequentialUploader) Upload(ctx tcontext.TransferMetadata, config *DependencyTrackConfig, client *DependencyTrackClient, iter iterator.SBOMIterator) error {
 	logger.LogDebug(ctx.Context, "Uploading SBOMs to Dependency-Track sequentially")
+
 	totalSBOMs := 0
 	successfullyUploaded := 0
 	for {
-		sbom, err := iter.Next(ctx.Context)
+		sbom, err := iter.Next(ctx)
 		if err == io.EOF {
 			logger.LogInfo(ctx.Context, "All SBOMs uploaded successfully, no more SBOMs left")
 			logger.LogInfo(ctx.Context, "Total SBOMs", "count", totalSBOMs)
@@ -73,19 +74,19 @@ func (u *SequentialUploader) Upload(ctx *tcontext.TransferMetadata, config *Depe
 			projectVersion = "latest"
 		}
 
-		u.mu.Lock()
+		// u.mu.Lock()
 		if !u.createdProjects[projectName] {
 
 			// find or create project using project name and project version
 			_, err = client.FindOrCreateProject(ctx, projectName, projectVersion)
 			if err != nil {
 				logger.LogInfo(ctx.Context, "Failed to find or create project", "project", projectName, "error", err)
-				u.mu.Unlock()
+				// u.mu.Unlock()
 				continue
 			}
 			u.createdProjects[projectName] = true
 		}
-		u.mu.Unlock()
+		// u.mu.Unlock()
 
 		// Log SBOM filename before upload
 		logger.LogDebug(ctx.Context, "Iniatializing uploading SBOM file", "file", sbom.Path)
@@ -101,7 +102,7 @@ func (u *SequentialUploader) Upload(ctx *tcontext.TransferMetadata, config *Depe
 	return nil
 }
 
-// ParallelUploader uploads SBOMs to Dependency-Track concurrently.
+// // ParallelUploader uploads SBOMs to Dependency-Track concurrently.
 type ParallelUploader struct {
 	createdProjects map[string]bool
 	mu              sync.Mutex // Protects access to createdProjects.
@@ -115,7 +116,7 @@ func NewParallelUploader() *ParallelUploader {
 }
 
 // Upload implements the SBOMUploader interface for ParallelUploader.
-func (u *ParallelUploader) Upload(ctx *tcontext.TransferMetadata, config *DependencyTrackConfig, client *DependencyTrackClient, iter iterator.SBOMIterator) error {
+func (u *ParallelUploader) Upload(ctx tcontext.TransferMetadata, config *DependencyTrackConfig, client *DependencyTrackClient, iter iterator.SBOMIterator) error {
 	logger.LogDebug(ctx.Context, "Uploading SBOMs to Dependency-Track in parallel mode")
 
 	sbomChan := make(chan *iterator.SBOM, 100)
@@ -124,7 +125,7 @@ func (u *ParallelUploader) Upload(ctx *tcontext.TransferMetadata, config *Depend
 	// multiple goroutines will read SBOMs from the iterator.
 	go func() {
 		for {
-			sbom, err := iter.Next(ctx.Context)
+			sbom, err := iter.Next(ctx)
 			if err == io.EOF {
 				logger.LogInfo(ctx.Context, "All SBOMs uploaded successfully, no more SBOMs left")
 				logger.LogInfo(ctx.Context, "Total SBOMs", "count", totalSBOMs)
