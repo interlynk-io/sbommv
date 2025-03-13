@@ -46,9 +46,9 @@ func (u *SequentialUploader) Upload(ctx *tcontext.TransferMetadata, config *Fold
 	for {
 		sbom, err := iter.Next(ctx.Context)
 		if err == io.EOF {
-			logger.LogInfo(ctx.Context, "All SBOMs uploaded successfully, no more SBOMs left")
+			logger.LogInfo(ctx.Context, "All SBOMs successfully saved to provided directory")
 			logger.LogInfo(ctx.Context, "Total SBOMs", "count", totalSBOMs)
-			logger.LogInfo(ctx.Context, "Successfully Uploaded", "count", successfullyUploaded)
+			logger.LogInfo(ctx.Context, "Successfully saved", "count", successfullyUploaded)
 			break
 		}
 		totalSBOMs++
@@ -57,11 +57,11 @@ func (u *SequentialUploader) Upload(ctx *tcontext.TransferMetadata, config *Fold
 			return err
 		}
 
-		namespace := filepath.Base(sbom.Namespace)
-		if namespace == "" {
-			namespace = fmt.Sprintf("sbom_%s.json", uuid.New().String())
+		outputDir := config.FolderPath
+		if outputDir == "" {
+			outputDir = sbom.Namespace
 		}
-		outputDir := filepath.Join(config.FolderPath, namespace)
+
 		if err := os.MkdirAll(outputDir, 0o755); err != nil {
 			logger.LogError(ctx.Context, err, "Failed to create folder", "path", outputDir)
 			return err
