@@ -425,15 +425,15 @@ func (g *GitHubAdapter) fetchSBOMsConcurrently(ctx tcontext.TransferMetadata, re
 
 					case MethodAPI:
 						repoSboms, err = iter.fetchSBOMFromAPI(ctx)
-						logger.LogDebug(ctx.Context, "Total SBOM detched from API method", "count", len(repoSboms), "repo", repo)
+						logger.LogDebug(ctx.Context, "Total SBOM fetched from API method", "count", len(repoSboms), "repo", repo)
 
 					case MethodReleases:
 						repoSboms, err = iter.fetchSBOMFromReleases(ctx)
-						logger.LogDebug(ctx.Context, "Total SBOM detched from release method", "count", len(repoSboms), "repo", repo)
+						logger.LogDebug(ctx.Context, "Total SBOM fetched from release method", "count", len(repoSboms), "repo", repo)
 
 					case MethodTool:
 						repoSboms, err = iter.fetchSBOMFromTool(ctx)
-						logger.LogDebug(ctx.Context, "Total SBOM detched from release", "count", len(repoSboms), "repo", repo)
+						logger.LogDebug(ctx.Context, "Total SBOM fetched from release", "count", len(repoSboms), "repo", repo)
 
 					default:
 						logger.LogInfo(ctx.Context, "Unsupported method", "repo", repo, "method", g.Method)

@@ -46,9 +46,6 @@ func (u *SequentialUploader) Upload(ctx tcontext.TransferMetadata, config *Folde
 	for {
 		sbom, err := iter.Next(ctx)
 		if err == io.EOF {
-			logger.LogInfo(ctx.Context, "All SBOMs successfully saved to provided directory")
-			logger.LogInfo(ctx.Context, "Total SBOMs", "count", totalSBOMs)
-			logger.LogInfo(ctx.Context, "Successfully saved", "count", successfullyUploaded)
 			break
 		}
 		totalSBOMs++
@@ -56,7 +53,6 @@ func (u *SequentialUploader) Upload(ctx tcontext.TransferMetadata, config *Folde
 			logger.LogError(ctx.Context, err, "Error retrieving SBOM from iterator")
 			return err
 		}
-
 		outputDir := config.FolderPath
 		if outputDir == "" {
 			outputDir = sbom.Namespace
@@ -77,5 +73,10 @@ func (u *SequentialUploader) Upload(ctx tcontext.TransferMetadata, config *Folde
 		successfullyUploaded++
 		logger.LogDebug(ctx.Context, "Successfully written SBOM", "path", outputFile)
 	}
+
+	logger.LogInfo(ctx.Context, "All SBOMs uploaded successfully, no more SBOMs left")
+	logger.LogInfo(ctx.Context, "Total SBOMs", "count", totalSBOMs)
+	logger.LogInfo(ctx.Context, "Successfully Uploaded", "count", successfullyUploaded)
+
 	return nil
 }

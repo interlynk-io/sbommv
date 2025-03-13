@@ -46,9 +46,6 @@ func (u *SequentialUploader) Upload(ctx tcontext.TransferMetadata, config *Depen
 	for {
 		sbom, err := iter.Next(ctx)
 		if err == io.EOF {
-			logger.LogInfo(ctx.Context, "All SBOMs uploaded successfully, no more SBOMs left")
-			logger.LogInfo(ctx.Context, "Total SBOMs", "count", totalSBOMs)
-			logger.LogInfo(ctx.Context, "Successfully Uploaded", "count", successfullyUploaded)
 			break
 		}
 		totalSBOMs++
@@ -99,6 +96,9 @@ func (u *SequentialUploader) Upload(ctx tcontext.TransferMetadata, config *Depen
 		successfullyUploaded++
 		logger.LogDebug(ctx.Context, "Successfully uploaded SBOM file", "file", sbom.Path)
 	}
+	logger.LogInfo(ctx.Context, "All SBOMs uploaded successfully, no more SBOMs left")
+	logger.LogInfo(ctx.Context, "Total SBOMs", "count", totalSBOMs)
+	logger.LogInfo(ctx.Context, "Successfully Uploaded", "count", successfullyUploaded)
 	return nil
 }
 
@@ -127,9 +127,6 @@ func (u *ParallelUploader) Upload(ctx tcontext.TransferMetadata, config *Depende
 		for {
 			sbom, err := iter.Next(ctx)
 			if err == io.EOF {
-				logger.LogInfo(ctx.Context, "All SBOMs uploaded successfully, no more SBOMs left")
-				logger.LogInfo(ctx.Context, "Total SBOMs", "count", totalSBOMs)
-				logger.LogInfo(ctx.Context, "Successfully Uploaded", "count", successfullyUploaded)
 				break
 			}
 			totalSBOMs++
@@ -197,5 +194,8 @@ func (u *ParallelUploader) Upload(ctx tcontext.TransferMetadata, config *Depende
 
 	// wait for all workers to complete.
 	wg.Wait()
+	logger.LogInfo(ctx.Context, "All SBOMs uploaded successfully, no more SBOMs left")
+	logger.LogInfo(ctx.Context, "Total SBOMs", "count", totalSBOMs)
+	logger.LogInfo(ctx.Context, "Successfully Uploaded", "count", successfullyUploaded)
 	return nil
 }
