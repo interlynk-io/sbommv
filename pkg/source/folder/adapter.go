@@ -91,10 +91,8 @@ func (f *FolderAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 		// daemon fether initialized
 		fetcher = NewWatcherFetcher()
 	} else if f.Config.ProcessingMode == types.FetchSequential {
-		fmt.Println("Sequential MODE")
 		fetcher = &SequentialFetcher{}
 	} else if f.Config.ProcessingMode == types.FetchParallel {
-		fmt.Println("Parallel MODE")
 		fetcher = &ParallelFetcher{}
 	}
 
