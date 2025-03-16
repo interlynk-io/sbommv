@@ -59,9 +59,9 @@ func (r *DependencyTrackReporter) DryRun(ctx tcontext.TransferMetadata, iter ite
 			logger.LogError(ctx.Context, err, "Failed to process SBOM")
 			return err
 		}
-		projectName := sbom.Namespace
+		projectName := r.projectName
 		if projectName == "" {
-			projectName = "unnamed_project" // Fallback for dry-run clarity
+			projectName = sbom.Namespace
 		}
 		fmt.Printf("- 📁 Would upload to project '%s' | Format: %s | SpecVersion: %s\n",
 			projectName, doc.Format, doc.SpecVersion)

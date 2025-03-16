@@ -264,7 +264,11 @@ func (i *InterlynkAdapter) DryRun(ctx tcontext.TransferMetadata, sbomIterator it
 		}
 
 		// Identify project name (repo-version)
-		projectKey := fmt.Sprintf("%s", sbom.Namespace)
+		projectName := i.ProjectName
+		if projectName == "" {
+			projectName = sbom.Namespace
+		}
+		projectKey := fmt.Sprintf("%s", projectName)
 		projectSBOMs[projectKey] = append(projectSBOMs[projectKey], doc)
 		totalSBOMs++
 		uniqueFormats[string(doc.Format)] = struct{}{}
@@ -281,7 +285,7 @@ func (i *InterlynkAdapter) DryRun(ctx tcontext.TransferMetadata, sbomIterator it
 
 	// Step 5: Print Project Details
 	for project, sboms := range projectSBOMs {
-		fmt.Printf("📌 **Project: %s** → %d SBOMs\n", project, len(sboms))
+		fmt.Printf("📌 Project: %s → %d SBOMs\n", project, len(sboms))
 		for _, doc := range sboms {
 			fmt.Printf("   - 📁  | Format: %s | SpecVersion: %s | Size: %d KB | Filename: %s\n",
 				doc.Format, doc.SpecVersion, len(doc.Content)/1024, doc.Filename)
