@@ -18,14 +18,14 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/interlynk-io/sbommv/pkg/logger"
 	"github.com/interlynk-io/sbommv/pkg/types"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
 
 // FlagValidation validates that each adapter should contain flag of respective adapters only
-func FlagValidation(cmd *cobra.Command, adapter types.AdapterType, adapterPrefix types.FlagPrefix) {
+func FlagValidation(cmd *cobra.Command, adapter types.AdapterType, adapterPrefix types.FlagPrefix) error {
+	var err error
 	cmd.Flags().Visit(func(f *pflag.Flag) {
 		// out-
 		flagPrefix := fmt.Sprintf("%s"+"-", string(adapterPrefix))
@@ -36,8 +36,9 @@ func FlagValidation(cmd *cobra.Command, adapter types.AdapterType, adapterPrefix
 		// f.Name: out-interlynk-url
 
 		if strings.HasPrefix(f.Name, flagPrefix) && !strings.HasPrefix(f.Name, flagType) {
-			logger.LogError(cmd.Context(), fmt.Errorf("invalid flag for input adapter 'github': %s", f.Name), "flag", f.Name)
-			panic(fmt.Sprintf("Error: flag --%s is invalid for input adapter %s", f.Name, string(adapter)))
+			// logger.LogError(cmd.Context(), fmt.Errorf("invalid flag for %s adapter 'github': %s", string(adapterPrefix)+"put", f.Name), "flag", f.Name)
+			err = fmt.Errorf("Error: flag --%s is invalid for %s adapter %s", f.Name, string(adapterPrefix)+"put", string(adapter))
 		}
 	})
+	return err
 }

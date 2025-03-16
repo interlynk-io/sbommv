@@ -71,7 +71,7 @@ func init() {
 	transferCmd.Flags().BoolP("dry-run", "", false, "enable dry run mode")
 
 	// processing mode: sequential or parallel
-	transferCmd.Flags().String("processing-mode", "parallel", "processing strategy (parallel, sequential)")
+	transferCmd.Flags().String("processing-mode", "sequential", "processing strategy (parallel, sequential)")
 
 	// enable daemon mode
 	transferCmd.Flags().BoolP("daemon", "d", false, "enable daemon mode")

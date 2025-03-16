@@ -71,6 +71,11 @@ func (d *DependencyTrackAdapter) ParseAndValidateParams(cmd *cobra.Command) erro
 		return fmt.Errorf("The adapter is neither an input type nor an output type")
 	}
 
+	err := utils.FlagValidation(cmd, types.DtrackAdapterType, types.OutputAdapterFlagPrefix)
+	if err != nil {
+		return fmt.Errorf("dtrack flag validation failed: %w", err)
+	}
+
 	// Extract flags
 	apiURL := viper.GetString("DTRACK_API_URL")
 
@@ -89,6 +94,11 @@ func (d *DependencyTrackAdapter) ParseAndValidateParams(cmd *cobra.Command) erro
 	}
 	projectName, _ := cmd.Flags().GetString(projectNameFlag)
 	projectVersion, _ := cmd.Flags().GetString(projectVersionFlag)
+
+	// Validate DTrack connectivity before proceeding
+	if err := ValidateDTrackConnection(apiURL, token); err != nil {
+		return fmt.Errorf("DTrack API %s validation failed: %w", apiURL, err)
+	}
 
 	// Check missing flags
 	if len(missingFlags) > 0 {

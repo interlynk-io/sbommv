@@ -67,7 +67,7 @@ func NewAdapter(ctx tcontext.TransferMetadata, config types.Config) (map[types.A
 			inputAdp = "github"
 
 		case types.FolderAdapterType:
-			adapters[types.InputAdapterRole] = &ifolder.FolderAdapter{Role: types.InputAdapterRole, ProcessingMode: processingMode, Config: &ifolder.FolderConfig{Daemon: config.Daemon}}
+			adapters[types.InputAdapterRole] = &ifolder.FolderAdapter{Role: types.InputAdapterRole, Config: &ifolder.FolderConfig{ProcessingMode: processingMode, Daemon: config.Daemon}}
 			inputAdp = "folder"
 
 		// case types.InterlynkAdapterType:

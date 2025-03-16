@@ -74,7 +74,10 @@ func (i *InterlynkAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 	}
 
 	// validate flags for respective adapters
-	utils.FlagValidation(cmd, types.InterlynkAdapterType, types.OutputAdapterFlagPrefix)
+	err := utils.FlagValidation(cmd, types.InterlynkAdapterType, types.OutputAdapterFlagPrefix)
+	if err != nil {
+		return fmt.Errorf("interlynk flag validation failed: authentication required")
+	}
 
 	// Get flags
 	url, _ := cmd.Flags().GetString(urlFlag)
@@ -229,7 +232,7 @@ func (i *InterlynkAdapter) DryRun(ctx tcontext.TransferMetadata, sbomIterator it
 	// Step 1: Validate Interlynk Connection
 	err := ValidateInterlynkConnection(i.BaseURL, i.ApiKey)
 	if err != nil {
-		return fmt.Errorf("interlynk validation failed: %w", err)
+		return fmt.Errorf("interlynk flag validation failed: %w", err)
 	}
 
 	// Step 2: Initialize SBOM Processor
@@ -261,7 +264,11 @@ func (i *InterlynkAdapter) DryRun(ctx tcontext.TransferMetadata, sbomIterator it
 		}
 
 		// Identify project name (repo-version)
-		projectKey := fmt.Sprintf("%s", sbom.Namespace)
+		projectName := i.ProjectName
+		if projectName == "" {
+			projectName = sbom.Namespace
+		}
+		projectKey := fmt.Sprintf("%s", projectName)
 		projectSBOMs[projectKey] = append(projectSBOMs[projectKey], doc)
 		totalSBOMs++
 		uniqueFormats[string(doc.Format)] = struct{}{}
@@ -278,7 +285,7 @@ func (i *InterlynkAdapter) DryRun(ctx tcontext.TransferMetadata, sbomIterator it
 
 	// Step 5: Print Project Details
 	for project, sboms := range projectSBOMs {
-		fmt.Printf("📌 **Project: %s** → %d SBOMs\n", project, len(sboms))
+		fmt.Printf("📌 Project: %s → %d SBOMs\n", project, len(sboms))
 		for _, doc := range sboms {
 			fmt.Printf("   - 📁  | Format: %s | SpecVersion: %s | Size: %d KB | Filename: %s\n",
 				doc.Format, doc.SpecVersion, len(doc.Content)/1024, doc.Filename)

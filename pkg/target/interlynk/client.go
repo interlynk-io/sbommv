@@ -93,30 +93,23 @@ func NewClient(config Config) *Client {
 }
 
 func (c *Client) FindOrCreateProjectGroup(ctx tcontext.TransferMetadata, repoName string) (string, string, error) {
-	projectName := ""
-	if c.ProjectName != "" {
-		projectName = c.ProjectName
-	} else {
+	projectName := c.ProjectName
+	if projectName == "" {
 		projectName = fmt.Sprintf("%s", repoName)
 	}
 	logger.LogDebug(ctx.Context, "SBOMs will be uploaded to project", "name", projectName)
 
-	env := ""
-	if c.ProjectEnv != "" {
-		env = c.ProjectEnv
-	} else {
+	env := c.ProjectEnv
+	if env != "" {
 		env = "default"
 	}
 
 	projectID, err := c.FindProjectGroup(ctx, projectName, env)
 	if err != nil {
-		if c.ProjectName != "" {
-			return "", "", fmt.Errorf("failed to find project: %s or env %s", projectName, env)
-		} else {
-			projectID, err = c.CreateProjectGroup(ctx, projectName, env)
-			if err != nil {
-				return "", "", fmt.Errorf("failed to create project: %s on env %s ", projectName, env)
-			}
+		// create project if the project is not present in the interlynk
+		projectID, err = c.CreateProjectGroup(ctx, projectName, env)
+		if err != nil {
+			return "", "", fmt.Errorf("failed to create project: %s on env %s ", projectName, env)
 		}
 	}
 

@@ -60,8 +60,10 @@ func (f *FolderAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 	}
 
 	// validate flags for respective adapters
-	utils.FlagValidation(cmd, types.FolderAdapterType, types.OutputAdapterFlagPrefix)
-
+	err := utils.FlagValidation(cmd, types.FolderAdapterType, types.OutputAdapterFlagPrefix)
+	if err != nil {
+		return fmt.Errorf("dtrack flag validation failed: %w", err)
+	}
 	// Extract Folder Path
 	folderPath, _ := cmd.Flags().GetString(pathFlag)
 	if folderPath == "" {
