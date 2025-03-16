@@ -72,6 +72,8 @@ func (f *SequentialFetcher) Fetch(ctx tcontext.TransferMetadata, config *FolderC
 				Path:      fileName,
 				Namespace: primaryComp,
 			})
+		} else {
+			logger.LogDebug(ctx.Context, "Skipping non-SBOM file", "path", path)
 		}
 		return nil
 	})
