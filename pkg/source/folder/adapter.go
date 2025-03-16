@@ -28,10 +28,9 @@ import (
 
 // FolderAdapter handles fetching SBOMs from folders
 type FolderAdapter struct {
-	Config         *FolderConfig
-	Role           types.AdapterRole // "input" or "output" adapter type
-	Fetcher        SBOMFetcher
-	ProcessingMode types.ProcessingMode
+	Config  *FolderConfig
+	Role    types.AdapterRole // "input" or "output" adapter type
+	Fetcher SBOMFetcher
 }
 
 // AddCommandParams adds Folder-specific CLI flags
@@ -62,7 +61,10 @@ func (f *FolderAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 	}
 
 	// validate flags for respective adapters
-	utils.FlagValidation(cmd, types.FolderAdapterType, types.InputAdapterFlagPrefix)
+	err := utils.FlagValidation(cmd, types.FolderAdapterType, types.InputAdapterFlagPrefix)
+	if err != nil {
+		return fmt.Errorf("folder flag validation failed: %w", err)
+	}
 
 	// Extract Folder Path
 	folderPath, _ := cmd.Flags().GetString(pathFlag)
@@ -88,16 +90,19 @@ func (f *FolderAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 	if daemon {
 		// daemon fether initialized
 		fetcher = NewWatcherFetcher()
-	} else if f.ProcessingMode == types.FetchSequential {
+	} else if f.Config.ProcessingMode == types.FetchSequential {
+		fmt.Println("Sequential MODE")
 		fetcher = &SequentialFetcher{}
-	} else if f.ProcessingMode == types.FetchParallel {
+	} else if f.Config.ProcessingMode == types.FetchParallel {
+		fmt.Println("Parallel MODE")
 		fetcher = &ParallelFetcher{}
 	}
 
 	cfg := FolderConfig{
-		FolderPath: folderPath,
-		Recursive:  folderRecurse,
-		Daemon:     daemon,
+		FolderPath:     folderPath,
+		Recursive:      folderRecurse,
+		Daemon:         daemon,
+		ProcessingMode: f.Config.ProcessingMode,
 	}
 
 	f.Config = &cfg

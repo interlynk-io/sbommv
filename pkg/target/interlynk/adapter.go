@@ -74,7 +74,10 @@ func (i *InterlynkAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 	}
 
 	// validate flags for respective adapters
-	utils.FlagValidation(cmd, types.InterlynkAdapterType, types.OutputAdapterFlagPrefix)
+	err := utils.FlagValidation(cmd, types.InterlynkAdapterType, types.OutputAdapterFlagPrefix)
+	if err != nil {
+		return fmt.Errorf("interlynk flag validation failed: authentication required")
+	}
 
 	// Get flags
 	url, _ := cmd.Flags().GetString(urlFlag)
@@ -229,7 +232,7 @@ func (i *InterlynkAdapter) DryRun(ctx tcontext.TransferMetadata, sbomIterator it
 	// Step 1: Validate Interlynk Connection
 	err := ValidateInterlynkConnection(i.BaseURL, i.ApiKey)
 	if err != nil {
-		return fmt.Errorf("interlynk validation failed: %w", err)
+		return fmt.Errorf("interlynk flag validation failed: %w", err)
 	}
 
 	// Step 2: Initialize SBOM Processor
