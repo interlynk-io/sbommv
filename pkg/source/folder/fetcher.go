@@ -48,8 +48,13 @@ func (f *SequentialFetcher) Fetch(ctx tcontext.TransferMetadata, config *FolderC
 			logger.LogError(ctx.Context, err, "Error accessing file", "path", path)
 			return nil
 		}
-		if info.IsDir() && !config.Recursive && path != config.FolderPath {
-			return filepath.SkipDir
+
+		if info.IsDir() {
+			// Skip subdirectories if not recursive
+			if !config.Recursive && path != config.FolderPath {
+				return filepath.SkipDir
+			}
+			return nil
 		}
 
 		content, err := os.ReadFile(path)

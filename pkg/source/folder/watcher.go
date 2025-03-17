@@ -61,6 +61,8 @@ func (f *WatcherFetcher) Fetch(ctx tcontext.TransferMetadata, config *FolderConf
 			} else {
 				logger.LogDebug(ctx.Context, "Watching directory", "path", path)
 			}
+
+			return nil
 		}
 		return nil
 	})
@@ -79,32 +81,49 @@ func (f *WatcherFetcher) Fetch(ctx tcontext.TransferMetadata, config *FolderConf
 					close(sbomChan)
 					return
 				}
-				logger.LogDebug(ctx.Context, "Event Triggered", "name", event)
-				if event.Has(fsnotify.Write) {
-					logger.LogInfo(ctx.Context, "Event Triggered", "name", event)
-				}
 
-				content, err := os.ReadFile(event.Name)
+				// Check if the path is a file (not a directory)
+				info, err := os.Stat(event.Name)
 				if err != nil {
-					logger.LogError(ctx.Context, err, "Failed to read SBOM", "path", event.Name)
+					logger.LogError(ctx.Context, err, "Failed to stat path", "path", event.Name)
 					continue
 				}
+				if info.IsDir() {
+					if config.Recursive {
+						// Add new subdirectory to watcher in recursive mode
+						if err := watcher.Add(event.Name); err != nil {
+							logger.LogError(ctx.Context, err, "Failed to watch new directory", "path", event.Name)
+						} else {
+							logger.LogDebug(ctx.Context, "Added new directory to watcher", "path", event.Name)
+						}
+					}
+					continue // Skip directories
+				}
 
-				if event.Op&(fsnotify.Write) != 0 && source.IsSBOMFile(content) {
+				logger.LogDebug(ctx.Context, "Event Triggered", "name", event)
+				if event.Has(fsnotify.Write) || event.Has(fsnotify.Create) {
+					logger.LogInfo(ctx.Context, "Event Triggered", "name", event)
+					content, err := os.ReadFile(event.Name)
+					if err != nil {
+						logger.LogError(ctx.Context, err, "Failed to read SBOM", "path", event.Name)
+						continue
+					}
 
-					projectName, projectVersion := getProjectNameAndVersion(ctx, event.Name, content)
+					if source.IsSBOMFile(content) {
+						projectName, projectVersion := getProjectNameAndVersion(ctx, event.Name, content)
+						logger.LogDebug(ctx.Context, "Project Details", "name", projectName, "version", projectVersion)
 
-					logger.LogDebug(ctx.Context, "Project Details", "name", projectName, "version", projectVersion)
-
-					fileName := getFilePath(config.FolderPath, event.Name)
-					logger.LogDebug(ctx.Context, "Detected SBOM", "file", fileName)
-					sbomChan <- &iterator.SBOM{
-						Data:      content,
-						Path:      fileName,
-						Namespace: projectName,
-						Version:   projectVersion,
+						fileName := getFilePath(config.FolderPath, event.Name)
+						logger.LogDebug(ctx.Context, "Detected SBOM", "file", fileName)
+						sbomChan <- &iterator.SBOM{
+							Data:      content,
+							Path:      fileName,
+							Namespace: projectName,
+							Version:   projectVersion,
+						}
 					}
 				}
+
 			case err, ok := <-watcher.Errors:
 				if !ok {
 					close(sbomChan)
