@@ -17,60 +17,85 @@ package source
 import (
 	"encoding/base64"
 	"fmt"
-	"regexp"
+	"os"
 	"strings"
+
+	"github.com/interlynk-io/sbomasm/pkg/detect"
 )
 
-// isSBOMFile checks if a filename appears to be an SBOM
-func IsSBOMFile(name string) bool {
-	name = strings.ToLower(name)
+func IsSBOMFile(path string) bool {
+	f, err := os.Open(path)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
 
-	// Extended SBOM patterns for better detection
-	patterns := []string{
-		".spdx.", "spdx-", "spdx_", "spdx.",
-		".sbom", "sbom-", "sbom_", "sbom.",
-		"bom.", "bom-", "bom_",
-		"cyclonedx", "cdx-", "cdx_", "cdx.",
+	spec, format, err := detect.Detect(f)
+	if err != nil {
+		return false
 	}
 
-	// Common SBOM file extensions
-	extensions := []string{
-		".sbom",
-		".json",
-		".xml",
-		".yaml",
-		".yml",
-		".txt", // for SPDX tag-value
+	if format == detect.FileFormatUnknown {
+		return false
 	}
 
-	// Regular expression for detecting known SBOM file naming conventions
-	sbomRegex := regexp.MustCompile(`(sbom|bom|spdx|cdx)[-_\.].+\.(json|xml|yaml|yml|txt)$`)
-
-	// Check if name matches the regex pattern
-	if sbomRegex.MatchString(name) {
-		return true
+	if spec == detect.SBOMSpecUnknown {
+		return false
 	}
 
-	// Check if name contains any SBOM pattern
-	hasPattern := false
-	for _, pattern := range patterns {
-		if strings.Contains(name, pattern) {
-			hasPattern = true
-			break
-		}
-	}
-
-	// Check if name has a valid extension
-	hasExt := false
-	for _, ext := range extensions {
-		if strings.HasSuffix(name, ext) {
-			hasExt = true
-			break
-		}
-	}
-
-	return hasPattern && hasExt
+	return true
 }
+
+// // isSBOMFile checks if a filename appears to be an SBOM
+// func IsSBOMFile(name string) bool {
+// 	name = strings.ToLower(name)
+
+// 	// Extended SBOM patterns for better detection
+// 	patterns := []string{
+// 		".spdx.", "spdx-", "spdx_", "spdx.",
+// 		".sbom", "sbom-", "sbom_", "sbom.",
+// 		"bom.", "bom-", "bom_",
+// 		"cyclonedx", "cdx-", "cdx_", "cdx.",
+// 	}
+
+// 	// Common SBOM file extensions
+// 	extensions := []string{
+// 		".sbom",
+// 		".json",
+// 		".xml",
+// 		".yaml",
+// 		".yml",
+// 		".txt", // for SPDX tag-value
+// 	}
+
+// 	// Regular expression for detecting known SBOM file naming conventions
+// 	sbomRegex := regexp.MustCompile(`(sbom|bom|spdx|cdx)[-_\.].+\.(json|xml|yaml|yml|txt)$`)
+
+// 	// Check if name matches the regex pattern
+// 	if sbomRegex.MatchString(name) {
+// 		return true
+// 	}
+
+// 	// Check if name contains any SBOM pattern
+// 	hasPattern := false
+// 	for _, pattern := range patterns {
+// 		if strings.Contains(name, pattern) {
+// 			hasPattern = true
+// 			break
+// 		}
+// 	}
+
+// 	// Check if name has a valid extension
+// 	hasExt := false
+// 	for _, ext := range extensions {
+// 		if strings.HasSuffix(name, ext) {
+// 			hasExt = true
+// 			break
+// 		}
+// 	}
+
+// 	return hasPattern && hasExt
+// }
 
 // ParseGitHubURL parses a GitHub URL into owner and repository
 func ParseGitHubURL(url string) (owner, repo string, err error) {
