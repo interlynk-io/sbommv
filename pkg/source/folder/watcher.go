@@ -23,7 +23,6 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"github.com/interlynk-io/sbommv/pkg/iterator"
 	"github.com/interlynk-io/sbommv/pkg/logger"
-	"github.com/interlynk-io/sbommv/pkg/sbom"
 	"github.com/interlynk-io/sbommv/pkg/source"
 	"github.com/interlynk-io/sbommv/pkg/tcontext"
 )
@@ -93,21 +92,17 @@ func (f *WatcherFetcher) Fetch(ctx tcontext.TransferMetadata, config *FolderConf
 
 				if event.Op&(fsnotify.Write) != 0 && source.IsSBOMFile(content) {
 
-					primaryComp, err := sbom.ExtractPrimaryComponentName(content)
-					if err != nil {
-						logger.LogDebug(ctx.Context, "Failed to parse SBOM for primary component", "path", event.Name, "error", err)
-					}
+					projectName, projectVersion := getProjectNameAndVersion(ctx, event.Name, content)
 
-					primaryCompName, primaryCompVersion := primaryComp.Name, primaryComp.Version
-					logger.LogDebug(ctx.Context, "Primary Component", "name", primaryCompName, "version", primaryCompVersion)
+					logger.LogDebug(ctx.Context, "Project Details", "name", projectName, "version", projectVersion)
 
 					fileName := getFilePath(config.FolderPath, event.Name)
 					logger.LogDebug(ctx.Context, "Detected SBOM", "file", fileName)
 					sbomChan <- &iterator.SBOM{
 						Data:      content,
 						Path:      fileName,
-						Namespace: primaryCompName,
-						Version:   primaryCompVersion,
+						Namespace: projectName,
+						Version:   projectVersion,
 					}
 				}
 			case err, ok := <-watcher.Errors:

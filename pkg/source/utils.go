@@ -49,6 +49,21 @@ func IsSBOMFile(content []byte) bool {
 	return true
 }
 
+func IsSBOMJSONFormat(data []byte) bool {
+	reader := bytes.NewReader(data)
+
+	_, format, err := detect.Detect(reader)
+	if err != nil {
+		return false
+	}
+
+	if format == detect.FileFormatJSON {
+		return true
+	}
+
+	return false
+}
+
 // DetectSBOMsFile simply detects files names and on the basis of possible patterns of SBOM files it retreives them.
 func DetectSBOMsFile(name string) bool {
 	name = strings.ToLower(name)

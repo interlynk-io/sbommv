@@ -25,7 +25,6 @@ import (
 
 	"github.com/interlynk-io/sbommv/pkg/iterator"
 	"github.com/interlynk-io/sbommv/pkg/logger"
-	"github.com/interlynk-io/sbommv/pkg/sbom"
 	"github.com/interlynk-io/sbommv/pkg/source"
 	"github.com/interlynk-io/sbommv/pkg/tcontext"
 )
@@ -61,22 +60,15 @@ func (f *SequentialFetcher) Fetch(ctx tcontext.TransferMetadata, config *FolderC
 
 		if source.IsSBOMFile(content) {
 
-			// projectName, path := getTopLevelDirAndFile(config.FolderPath, path)
-			primaryComp, err := sbom.ExtractPrimaryComponentName(content)
-			if err != nil {
-				logger.LogDebug(ctx.Context, "Failed to parse SBOM for primary component", "path", path, "error", err)
-			}
-
-			primaryCompName, primaryCompVersion := primaryComp.Name, primaryComp.Version
-
-			logger.LogDebug(ctx.Context, "Primary Component", "name", primaryCompName, "version", primaryCompVersion)
+			projectName, projectVersion := getProjectNameAndVersion(ctx, path, content)
+			logger.LogDebug(ctx.Context, "Project Details", "name", projectName, "version", projectVersion)
 
 			fileName := getFilePath(config.FolderPath, path)
 			sbomList = append(sbomList, &iterator.SBOM{
 				Data:      content,
 				Path:      fileName,
-				Namespace: primaryCompName,
-				Version:   primaryCompVersion,
+				Namespace: projectName,
+				Version:   projectVersion,
 			})
 		} else {
 			logger.LogDebug(ctx.Context, "Skipping non-SBOM file", "path", getFilePath(config.FolderPath, path))
@@ -131,13 +123,8 @@ func (f *ParallelFetcher) Fetch(ctx tcontext.TransferMetadata, config *FolderCon
 					continue
 				}
 
-				// extract a primary component name from the content.
-				primaryComp, err := sbom.ExtractPrimaryComponentName(content)
-				if err != nil {
-					logger.LogDebug(ctx.Context, "Failed to parse SBOM for primary component", "path", path, "error", err)
-				}
-				primaryCompName, primaryCompVersion := primaryComp.Name, primaryComp.Version
-				logger.LogDebug(ctx.Context, "Primary Component", "name", primaryCompName, "version", primaryCompVersion)
+				projectName, projectVersion := getProjectNameAndVersion(ctx, path, content)
+				logger.LogDebug(ctx.Context, "Project Details", "name", projectName, "version", projectVersion)
 
 				//  get a relative file path.
 				fileName := getFilePath(config.FolderPath, path)
@@ -146,8 +133,8 @@ func (f *ParallelFetcher) Fetch(ctx tcontext.TransferMetadata, config *FolderCon
 				sbomList = append(sbomList, &iterator.SBOM{
 					Data:      content,
 					Path:      fileName,
-					Namespace: primaryCompName,
-					Version:   primaryCompVersion,
+					Namespace: projectName,
+					Version:   projectVersion,
 				})
 				mu.Unlock()
 			}
