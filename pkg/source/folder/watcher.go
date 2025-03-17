@@ -97,12 +97,16 @@ func (f *WatcherFetcher) Fetch(ctx tcontext.TransferMetadata, config *FolderConf
 						logger.LogDebug(ctx.Context, "Failed to parse SBOM for primary component", "path", event.Name, "error", err)
 					}
 
+					primaryCompName, primaryCompVersion := primaryComp.Name, primaryComp.Version
+					logger.LogDebug(ctx.Context, "Primary Component", "name", primaryCompName, "version", primaryCompVersion)
+
 					fileName := getFilePath(config.FolderPath, event.Name)
 					logger.LogDebug(ctx.Context, "Detected SBOM", "file", fileName)
 					sbomChan <- &iterator.SBOM{
 						Data:      content,
 						Path:      fileName,
-						Namespace: primaryComp,
+						Namespace: primaryCompName,
+						Version:   primaryCompVersion,
 					}
 				}
 			case err, ok := <-watcher.Errors:

@@ -54,43 +54,32 @@ func (u *SequentialUploader) Upload(ctx tcontext.TransferMetadata, config *Depen
 			return err
 		}
 
-		projectName := config.ProjectName
-		if projectName == "" {
-			logger.LogDebug(ctx.Context, "Project Name is not provided by the user")
-			if sbom.Namespace == "" {
-				return fmt.Errorf("no project name specified and SBOM namespace is empty")
-			}
-			projectName = sbom.Namespace
-			logger.LogDebug(ctx.Context, "Project Name as sbom.Namespace will be used", "sbom.Namespace", sbom.Namespace)
+		projectName, err := getProjectName(ctx, config.ProjectName, sbom.Namespace)
+		if err != nil {
+			continue
 		}
 
-		logger.LogDebug(ctx.Context, "Project Name", "value", projectName)
+		projectVersion := getProjectVersion(ctx, config.ProjectVersion, sbom.Version)
+		finalProjectName := fmt.Sprintf("%s-%s", projectName, projectVersion)
+		logger.LogDebug(ctx.Context, "Project Details", "name", finalProjectName, "version", projectVersion)
 
-		projectVersion := config.ProjectVersion
-		if projectVersion == "" {
-			projectVersion = "latest"
-		}
-
-		// u.mu.Lock()
-		if !u.createdProjects[projectName] {
+		if !u.createdProjects[finalProjectName] {
 
 			// find or create project using project name and project version
-			_, err = client.FindOrCreateProject(ctx, projectName, projectVersion)
+			_, err = client.FindOrCreateProject(ctx, finalProjectName, projectVersion)
 			if err != nil {
 				logger.LogInfo(ctx.Context, "Failed to find or create project", "project", projectName, "error", err)
 				// u.mu.Unlock()
 				continue
 			}
-			u.createdProjects[projectName] = true
+			u.createdProjects[finalProjectName] = true
 		}
-		// u.mu.Unlock()
 
-		// Log SBOM filename before upload
 		logger.LogDebug(ctx.Context, "Iniatializing uploading SBOM file", "file", sbom.Path)
 
-		err = client.UploadSBOM(ctx, projectName, config.ProjectVersion, sbom.Data)
+		err = client.UploadSBOM(ctx, finalProjectName, projectVersion, sbom.Data)
 		if err != nil {
-			logger.LogInfo(ctx.Context, "Failed to upload SBOM", "project", projectName, "file", sbom.Path, "error", err)
+			logger.LogInfo(ctx.Context, "Failed to upload SBOM", "project", finalProjectName, "file", sbom.Path, "error", err)
 			continue
 		}
 		successfullyUploaded++
@@ -148,42 +137,34 @@ func (u *ParallelUploader) Upload(ctx tcontext.TransferMetadata, config *Depende
 			defer wg.Done()
 			for sbom := range sbomChan {
 
-				// determine project name: use config.ProjectName if provided, else fall back to sbom.Namespace.
-				projectName := config.ProjectName
-				if projectName == "" {
-					if sbom.Namespace == "" {
-						logger.LogError(ctx.Context, fmt.Errorf("no project name specified and SBOM namespace is empty"), "Skipping SBOM", "file", sbom.Path)
-						continue
-					}
-					projectName = sbom.Namespace
+				projectName, err := getProjectName(ctx, config.ProjectName, sbom.Namespace)
+				if err != nil {
+					continue
 				}
-				logger.LogDebug(ctx.Context, "Project Name", "value", projectName)
 
-				// determine project version.
-				projectVersion := config.ProjectVersion
-				if projectVersion == "" {
-					projectVersion = "latest"
-				}
+				projectVersion := getProjectVersion(ctx, config.ProjectVersion, sbom.Version)
+				finalProjectName := fmt.Sprintf("%s-%s", projectName, projectVersion)
+				logger.LogDebug(ctx.Context, "Project Details", "name", finalProjectName, "version", projectVersion)
 
 				// Ensure the project exists (using a shared cache to avoid duplicate creation).
 				u.mu.Lock()
-				if !u.createdProjects[projectName] {
-					_, err := client.FindOrCreateProject(ctx, projectName, projectVersion)
+				if !u.createdProjects[finalProjectName] {
+					_, err := client.FindOrCreateProject(ctx, finalProjectName, projectVersion)
 					if err != nil {
-						logger.LogInfo(ctx.Context, "Failed to find or create project", "project", projectName, "error", err)
+						logger.LogInfo(ctx.Context, "Failed to find or create project", "project", finalProjectName, "error", err)
 						u.mu.Unlock()
 						continue
 					}
-					u.createdProjects[projectName] = true
+					u.createdProjects[finalProjectName] = true
 				}
 				u.mu.Unlock()
 
 				logger.LogDebug(ctx.Context, "Uploading SBOM file", "file", sbom.Path)
 
 				// Upload the SBOM.
-				err := client.UploadSBOM(ctx, projectName, projectVersion, sbom.Data)
+				err = client.UploadSBOM(ctx, finalProjectName, projectVersion, sbom.Data)
 				if err != nil {
-					logger.LogInfo(ctx.Context, "Failed to upload SBOM", "project", projectName, "file", sbom.Path, "error", err)
+					logger.LogInfo(ctx.Context, "Failed to upload SBOM", "project", finalProjectName, "file", sbom.Path, "error", err)
 					continue
 				}
 				successfullyUploaded++
@@ -198,4 +179,38 @@ func (u *ParallelUploader) Upload(ctx tcontext.TransferMetadata, config *Depende
 	logger.LogInfo(ctx.Context, "Total SBOMs", "count", totalSBOMs)
 	logger.LogInfo(ctx.Context, "Successfully Uploaded", "count", successfullyUploaded)
 	return nil
+}
+
+func getProjectName(ctx tcontext.TransferMetadata, providedProjectName string, namespace string) (string, error) {
+	if providedProjectName == "" && namespace == "" {
+		return "", fmt.Errorf("no project name specified and SBOM namespace is empty")
+	}
+
+	var projectName string
+	if providedProjectName != "" {
+		projectName = providedProjectName
+		logger.LogDebug(ctx.Context, "Project Name is provided by the user", "name", projectName)
+	} else {
+		projectName = namespace
+		logger.LogDebug(ctx.Context, "Project Name as sbom.Namespace will be used", "sbom.Namespace", namespace)
+	}
+
+	return projectName, nil
+}
+
+func getProjectVersion(ctx tcontext.TransferMetadata, providedProjectVersion string, version string) string {
+	var projectVersion string
+	if providedProjectVersion == "" && version == "" {
+		projectVersion = "latest"
+	}
+
+	if providedProjectVersion != "" {
+		projectVersion = providedProjectVersion
+		logger.LogDebug(ctx.Context, "Project Version is provided by the user", "version", projectVersion)
+	} else {
+		projectVersion = version
+		logger.LogDebug(ctx.Context, "Project Version as sbom.Version will be used", "sbom.Version", projectVersion)
+	}
+
+	return projectVersion
 }

@@ -64,16 +64,19 @@ func (f *SequentialFetcher) Fetch(ctx tcontext.TransferMetadata, config *FolderC
 				logger.LogDebug(ctx.Context, "Failed to parse SBOM for primary component", "path", path, "error", err)
 			}
 
-			logger.LogDebug(ctx.Context, "Primary Component", "value", primaryComp)
+			primaryCompName, primaryCompVersion := primaryComp.Name, primaryComp.Version
+
+			logger.LogDebug(ctx.Context, "Primary Component", "name", primaryCompName, "version", primaryCompVersion)
 
 			fileName := getFilePath(config.FolderPath, path)
 			sbomList = append(sbomList, &iterator.SBOM{
 				Data:      content,
 				Path:      fileName,
-				Namespace: primaryComp,
+				Namespace: primaryCompName,
+				Version:   primaryCompVersion,
 			})
 		} else {
-			logger.LogDebug(ctx.Context, "Skipping non-SBOM file", "path", path)
+			logger.LogDebug(ctx.Context, "Skipping non-SBOM file", "path", getFilePath(config.FolderPath, path))
 		}
 		return nil
 	})
@@ -130,6 +133,8 @@ func (f *ParallelFetcher) Fetch(ctx tcontext.TransferMetadata, config *FolderCon
 				if err != nil {
 					logger.LogDebug(ctx.Context, "Failed to parse SBOM for primary component", "path", path, "error", err)
 				}
+				primaryCompName, primaryCompVersion := primaryComp.Name, primaryComp.Version
+				logger.LogDebug(ctx.Context, "Primary Component", "name", primaryCompName, "version", primaryCompVersion)
 
 				//  get a relative file path.
 				fileName := getFilePath(config.FolderPath, path)
@@ -138,7 +143,8 @@ func (f *ParallelFetcher) Fetch(ctx tcontext.TransferMetadata, config *FolderCon
 				sbomList = append(sbomList, &iterator.SBOM{
 					Data:      content,
 					Path:      fileName,
-					Namespace: primaryComp,
+					Namespace: primaryCompName,
+					Version:   primaryCompVersion,
 				})
 				mu.Unlock()
 			}

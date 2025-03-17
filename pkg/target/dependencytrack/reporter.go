@@ -25,14 +25,16 @@ import (
 )
 
 type DependencyTrackReporter struct {
-	apiURL      string
-	projectName string
+	apiURL         string
+	projectName    string
+	projectVersion string
 }
 
-func NewDependencyTrackReporter(apiURL, projectName string) *DependencyTrackReporter {
+func NewDependencyTrackReporter(apiURL, projectName, projectVersion string) *DependencyTrackReporter {
 	return &DependencyTrackReporter{
-		apiURL:      apiURL,
-		projectName: projectName,
+		apiURL:         apiURL,
+		projectName:    projectName,
+		projectVersion: projectVersion,
 	}
 }
 
@@ -40,7 +42,6 @@ func (r *DependencyTrackReporter) DryRun(ctx tcontext.TransferMetadata, iter ite
 	logger.LogDebug(ctx.Context, "Dry-run mode: Simulating SBOM upload to Dependency-Track")
 	fmt.Println("\n📦 Dependency-Track Output Adapter Dry-Run")
 	fmt.Printf("📦 API Endpoint: %s\n", r.apiURL)
-	fmt.Printf("📦 Target Project: %s\n", r.projectName)
 	sbomCount := 0
 
 	processor := sbom.NewSBOMProcessor("", false)
@@ -53,20 +54,27 @@ func (r *DependencyTrackReporter) DryRun(ctx tcontext.TransferMetadata, iter ite
 			logger.LogError(ctx.Context, err, "Error retrieving SBOM")
 			return err
 		}
+
 		processor.Update(sbom.Data, sbom.Namespace, "")
 		doc, err := processor.ProcessSBOMs()
 		if err != nil {
 			logger.LogError(ctx.Context, err, "Failed to process SBOM")
 			return err
 		}
-		projectName := r.projectName
-		if projectName == "" {
-			projectName = sbom.Namespace
+
+		projectName, err := getProjectName(ctx, r.projectName, sbom.Namespace)
+		if err != nil {
+			continue
 		}
+
+		projectVersion := getProjectVersion(ctx, r.projectVersion, sbom.Version)
+		finalProjectName := fmt.Sprintf("%s-%s", projectName, projectVersion)
+
 		fmt.Printf("- 📁 Would upload to project '%s' | Format: %s | SpecVersion: %s\n",
-			projectName, doc.Format, doc.SpecVersion)
+			finalProjectName, doc.Format, doc.SpecVersion)
 		sbomCount++
 	}
+	fmt.Printf("📦 DTrack API Endpoint: %s\n", r.apiURL)
 	fmt.Printf("\n 📊 Total SBOMs to upload: %d\n", sbomCount)
 	return nil
 }

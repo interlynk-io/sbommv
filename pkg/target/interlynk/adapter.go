@@ -201,7 +201,7 @@ func (i *InterlynkAdapter) uploadSequential(ctx tcontext.TransferMetadata, sboms
 
 		logger.LogDebug(ctx.Context, "Uploading SBOM", "file", sbom.Path, "data size", len(sbom.Data))
 
-		projectID, projectName, err := client.FindOrCreateProjectGroup(ctx, sbom.Namespace)
+		projectID, projectName, err := client.FindOrCreateProjectGroup(ctx, sbom.Namespace, sbom.Version)
 		if err != nil {
 			logger.LogInfo(ctx.Context, "error", err)
 			continue
@@ -263,12 +263,16 @@ func (i *InterlynkAdapter) DryRun(ctx tcontext.TransferMetadata, sbomIterator it
 			continue
 		}
 
-		// Identify project name (repo-version)
-		projectName := i.ProjectName
-		if projectName == "" {
-			projectName = sbom.Namespace
+		projectName, err := getProjectName(ctx, i.ProjectName, sbom.Namespace)
+		if err != nil {
+			continue
 		}
-		projectKey := fmt.Sprintf("%s", projectName)
+
+		env := getProjectVersion(ctx, "", sbom.Version)
+
+		finalProjectName := fmt.Sprintf("%s-%s", projectName, env)
+
+		projectKey := fmt.Sprintf("%s", finalProjectName)
 		projectSBOMs[projectKey] = append(projectSBOMs[projectKey], doc)
 		totalSBOMs++
 		uniqueFormats[string(doc.Format)] = struct{}{}

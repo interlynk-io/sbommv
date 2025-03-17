@@ -92,32 +92,36 @@ func NewClient(config Config) *Client {
 	}
 }
 
-func (c *Client) FindOrCreateProjectGroup(ctx tcontext.TransferMetadata, repoName string) (string, string, error) {
-	projectName := c.ProjectName
-	if projectName == "" {
-		projectName = fmt.Sprintf("%s", repoName)
+func (c *Client) FindOrCreateProjectGroup(ctx tcontext.TransferMetadata, repoName, version string) (string, string, error) {
+	logger.LogDebug(ctx.Context, "Finding or creating project group", "repo", repoName, "version", version)
+
+	projectName, err := getProjectName(ctx, c.ProjectName, repoName)
+	if err != nil {
+		return "", "", err
 	}
-	logger.LogDebug(ctx.Context, "SBOMs will be uploaded to project", "name", projectName)
+
+	projectVersion := getProjectVersion(ctx, "", version)
+	finalProjectName := fmt.Sprintf("%s-%s", projectName, projectVersion)
+	logger.LogDebug(ctx.Context, "Project Details", "name", finalProjectName, "version", projectVersion)
 
 	env := c.ProjectEnv
-	if env != "" {
-		env = "default"
-	}
 
-	projectID, err := c.FindProjectGroup(ctx, projectName, env)
+	projectID, err := c.FindProjectGroup(ctx, finalProjectName, env)
 	if err != nil {
 		// create project if the project is not present in the interlynk
-		projectID, err = c.CreateProjectGroup(ctx, projectName, env)
+		projectID, err = c.CreateProjectGroup(ctx, finalProjectName, env)
 		if err != nil {
-			return "", "", fmt.Errorf("failed to create project: %s on env %s ", projectName, env)
+			return "", "", fmt.Errorf("failed to create project: %s on env %s ", finalProjectName, env)
 		}
 	}
 
-	return projectID, projectName, nil
+	return projectID, finalProjectName, nil
 }
 
 // UploadSBOM uploads a single SBOM from memory to Interlynk
 func (c *Client) UploadSBOM(ctx tcontext.TransferMetadata, projectID string, sbomData []byte) error {
+	logger.LogDebug(ctx.Context, "Uploading SBOM", "projectID", projectID, "data size", len(sbomData))
+
 	if len(sbomData) == 0 {
 		return fmt.Errorf("SBOM data is empty")
 	}
@@ -133,6 +137,8 @@ func (c *Client) UploadSBOM(ctx tcontext.TransferMetadata, projectID string, sbo
 }
 
 func (c *Client) createUploadRequest(ctx tcontext.TransferMetadata, projectID string, sbomData []byte) (*http.Request, error) {
+	logger.LogDebug(ctx.Context, "Creating upload request", "projectID", projectID)
+
 	const uploadMutation = `
         mutation uploadSbom($doc: Upload!, $projectId: ID!) {
             sbomUpload(input: { doc: $doc, projectId: $projectId }) {
@@ -215,6 +221,7 @@ func writeJSONField(writer *multipart.Writer, fieldName string, data interface{}
 }
 
 func (c *Client) executeUploadRequest(ctx tcontext.TransferMetadata, req *http.Request) error {
+	logger.LogDebug(ctx.Context, "Executing upload request")
 	resp, err := c.client.Do(req)
 	if err != nil {
 		return fmt.Errorf("sending request: %w", err)
@@ -257,6 +264,7 @@ func (c *Client) executeUploadRequest(ctx tcontext.TransferMetadata, req *http.R
 }
 
 func (c *Client) FindProjectGroup(ctx tcontext.TransferMetadata, name string, env string) (string, error) {
+	logger.LogDebug(ctx.Context, "Finding project group", "name", name, "env", env)
 	const findProjectGroupMutation = `
 		query FindProjectGroup($search: String) {
 			  organization {
@@ -367,6 +375,8 @@ func (c *Client) FindProjectGroup(ctx tcontext.TransferMetadata, name string, en
 
 // CreateProjectGroup creates a new project group and returns the default project's ID
 func (c *Client) CreateProjectGroup(ctx tcontext.TransferMetadata, name, env string) (string, error) {
+	logger.LogDebug(ctx.Context, "Creating project group", "name", name, "env", env)
+
 	const createProjectGroupMutation = `
         mutation CreateProjectGroup($name: String!, $desc: String, $enabled: Boolean) {
             projectGroupCreate(
