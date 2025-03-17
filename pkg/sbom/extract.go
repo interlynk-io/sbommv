@@ -20,25 +20,35 @@ import (
 	"strings"
 )
 
-func ExtractPrimaryComponentName(content []byte) (string, error) {
+type PrimaryComponent struct {
+	Name    string
+	Version string
+}
+
+func ExtractPrimaryComponentName(content []byte) (PrimaryComponent, error) {
 	// get primaryComp for cyclonedx
 	var cdx struct {
 		Metadata struct {
 			Component struct {
-				Name string `json:"name"`
+				Name    string `json:"name"`
+				Version string `json:"version"`
 			} `json:"component"`
 		} `json:"metadata"`
 	}
 
 	if err := json.Unmarshal(content, &cdx); err == nil && cdx.Metadata.Component.Name != "" {
-		return cdx.Metadata.Component.Name, nil
+		return PrimaryComponent{
+			Name:    cdx.Metadata.Component.Name,
+			Version: cdx.Metadata.Component.Version,
+		}, nil
 	}
 
 	// get primaryComp for cyclonedx
 	var spdx struct {
 		Packages []struct {
-			SPDXID string `json:"SPDXID"`
-			Name   string `json:"name"`
+			SPDXID      string `json:"SPDXID"`
+			Name        string `json:"name"`
+			VersionInfo string `json:"versionInfo"`
 		} `json:"packages"`
 		Relationships []struct {
 			SPDXElementID      string `json:"spdxElementId"`
@@ -47,8 +57,8 @@ func ExtractPrimaryComponentName(content []byte) (string, error) {
 		} `json:"relationships"`
 	}
 
-	var targetID string
 	if err := json.Unmarshal(content, &spdx); err == nil {
+		var targetID string
 
 		// Find DESCRIBES relationship from document
 		for _, rel := range spdx.Relationships {
@@ -61,9 +71,12 @@ func ExtractPrimaryComponentName(content []byte) (string, error) {
 		// Match targetID to a package
 		for _, pkg := range spdx.Packages {
 			if pkg.SPDXID == targetID && pkg.Name != "" {
-				return pkg.Name, nil // Found it!
+				return PrimaryComponent{
+					Name:    pkg.Name,
+					Version: pkg.VersionInfo,
+				}, nil
 			}
 		}
 	}
-	return "", fmt.Errorf("no primary component name found in SBOM")
+	return PrimaryComponent{}, fmt.Errorf("no primary component found in JSON SBOM")
 }

@@ -47,7 +47,7 @@ type DependencyTrackAdapter struct {
 func (d *DependencyTrackAdapter) AddCommandParams(cmd *cobra.Command) {
 	cmd.Flags().String("out-dtrack-url", "", "Dependency Track API URL")
 	cmd.Flags().String("out-dtrack-project-name", "", "Project name to upload SBOMs to")
-	cmd.Flags().String("out-dtrack-project-version", "latest", "Project version (default: latest)")
+	cmd.Flags().String("out-dtrack-project-version", "", "Project version (default: latest)")
 }
 
 // ParseAndValidateParams validates the Dependency-Track adapter params
@@ -149,6 +149,6 @@ func (d *DependencyTrackAdapter) UploadSBOMs(ctx tcontext.TransferMetadata, iter
 }
 
 func (d *DependencyTrackAdapter) DryRun(ctx tcontext.TransferMetadata, iter iterator.SBOMIterator) error {
-	reporter := NewDependencyTrackReporter(d.Config.APIURL, d.Config.ProjectName)
+	reporter := NewDependencyTrackReporter(d.Config.APIURL, d.Config.ProjectName, d.Config.ProjectVersion)
 	return reporter.DryRun(ctx, iter)
 }

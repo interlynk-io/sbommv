@@ -20,6 +20,9 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+
+	"github.com/interlynk-io/sbommv/pkg/logger"
+	"github.com/interlynk-io/sbommv/pkg/tcontext"
 )
 
 // ValidateInterlynkConnection chesks whether Interlynk ssytem is up and running
@@ -76,4 +79,38 @@ func formatSetToString(formatSet map[string]struct{}) string {
 		formats = append(formats, format)
 	}
 	return strings.Join(formats, ", ")
+}
+
+func getProjectName(ctx tcontext.TransferMetadata, providedProjectName string, namespace string) (string, error) {
+	if providedProjectName == "" && namespace == "" {
+		return "", fmt.Errorf("no project name specified and SBOM namespace is empty")
+	}
+
+	var projectName string
+	if providedProjectName != "" {
+		projectName = providedProjectName
+		logger.LogDebug(ctx.Context, "Project Name is provided by the user", "name", projectName)
+	} else {
+		projectName = namespace
+		logger.LogDebug(ctx.Context, "Project Name as sbom.Namespace will be used", "sbom.Namespace", namespace)
+	}
+
+	return projectName, nil
+}
+
+func getProjectVersion(ctx tcontext.TransferMetadata, providedProjectVersion string, version string) string {
+	var projectVersion string
+	if providedProjectVersion == "" && version == "" {
+		projectVersion = "latest"
+	}
+
+	if providedProjectVersion != "" {
+		projectVersion = providedProjectVersion
+		logger.LogDebug(ctx.Context, "Project Version is provided by the user", "version", projectVersion)
+	} else {
+		projectVersion = version
+		logger.LogDebug(ctx.Context, "Project Version as sbom.Version will be used", "sbom.Version", projectVersion)
+	}
+
+	return projectVersion
 }

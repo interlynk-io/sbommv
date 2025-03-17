@@ -25,7 +25,6 @@ import (
 
 	"github.com/interlynk-io/sbommv/pkg/iterator"
 	"github.com/interlynk-io/sbommv/pkg/logger"
-	"github.com/interlynk-io/sbommv/pkg/sbom"
 	"github.com/interlynk-io/sbommv/pkg/source"
 	"github.com/interlynk-io/sbommv/pkg/tcontext"
 )
@@ -49,31 +48,35 @@ func (f *SequentialFetcher) Fetch(ctx tcontext.TransferMetadata, config *FolderC
 			logger.LogError(ctx.Context, err, "Error accessing file", "path", path)
 			return nil
 		}
-		if info.IsDir() && !config.Recursive && path != config.FolderPath {
-			return filepath.SkipDir
-		}
-		if source.IsSBOMFile(path) {
-			content, err := os.ReadFile(path)
-			if err != nil {
-				logger.LogError(ctx.Context, err, "Failed to read SBOM", "path", path)
-				return nil
-			}
-			// projectName, path := getTopLevelDirAndFile(config.FolderPath, path)
-			primaryComp, err := sbom.ExtractPrimaryComponentName(content)
-			if err != nil {
-				logger.LogDebug(ctx.Context, "Failed to parse SBOM for primary component", "path", path, "error", err)
-			}
 
-			logger.LogDebug(ctx.Context, "Primary Component", "value", primaryComp)
+		if info.IsDir() {
+			// Skip subdirectories if not recursive
+			if !config.Recursive && path != config.FolderPath {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		content, err := os.ReadFile(path)
+		if err != nil {
+			logger.LogError(ctx.Context, err, "Failed to read SBOM", "path", path)
+			return nil
+		}
+
+		if source.IsSBOMFile(content) {
+
+			projectName, projectVersion := getProjectNameAndVersion(ctx, path, content)
+			logger.LogDebug(ctx.Context, "Project Details", "name", projectName, "version", projectVersion)
 
 			fileName := getFilePath(config.FolderPath, path)
 			sbomList = append(sbomList, &iterator.SBOM{
 				Data:      content,
 				Path:      fileName,
-				Namespace: primaryComp,
+				Namespace: projectName,
+				Version:   projectVersion,
 			})
 		} else {
-			logger.LogDebug(ctx.Context, "Skipping non-SBOM file", "path", path)
+			logger.LogDebug(ctx.Context, "Skipping non-SBOM file", "path", getFilePath(config.FolderPath, path))
 		}
 		return nil
 	})
@@ -115,21 +118,18 @@ func (f *ParallelFetcher) Fetch(ctx tcontext.TransferMetadata, config *FolderCon
 					continue
 				}
 
-				if !source.IsSBOMFile(path) {
-					continue
-				}
-
 				content, err := os.ReadFile(path)
 				if err != nil {
 					logger.LogError(ctx.Context, err, "Failed to read SBOM", "path", path)
 					continue
 				}
 
-				// extract a primary component name from the content.
-				primaryComp, err := sbom.ExtractPrimaryComponentName(content)
-				if err != nil {
-					logger.LogDebug(ctx.Context, "Failed to parse SBOM for primary component", "path", path, "error", err)
+				if !source.IsSBOMFile(content) {
+					continue
 				}
+
+				projectName, projectVersion := getProjectNameAndVersion(ctx, path, content)
+				logger.LogDebug(ctx.Context, "Project Details", "name", projectName, "version", projectVersion)
 
 				//  get a relative file path.
 				fileName := getFilePath(config.FolderPath, path)
@@ -138,7 +138,8 @@ func (f *ParallelFetcher) Fetch(ctx tcontext.TransferMetadata, config *FolderCon
 				sbomList = append(sbomList, &iterator.SBOM{
 					Data:      content,
 					Path:      fileName,
-					Namespace: primaryComp,
+					Namespace: projectName,
+					Version:   projectVersion,
 				})
 				mu.Unlock()
 			}

@@ -104,7 +104,7 @@ func (c *DependencyTrackClient) FindOrCreateProject(ctx tcontext.TransferMetadat
 		logger.LogDebug(ctx.Context, "Project already exists, therefor it wouldn't create a new", "project", projectName, "uuid", uuid)
 		return uuid, nil
 	}
-	logger.LogDebug(ctx.Context, "New project will be created", "project", projectName, "version", projectVersion)
+	logger.LogDebug(ctx.Context, "New project will be created", "name", projectName, "version", projectVersion)
 
 	// create project using project name and project version
 	return c.CreateProject(ctx, projectName, projectVersion)
