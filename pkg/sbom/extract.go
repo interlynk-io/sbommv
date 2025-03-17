@@ -36,7 +36,7 @@ func ExtractPrimaryComponentName(content []byte) (PrimaryComponent, error) {
 		} `json:"metadata"`
 	}
 
-	if err := json.Unmarshal(content, &cdx); err == nil && cdx.Metadata.Component.Name != "" {
+	if err := json.Unmarshal(content, &cdx); err == nil && cdx.Metadata.Component.Name != "" && cdx.Metadata.Component.Version != "" {
 		return PrimaryComponent{
 			Name:    cdx.Metadata.Component.Name,
 			Version: cdx.Metadata.Component.Version,
@@ -70,7 +70,7 @@ func ExtractPrimaryComponentName(content []byte) (PrimaryComponent, error) {
 
 		// Match targetID to a package
 		for _, pkg := range spdx.Packages {
-			if pkg.SPDXID == targetID && pkg.Name != "" {
+			if pkg.SPDXID == targetID && pkg.Name != "" && pkg.VersionInfo != "" {
 				return PrimaryComponent{
 					Name:    pkg.Name,
 					Version: pkg.VersionInfo,
