@@ -15,22 +15,25 @@
 package source
 
 import (
+	"bytes"
 	"encoding/base64"
 	"fmt"
-	"os"
+	"regexp"
 	"strings"
 
 	"github.com/interlynk-io/sbomasm/pkg/detect"
 )
 
-func IsSBOMFile(path string) bool {
-	f, err := os.Open(path)
-	if err != nil {
-		return false
-	}
-	defer f.Close()
+var sbomRegex *regexp.Regexp
 
-	spec, format, err := detect.Detect(f)
+func init() {
+	sbomRegex = regexp.MustCompile(`(sbom|bom|spdx|cdx)[-_\.].+\.(json|xml|yaml|yml|txt)$`)
+}
+
+// IsSBOMFile simply detect SBOMs file format and spec after reading the file.
+func IsSBOMFile(content []byte) bool {
+	reader := bytes.NewReader(content)
+	spec, format, err := detect.Detect(reader)
 	if err != nil {
 		return false
 	}
@@ -46,56 +49,56 @@ func IsSBOMFile(path string) bool {
 	return true
 }
 
-// // isSBOMFile checks if a filename appears to be an SBOM
-// func IsSBOMFile(name string) bool {
-// 	name = strings.ToLower(name)
+// DetectSBOMsFile simply detects files names and on the basis of possible patterns of SBOM files it retreives them.
+func DetectSBOMsFile(name string) bool {
+	name = strings.ToLower(name)
 
-// 	// Extended SBOM patterns for better detection
-// 	patterns := []string{
-// 		".spdx.", "spdx-", "spdx_", "spdx.",
-// 		".sbom", "sbom-", "sbom_", "sbom.",
-// 		"bom.", "bom-", "bom_",
-// 		"cyclonedx", "cdx-", "cdx_", "cdx.",
-// 	}
+	// Extended SBOM patterns for better detection
+	patterns := []string{
+		".spdx.", "spdx-", "spdx_", "spdx.",
+		".sbom", "sbom-", "sbom_", "sbom.",
+		"bom.", "bom-", "bom_",
+		"cyclonedx", "cdx-", "cdx_", "cdx.",
+	}
 
-// 	// Common SBOM file extensions
-// 	extensions := []string{
-// 		".sbom",
-// 		".json",
-// 		".xml",
-// 		".yaml",
-// 		".yml",
-// 		".txt", // for SPDX tag-value
-// 	}
+	// Common SBOM file extensions
+	extensions := []string{
+		".sbom",
+		".json",
+		".xml",
+		".yaml",
+		".yml",
+		".txt", // for SPDX tag-value
+	}
 
-// 	// Regular expression for detecting known SBOM file naming conventions
-// 	sbomRegex := regexp.MustCompile(`(sbom|bom|spdx|cdx)[-_\.].+\.(json|xml|yaml|yml|txt)$`)
+	// Regular expression for detecting known SBOM file naming conventions
+	sbomRegex := sbomRegex
 
-// 	// Check if name matches the regex pattern
-// 	if sbomRegex.MatchString(name) {
-// 		return true
-// 	}
+	// Check if name matches the regex pattern
+	if sbomRegex.MatchString(name) {
+		return true
+	}
 
-// 	// Check if name contains any SBOM pattern
-// 	hasPattern := false
-// 	for _, pattern := range patterns {
-// 		if strings.Contains(name, pattern) {
-// 			hasPattern = true
-// 			break
-// 		}
-// 	}
+	// Check if name contains any SBOM pattern
+	hasPattern := false
+	for _, pattern := range patterns {
+		if strings.Contains(name, pattern) {
+			hasPattern = true
+			break
+		}
+	}
 
-// 	// Check if name has a valid extension
-// 	hasExt := false
-// 	for _, ext := range extensions {
-// 		if strings.HasSuffix(name, ext) {
-// 			hasExt = true
-// 			break
-// 		}
-// 	}
+	// Check if name has a valid extension
+	hasExt := false
+	for _, ext := range extensions {
+		if strings.HasSuffix(name, ext) {
+			hasExt = true
+			break
+		}
+	}
 
-// 	return hasPattern && hasExt
-// }
+	return hasPattern && hasExt
+}
 
 // ParseGitHubURL parses a GitHub URL into owner and repository
 func ParseGitHubURL(url string) (owner, repo string, err error) {

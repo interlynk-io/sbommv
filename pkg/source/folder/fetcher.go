@@ -52,12 +52,15 @@ func (f *SequentialFetcher) Fetch(ctx tcontext.TransferMetadata, config *FolderC
 		if info.IsDir() && !config.Recursive && path != config.FolderPath {
 			return filepath.SkipDir
 		}
-		if source.IsSBOMFile(path) {
-			content, err := os.ReadFile(path)
-			if err != nil {
-				logger.LogError(ctx.Context, err, "Failed to read SBOM", "path", path)
-				return nil
-			}
+
+		content, err := os.ReadFile(path)
+		if err != nil {
+			logger.LogError(ctx.Context, err, "Failed to read SBOM", "path", path)
+			return nil
+		}
+
+		if source.IsSBOMFile(content) {
+
 			// projectName, path := getTopLevelDirAndFile(config.FolderPath, path)
 			primaryComp, err := sbom.ExtractPrimaryComponentName(content)
 			if err != nil {
@@ -118,13 +121,13 @@ func (f *ParallelFetcher) Fetch(ctx tcontext.TransferMetadata, config *FolderCon
 					continue
 				}
 
-				if !source.IsSBOMFile(path) {
-					continue
-				}
-
 				content, err := os.ReadFile(path)
 				if err != nil {
 					logger.LogError(ctx.Context, err, "Failed to read SBOM", "path", path)
+					continue
+				}
+
+				if !source.IsSBOMFile(content) {
 					continue
 				}
 

@@ -85,12 +85,13 @@ func (f *WatcherFetcher) Fetch(ctx tcontext.TransferMetadata, config *FolderConf
 					logger.LogInfo(ctx.Context, "Event Triggered", "name", event)
 				}
 
-				if event.Op&(fsnotify.Write) != 0 && source.IsSBOMFile(event.Name) {
-					content, err := os.ReadFile(event.Name)
-					if err != nil {
-						logger.LogError(ctx.Context, err, "Failed to read SBOM", "path", event.Name)
-						continue
-					}
+				content, err := os.ReadFile(event.Name)
+				if err != nil {
+					logger.LogError(ctx.Context, err, "Failed to read SBOM", "path", event.Name)
+					continue
+				}
+
+				if event.Op&(fsnotify.Write) != 0 && source.IsSBOMFile(content) {
 
 					primaryComp, err := sbom.ExtractPrimaryComponentName(content)
 					if err != nil {

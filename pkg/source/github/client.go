@@ -156,7 +156,7 @@ func (c *Client) extractSBOMs(releases []Release) []SBOMAsset {
 	var sboms []SBOMAsset
 	for _, release := range releases {
 		for _, asset := range release.Assets {
-			if source.IsSBOMFile(asset.Name) {
+			if source.DetectSBOMsFile(asset.Name) {
 				sboms = append(sboms, SBOMAsset{
 					Release:     release.TagName,
 					Name:        asset.Name,
@@ -280,8 +280,12 @@ func (c *Client) downloadSBOMs(ctx tcontext.TransferMetadata, sboms []SBOMAsset)
 	// Initialize progress bar
 	// bar := progressbar.Default(int64(len(sboms)), "📥 Fetching SBOMs")
 
+	var totalDownloadedSBOMs int
+	var totalSBOMsWithCorrectFormatAndSpec int
+
 	// Process each SBOM
 	for _, sbom := range sboms {
+		totalDownloadedSBOMs++
 		// Context cancellation check
 		select {
 		case <-ctx.Done():
@@ -304,27 +308,31 @@ func (c *Client) downloadSBOMs(ctx tcontext.TransferMetadata, sboms []SBOMAsset)
 				return
 			}
 
-			versionedSBOM := SBOMData{
-				Content:  sbomData,
-				Filename: sbom.Name,
+			// now check the spec and format of a downloaded SBOM files from github
+			if source.IsSBOMFile(sbomData) {
+				totalSBOMsWithCorrectFormatAndSpec++
+				versionedSBOM := SBOMData{
+					Content:  sbomData,
+					Filename: sbom.Name,
+				}
+
+				mu.Lock()
+				versionedSBOMs[sbom.Release] = append(versionedSBOMs[sbom.Release], versionedSBOM)
+				mu.Unlock()
+
+				logger.LogDebug(ctx.Context, "SBOM fetched and stored in memory", "name", sbom.Name)
 			}
-
-			mu.Lock()
-			versionedSBOMs[sbom.Release] = append(versionedSBOMs[sbom.Release], versionedSBOM)
-			mu.Unlock()
-
-			logger.LogDebug(ctx.Context, "SBOM fetched and stored in memory", "name", sbom.Name)
 			// _ = bar.Add(1) // Update progress bar
 		}(sbom)
 	}
 
 	wg.Wait()
-	// _ = bar.Finish() // Close progress bar on completion
 
 	if len(errors) > 0 {
 		return nil, fmt.Errorf("encountered %d download errors: %v", len(errors), errors[0])
 	}
 
+	logger.LogDebug(ctx.Context, "Total SBOMs fetched and stored in memory", "total_downloaded_sboms", totalDownloadedSBOMs, "correct_sboms_with_format_and_spec", totalSBOMsWithCorrectFormatAndSpec)
 	return versionedSBOMs, nil
 }
 
