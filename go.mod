@@ -2,11 +2,11 @@ module github.com/interlynk-io/sbommv
 
 go 1.23.0
 
-toolchain go1.23.6
+toolchain go1.24.1
 
 require (
 	github.com/DependencyTrack/client-go v0.15.0
-	github.com/interlynk-io/sbomasm v1.0.0
+	github.com/interlynk-io/sbomasm v1.0.1
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/viper v1.19.0
@@ -21,9 +21,11 @@ require (
 	github.com/anchore/go-struct-converter v0.0.0-20250211213226-cce56d595160 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
+	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
 	github.com/spdx/tools-golang v0.5.5 // indirect
-	golang.org/x/mod v0.23.0 // indirect
+	golang.org/x/mod v0.24.0 // indirect
 	google.golang.org/protobuf v1.36.5 // indirect
+	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f // indirect
 )
 
 require (
@@ -44,8 +46,8 @@ require (
 	github.com/subosito/gotenv v1.6.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/exp v0.0.0-20250218142911-aa4b98e5adaa // indirect
-	golang.org/x/sys v0.30.0 // indirect
-	golang.org/x/text v0.22.0 // indirect
+	golang.org/x/sys v0.31.0 // indirect
+	golang.org/x/text v0.23.0 // indirect
 	golang.org/x/time v0.11.0
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
