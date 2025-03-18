@@ -8,6 +8,7 @@ require (
 	github.com/DependencyTrack/client-go v0.15.0
 	github.com/interlynk-io/sbomasm v1.0.1
 	github.com/sirupsen/logrus v1.9.3
+	github.com/spdx/tools-golang v0.5.5
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/viper v1.19.0
 	go.uber.org/zap v1.27.0
@@ -22,7 +23,6 @@ require (
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
-	github.com/spdx/tools-golang v0.5.5 // indirect
 	golang.org/x/mod v0.24.0 // indirect
 	google.golang.org/protobuf v1.36.5 // indirect
 	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f // indirect

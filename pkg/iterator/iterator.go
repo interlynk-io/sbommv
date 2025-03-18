@@ -21,6 +21,7 @@ import (
 
 	"github.com/interlynk-io/sbommv/pkg/converter"
 	"github.com/interlynk-io/sbommv/pkg/logger"
+	"github.com/interlynk-io/sbommv/pkg/sbom"
 	"github.com/interlynk-io/sbommv/pkg/tcontext"
 )
 
@@ -65,10 +66,10 @@ func (it *MemoryIterator) Next(ctx tcontext.TransferMetadata) (*SBOM, error) {
 
 type ConvertedIterator struct {
 	inner        SBOMIterator
-	targetFormat converter.FormatSpec
+	targetFormat sbom.FormatSpec
 }
 
-func NewConvertedIterator(inner SBOMIterator, targetFormat converter.FormatSpec) *ConvertedIterator {
+func NewConvertedIterator(inner SBOMIterator, targetFormat sbom.FormatSpec) *ConvertedIterator {
 	return &ConvertedIterator{
 		inner:        inner,
 		targetFormat: targetFormat,
@@ -90,7 +91,8 @@ func (ci *ConvertedIterator) Next(ctx tcontext.TransferMetadata) (*SBOM, error) 
 	}
 	convertedData, err := converter.ConvertSBOM(ctx, sbom.Data, ci.targetFormat)
 	if err != nil {
-		logger.LogInfo(ctx.Context, "Failed to convert SBOM", "file", sbom.Path, "error", err)
+		logger.LogInfo(ctx.Context, "Failed to convert SBOM", "file", sbom.Path)
+		logger.LogDebug(ctx.Context, "Failed to convert SBOM", "file", sbom.Path, "error", err)
 		return sbom, nil
 	}
 	sbom.Data = convertedData
