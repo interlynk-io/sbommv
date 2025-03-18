@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"fmt"
 	"regexp"
+	"time"
 
 	"github.com/interlynk-io/sbommv/pkg/logger"
 	sbomd "github.com/interlynk-io/sbommv/pkg/sbom"
@@ -159,19 +160,40 @@ func parseSBOM(sbomData []byte) (*sbom.Document, error) {
 func serializeToCycloneDX(ctx tcontext.TransferMetadata, doc *sbom.Document) ([]byte, error) {
 	logger.LogDebug(ctx.Context, "Initializing protobom serialization of SBOM from SPDX to CycloneDX")
 	w := writer.New()
-	buf := newBufferWriteCloser()
+	buf := &bytes.Buffer{}
 
-	if err := w.WriteStreamWithOptions(doc, buf, &writer.Options{Format: formats.CDX15JSON}); err != nil {
-		return nil, fmt.Errorf("writing protobom serialized CycloneDX: %w", err)
+	// channel to receive result or error
+	resultChan := make(chan struct {
+		data []byte
+		err  error
+	}, 1)
+
+	go func(buffer *bytes.Buffer) {
+		logger.LogDebug(ctx.Context, "Starting WriteStreamWithOptions", "nodeCount", len(doc.NodeList.Nodes))
+		err := w.WriteStreamWithOptions(doc, buffer, &writer.Options{Format: formats.CDX15JSON})
+		data := buffer.Bytes()
+		resultChan <- struct {
+			data []byte
+			err  error
+		}{data, err}
+	}(buf)
+
+	// wait for result with timeout
+	select {
+	case res := <-resultChan:
+		if res.err != nil {
+			return nil, fmt.Errorf("writing protobom serialized CycloneDX: %w", res.err)
+		}
+		logger.LogDebug(ctx.Context, "Finished WriteStreamWithOptions")
+		data := res.data
+		if len(data) == 0 {
+			return nil, fmt.Errorf("empty protobom serialized CycloneDX SBOM")
+		}
+		logger.LogDebug(ctx.Context, "Successfully protobom serialization of SBOM from SPDX to CycloneDX")
+		return data, nil
+	case <-time.After(30 * time.Second): // 30 seconds timeout
+		return nil, fmt.Errorf("serialization timed out after 30 seconds")
 	}
-
-	data := buf.Bytes()
-	if len(data) == 0 {
-		return nil, fmt.Errorf("empty protobom serialized CycloneDX SBOM")
-	}
-	logger.LogDebug(ctx.Context, "Successfully protobom serialization of SBOM from SPDX to CycloneDX")
-
-	return data, nil
 }
 
 // func convertMinifiedJSON(data []byte) ([]byte, error) {
