@@ -167,7 +167,12 @@ func serializeToCycloneDX(ctx tcontext.TransferMetadata, doc *sbom.Document) ([]
 	if err := w.WriteStreamWithOptions(doc, buf, &writer.Options{Format: formats.CDX15JSON}); err != nil {
 		return nil, fmt.Errorf("writing CycloneDX: %w", err)
 	}
-	logger.LogDebug(ctx.Context, "SPDX SBOM converted to CycloneDX SBOM")
 
-	return buf.Bytes(), nil
+	data := buf.Bytes()
+	if len(data) == 0 {
+		return nil, fmt.Errorf("empty CycloneDX SBOM")
+	}
+	logger.LogDebug(ctx.Context, "SPDX SBOM successfully converted to CycloneDX SBOM")
+
+	return data, nil
 }
