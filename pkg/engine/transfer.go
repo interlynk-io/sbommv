@@ -101,7 +101,7 @@ func TransferRun(ctx context.Context, cmd *cobra.Command, config types.Config) e
 
 	// Process & Upload SBOMs Sequentially
 	if err := outputAdapterInstance.UploadSBOMs(*transferCtx, convertedIterator); err != nil {
-		return fmt.Errorf("failed to output SBOMs: %w", err)
+		return fmt.Errorf("%w", err)
 	}
 
 	logger.LogDebug(ctx, "SBOM transfer process completed successfully ✅")

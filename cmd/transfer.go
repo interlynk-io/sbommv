@@ -107,7 +107,7 @@ func registerAdapterFlags(cmd *cobra.Command) {
 
 func transferSBOM(cmd *cobra.Command, args []string) error {
 	// Suppress automatic usage message for non-flag errors
-	cmd.SilenceUsage = false
+	cmd.SilenceUsage = true
 
 	// Initialize logger based on debug flag
 	debug, _ := cmd.Flags().GetBool("debug")
@@ -126,7 +126,7 @@ func transferSBOM(cmd *cobra.Command, args []string) error {
 	logger.LogDebug(ctx, "configuration", "value", config)
 
 	if err := engine.TransferRun(ctx, cmd, config); err != nil {
-		return fmt.Errorf("failed to process engine for transfer cmd: %w", err)
+		return fmt.Errorf("%w", err)
 	}
 
 	return nil

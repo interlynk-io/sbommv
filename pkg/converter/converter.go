@@ -53,7 +53,7 @@ func ConvertSBOM(ctx tcontext.TransferMetadata, sbomData []byte, targetFormat sb
 
 	spec, version, err := sbomd.DetectSBOMSpecAndVersion(sbomData)
 	if err != nil {
-		return nil, fmt.Errorf("detecting SPDX SBOM: %w", err)
+		return nil, fmt.Errorf("ConvertSBOM: %w", err)
 	}
 
 	if spec == targetFormat {
@@ -91,7 +91,7 @@ func ConvertSBOM(ctx tcontext.TransferMetadata, sbomData []byte, targetFormat sb
 	// Parse the converted 2.3 SBOM with Protobom
 	doc, err = parseSBOM(spdx23SbomData)
 	if err != nil {
-		return nil, fmt.Errorf("parsing converted SPDX 2.3: %w", err)
+		return nil, fmt.Errorf("Conversion: %w", err)
 	}
 
 	logger.LogDebug(ctx.Context, "Converting SBOM", "source", spec, "source version", version, "target", targetFormat)
@@ -131,7 +131,7 @@ func parseSBOM(sbomData []byte) (*sbom.Document, error) {
 	// parse a sbom document from a sbom data using protobom
 	doc, err := r.ParseStream(bytes.NewReader(sbomData))
 	if err != nil {
-		return nil, fmt.Errorf("protobom parsing SBOM: %w", err)
+		return nil, fmt.Errorf("Conversion: %w", err)
 	}
 	return doc, nil
 }
@@ -182,7 +182,7 @@ func serializeToCycloneDX(ctx tcontext.TransferMetadata, doc *sbom.Document) ([]
 	select {
 	case res := <-resultChan:
 		if res.err != nil {
-			return nil, fmt.Errorf("writing protobom serialized CycloneDX: %w", res.err)
+			return nil, fmt.Errorf("Conversion: %w", res.err)
 		}
 		logger.LogDebug(ctx.Context, "Finished WriteStreamWithOptions")
 		data := res.data
@@ -192,7 +192,7 @@ func serializeToCycloneDX(ctx tcontext.TransferMetadata, doc *sbom.Document) ([]
 		logger.LogDebug(ctx.Context, "Successfully protobom serialization of SBOM from SPDX to CycloneDX")
 		return data, nil
 	case <-time.After(30 * time.Second): // 30 seconds timeout
-		return nil, fmt.Errorf("serialization timed out after 30 seconds")
+		return nil, fmt.Errorf("Conversion: serialization timed out after 30 seconds")
 	}
 }
 

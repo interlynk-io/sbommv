@@ -91,9 +91,8 @@ func (ci *ConvertedIterator) Next(ctx tcontext.TransferMetadata) (*SBOM, error) 
 	}
 	convertedData, err := converter.ConvertSBOM(ctx, sbom.Data, ci.targetFormat)
 	if err != nil {
-		logger.LogInfo(ctx.Context, "Failed to convert SBOM", "file", sbom.Path)
 		logger.LogDebug(ctx.Context, "Failed to convert SBOM", "file", sbom.Path, "error", err)
-		return sbom, nil
+		return nil, err
 	}
 	sbom.Data = convertedData
 	return sbom, nil
