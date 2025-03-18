@@ -45,7 +45,7 @@ func (f *SequentialFetcher) Fetch(ctx tcontext.TransferMetadata, config *FolderC
 	var sbomList []*iterator.SBOM
 	err := filepath.Walk(config.FolderPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			logger.LogError(ctx.Context, err, "Error accessing file", "path", path)
+			logger.LogInfo(ctx.Context, "Error accessing file", "path", path)
 			return nil
 		}
 
@@ -84,7 +84,7 @@ func (f *SequentialFetcher) Fetch(ctx tcontext.TransferMetadata, config *FolderC
 		return nil, err
 	}
 	if len(sbomList) == 0 {
-		return nil, fmt.Errorf("no SBOMs found in folder")
+		return nil, fmt.Errorf("No SBOM found in the folder")
 	}
 	return NewFolderIterator(sbomList), nil
 }
@@ -149,7 +149,7 @@ func (f *ParallelFetcher) Fetch(ctx tcontext.TransferMetadata, config *FolderCon
 	// walk the folder and send each file path into the channel.
 	err := filepath.Walk(config.FolderPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			logger.LogError(ctx.Context, err, "Error accessing file", "path", path)
+			logger.LogInfo(ctx.Context, "Error accessing file", "path", path)
 			return nil
 		}
 
@@ -168,7 +168,7 @@ func (f *ParallelFetcher) Fetch(ctx tcontext.TransferMetadata, config *FolderCon
 		return nil, err
 	}
 	if len(sbomList) == 0 {
-		return nil, fmt.Errorf("no SBOMs found in folder")
+		return nil, fmt.Errorf("No SBOM found in the folder")
 	}
 	return NewFolderIterator(sbomList), nil
 }

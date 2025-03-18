@@ -74,7 +74,7 @@ func (u *SequentialUploader) Upload(ctx tcontext.TransferMetadata, config *Folde
 		logger.LogDebug(ctx.Context, "Successfully written SBOM", "path", outputFile)
 	}
 
-	logger.LogInfo(ctx.Context, "All SBOMs uploaded successfully, no more SBOMs left")
+	logger.LogInfo(ctx.Context, "SBOM uploading processing done, no more SBOMs left")
 	logger.LogInfo(ctx.Context, "Total SBOMs", "count", totalSBOMs)
 	logger.LogInfo(ctx.Context, "Successfully Uploaded", "count", successfullyUploaded)
 

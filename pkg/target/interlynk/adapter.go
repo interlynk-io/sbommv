@@ -218,7 +218,7 @@ func (i *InterlynkAdapter) uploadSequential(ctx tcontext.TransferMetadata, sboms
 		}
 	}
 
-	logger.LogInfo(ctx.Context, "All SBOMs uploaded successfully, no more SBOMs left")
+	logger.LogInfo(ctx.Context, "SBOM uploading processing done, no more SBOMs left")
 	logger.LogInfo(ctx.Context, "Total SBOMs", "count", totalSBOMs)
 	logger.LogInfo(ctx.Context, "Successfully Uploaded", "count", successfullyUploaded)
 
