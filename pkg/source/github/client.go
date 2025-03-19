@@ -360,6 +360,8 @@ func (c *Client) FetchSBOMFromAPI(ctx tcontext.TransferMetadata) ([]byte, error)
 		return nil, fmt.Errorf("parsing GitHub URL: %w", err)
 	}
 
+	logger.LogDebug(ctx.Context, "Fetching SBOM Details", "repository", repo, "owner", owner, "repo_url", c.RepoURL)
+
 	// Construct the API URL for the SBOM export
 	url := fmt.Sprintf("%s/%s", c.BaseURL, fmt.Sprintf(githubSBOMEndpoint, owner, repo))
 	logger.LogDebug(ctx.Context, "Fetching SBOM via GitHub API", "url", url)

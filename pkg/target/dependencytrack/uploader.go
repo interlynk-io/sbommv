@@ -111,6 +111,7 @@ func (u *ParallelUploader) Upload(ctx tcontext.TransferMetadata, config *Depende
 	sbomChan := make(chan *iterator.SBOM, 100)
 	totalSBOMs := 0
 	successfullyUploaded := 0
+
 	// multiple goroutines will read SBOMs from the iterator.
 	go func() {
 		for {
@@ -175,7 +176,7 @@ func (u *ParallelUploader) Upload(ctx tcontext.TransferMetadata, config *Depende
 
 	// wait for all workers to complete.
 	wg.Wait()
-	logger.LogInfo(ctx.Context, "Successfully Uploaded", "count", successfullyUploaded)
+	logger.LogInfo(ctx.Context, "Successfully Uploaded", "Total count", totalSBOMs, "Success", successfullyUploaded, "Failed", totalSBOMs-successfullyUploaded)
 	return nil
 }
 
