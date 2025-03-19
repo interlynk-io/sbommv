@@ -33,8 +33,10 @@ import (
 // InterlynkAdapter manages SBOM uploads to the Interlynk service.
 type InterlynkAdapter struct {
 	// Config fields
-	ProjectName string
-	ProjectEnv  string
+	ProjectName    string
+	ProjectVersion string
+
+	ProjectEnv string
 
 	BaseURL string
 	ApiKey  string
@@ -263,14 +265,18 @@ func (i *InterlynkAdapter) DryRun(ctx tcontext.TransferMetadata, sbomIterator it
 			continue
 		}
 
-		projectName, err := getProjectName(ctx, i.ProjectName, sbom.Namespace)
-		if err != nil {
+		var projectName, projectVersion string
+
+		if i.ProjectName != "" {
+			projectName, projectVersion = getExplicitProjectVersion(ctx, i.ProjectName, i.ProjectVersion)
+		} else if sbom.Namespace != "" {
+			projectName, projectVersion = getImplicitProjectVersion(ctx, sbom.Namespace, sbom.Version)
+		} else {
 			continue
 		}
+		finalProjectName := fmt.Sprintf("%s-%s", projectName, projectVersion)
 
-		env := getProjectVersion(ctx, "", sbom.Version)
-
-		finalProjectName := fmt.Sprintf("%s-%s", projectName, env)
+		// env := getProjectVersion(ctx, "", sbom.Version)
 
 		projectKey := fmt.Sprintf("%s", finalProjectName)
 		projectSBOMs[projectKey] = append(projectSBOMs[projectKey], doc)

@@ -62,12 +62,16 @@ func (r *DependencyTrackReporter) DryRun(ctx tcontext.TransferMetadata, iter ite
 			return err
 		}
 
-		projectName, err := getProjectName(ctx, r.projectName, sbom.Namespace)
-		if err != nil {
+		var projectName, projectVersion string
+
+		if r.projectName != "" {
+			projectName, projectVersion = getExplicitProjectVersion(ctx, r.projectName, r.projectVersion)
+		} else if sbom.Namespace != "" {
+			projectName, projectVersion = getImplicitProjectVersion(ctx, sbom.Namespace, sbom.Version)
+		} else {
 			continue
 		}
 
-		projectVersion := getProjectVersion(ctx, r.projectVersion, sbom.Version)
 		finalProjectName := fmt.Sprintf("%s-%s", projectName, projectVersion)
 
 		fmt.Printf("- 📁 Would upload to project '%s' | Format: %s | SpecVersion: %s\n",

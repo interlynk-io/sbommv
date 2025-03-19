@@ -56,13 +56,16 @@ func (u *SequentialUploader) Upload(ctx tcontext.TransferMetadata, config *Depen
 			continue
 		}
 
-		projectName, err := getProjectName(ctx, config.ProjectName, sbom.Namespace)
-		if err != nil {
-			logger.LogDebug(ctx.Context, "Failed to get DT project name", "error", err)
+		var projectName, projectVersion string
+
+		if config.ProjectName != "" {
+			projectName, projectVersion = getExplicitProjectVersion(ctx, config.ProjectName, config.ProjectVersion)
+		} else if sbom.Namespace != "" {
+			projectName, projectVersion = getImplicitProjectVersion(ctx, sbom.Namespace, sbom.Version)
+		} else {
 			continue
 		}
 
-		projectVersion := getProjectVersion(ctx, config.ProjectVersion, sbom.Version)
 		finalProjectName := fmt.Sprintf("%s-%s", projectName, projectVersion)
 		logger.LogDebug(ctx.Context, "Project Details", "name", finalProjectName, "version", projectVersion)
 
@@ -138,12 +141,16 @@ func (u *ParallelUploader) Upload(ctx tcontext.TransferMetadata, config *Depende
 			defer wg.Done()
 			for sbom := range sbomChan {
 
-				projectName, err := getProjectName(ctx, config.ProjectName, sbom.Namespace)
-				if err != nil {
+				var projectName, projectVersion string
+
+				if config.ProjectName != "" {
+					projectName, projectVersion = getExplicitProjectVersion(ctx, config.ProjectName, config.ProjectVersion)
+				} else if sbom.Namespace != "" {
+					projectName, projectVersion = getImplicitProjectVersion(ctx, sbom.Namespace, sbom.Version)
+				} else {
 					continue
 				}
 
-				projectVersion := getProjectVersion(ctx, config.ProjectVersion, sbom.Version)
 				finalProjectName := fmt.Sprintf("%s-%s", projectName, projectVersion)
 				logger.LogDebug(ctx.Context, "Project Details", "name", finalProjectName, "version", projectVersion)
 
@@ -163,7 +170,7 @@ func (u *ParallelUploader) Upload(ctx tcontext.TransferMetadata, config *Depende
 				logger.LogDebug(ctx.Context, "Uploading SBOM file", "file", sbom.Path)
 
 				// Upload the SBOM.
-				err = client.UploadSBOM(ctx, finalProjectName, projectVersion, sbom.Data)
+				err := client.UploadSBOM(ctx, finalProjectName, projectVersion, sbom.Data)
 				if err != nil {
 					logger.LogDebug(ctx.Context, "Failed to upload SBOM", "project", finalProjectName, "file", sbom.Path, "error", err)
 					continue
@@ -180,36 +187,18 @@ func (u *ParallelUploader) Upload(ctx tcontext.TransferMetadata, config *Depende
 	return nil
 }
 
-func getProjectName(ctx tcontext.TransferMetadata, providedProjectName string, namespace string) (string, error) {
-	if providedProjectName == "" && namespace == "" {
-		return "", fmt.Errorf("no project name specified and SBOM namespace is empty")
+func getExplicitProjectVersion(ctx tcontext.TransferMetadata, providedProjectName string, providedProjectVersion string) (string, string) {
+	if providedProjectVersion == "" {
+		return providedProjectName, "latest"
 	}
 
-	var projectName string
-	if providedProjectName != "" {
-		projectName = providedProjectName
-		logger.LogDebug(ctx.Context, "Project Name is provided by the user", "name", projectName)
-	} else {
-		projectName = namespace
-		logger.LogDebug(ctx.Context, "Project Name as sbom.Namespace will be used", "sbom.Namespace", namespace)
-	}
-
-	return projectName, nil
+	return providedProjectName, providedProjectVersion
 }
 
-func getProjectVersion(ctx tcontext.TransferMetadata, providedProjectVersion string, version string) string {
-	var projectVersion string
-	if providedProjectVersion == "" && version == "" {
-		projectVersion = "latest"
+func getImplicitProjectVersion(ctx tcontext.TransferMetadata, providedProjectName string, providedProjectVersion string) (string, string) {
+	if providedProjectVersion == "" {
+		return providedProjectName, "unknown"
 	}
 
-	if providedProjectVersion != "" {
-		projectVersion = providedProjectVersion
-		logger.LogDebug(ctx.Context, "Project Version is provided by the user", "version", projectVersion)
-	} else {
-		projectVersion = version
-		logger.LogDebug(ctx.Context, "Project Version as sbom.Version will be used", "sbom.Version", projectVersion)
-	}
-
-	return projectVersion
+	return providedProjectName, providedProjectVersion
 }

@@ -21,7 +21,6 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/interlynk-io/sbommv/pkg/logger"
 	"github.com/interlynk-io/sbommv/pkg/tcontext"
 )
 
@@ -81,36 +80,18 @@ func formatSetToString(formatSet map[string]struct{}) string {
 	return strings.Join(formats, ", ")
 }
 
-func getProjectName(ctx tcontext.TransferMetadata, providedProjectName string, namespace string) (string, error) {
-	if providedProjectName == "" && namespace == "" {
-		return "", fmt.Errorf("no project name specified and SBOM namespace is empty")
+func getExplicitProjectVersion(ctx tcontext.TransferMetadata, providedProjectName string, providedProjectVersion string) (string, string) {
+	if providedProjectVersion == "" {
+		return providedProjectName, "latest"
 	}
 
-	var projectName string
-	if providedProjectName != "" {
-		projectName = providedProjectName
-		logger.LogDebug(ctx.Context, "Project Name is provided by the user", "name", projectName)
-	} else {
-		projectName = namespace
-		logger.LogDebug(ctx.Context, "Project Name as sbom.Namespace will be used", "sbom.Namespace", namespace)
-	}
-
-	return projectName, nil
+	return providedProjectName, providedProjectVersion
 }
 
-func getProjectVersion(ctx tcontext.TransferMetadata, providedProjectVersion string, version string) string {
-	var projectVersion string
-	if providedProjectVersion == "" && version == "" {
-		projectVersion = "latest"
+func getImplicitProjectVersion(ctx tcontext.TransferMetadata, providedProjectName string, providedProjectVersion string) (string, string) {
+	if providedProjectVersion == "" {
+		return providedProjectName, "unknown"
 	}
 
-	if providedProjectVersion != "" {
-		projectVersion = providedProjectVersion
-		logger.LogDebug(ctx.Context, "Project Version is provided by the user", "version", projectVersion)
-	} else {
-		projectVersion = version
-		logger.LogDebug(ctx.Context, "Project Version as sbom.Version will be used", "sbom.Version", projectVersion)
-	}
-
-	return projectVersion
+	return providedProjectName, providedProjectVersion
 }
