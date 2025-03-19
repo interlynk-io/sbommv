@@ -475,7 +475,7 @@ func (c *Client) GetAllRepositories(ctx tcontext.TransferMetadata) ([]string, er
 		return nil, fmt.Errorf("no repositories found for organization %s", c.Owner)
 	}
 
-	logger.LogDebug(ctx.Context, "Total number of repos", "count", len(repos), "in organization", c.Owner)
+	logger.LogDebug(ctx.Context, "Total available repos in an organization", "count", len(repos), "in organization", c.Owner)
 
 	return repoNames, nil
 }
