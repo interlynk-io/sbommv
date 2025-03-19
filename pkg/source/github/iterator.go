@@ -62,7 +62,7 @@ func (it *GitHubIterator) Next(ctx tcontext.TransferMetadata) (*iterator.SBOM, e
 func (it *GitHubIterator) fetchSBOMFromAPI(ctx tcontext.TransferMetadata) ([]*iterator.SBOM, error) {
 	sbomData, err := it.client.FetchSBOMFromAPI(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error generating SBOMs from tool: %w", err)
 	}
 
 	var sbomSlice []*iterator.SBOM
@@ -73,6 +73,8 @@ func (it *GitHubIterator) fetchSBOMFromAPI(ctx tcontext.TransferMetadata) ([]*it
 		Namespace: fmt.Sprintf("%s/%s", it.client.Owner, it.client.Repo),
 		Version:   "latest",
 	})
+	logger.LogDebug(ctx.Context, "SBOM successfully fetched using API Method")
+
 	return sbomSlice, nil
 }
 
@@ -95,7 +97,7 @@ func (it *GitHubIterator) fetchSBOMFromReleases(ctx tcontext.TransferMetadata) (
 			})
 		}
 	}
-
+	logger.LogDebug(ctx.Context, "SBOM successfully fetched using Release Method")
 	return sbomSlice, nil
 }
 
@@ -113,15 +115,16 @@ func (it *GitHubIterator) fetchSBOMFromTool(ctx tcontext.TransferMetadata) ([]*i
 	}
 
 	// Generate SBOM and save in memory
-	sbomFile, err := GenerateSBOM(ctx, repoDir, it.binaryPath)
+	sbomBytes, err := GenerateSBOM(ctx, repoDir, it.binaryPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate SBOM: %w", err)
 	}
 
-	sbomBytes, err := os.ReadFile(sbomFile)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read SBOM: %w", err)
-	}
+	// TODO(cleanup later): Write SBOM to a file for testing to see its content
+	// outputFile := fmt.Sprintf("syft-tool-%s.json", uuid.NewString())
+	// if err := os.WriteFile(outputFile, sbomBytes, 0o644); err != nil {
+	// 	return nil, fmt.Errorf("failed to write to file %s: %w", outputFile, err)
+	// }
 
 	if len(sbomBytes) == 0 {
 		return nil, fmt.Errorf("generate SBOM with zero file data: %w", err)
@@ -134,6 +137,6 @@ func (it *GitHubIterator) fetchSBOMFromTool(ctx tcontext.TransferMetadata) ([]*i
 		Version:   it.client.Version,
 		Branch:    it.client.Branch,
 	})
-	logger.LogDebug(ctx.Context, "SBOM successfully stored in memory", "repository", it.client.RepoURL)
+	logger.LogDebug(ctx.Context, "SBOM successfully fetched using Tool Method")
 	return sbomSlice, nil
 }

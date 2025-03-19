@@ -15,7 +15,6 @@
 package github
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"strings"
@@ -176,14 +175,13 @@ func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 		return fmt.Errorf("cannot use both --in-github-include-repos and --in-github-exclude-repos together")
 	}
 
-	if method == "tool" {
+	if GitHubMethod(method) == MethodTool {
 		binaryPath, err := utils.GetBinaryPath()
 		if err != nil {
 			return fmt.Errorf("failed to get Syft binary: %w", err)
 		}
 
 		g.BinaryPath = binaryPath
-		logger.LogDebug(context.Background(), "Binary Path", "value", g.BinaryPath)
 	}
 
 	token := viper.GetString("GITHUB_TOKEN")
@@ -248,7 +246,7 @@ func (g *GitHubAdapter) FetchSBOMs(ctx tcontext.TransferMetadata) (iterator.SBOM
 		return nil, fmt.Errorf("no repositories left after applying filters")
 	}
 
-	logger.LogDebug(ctx.Context, "SBOMs will be fetched from these repos", "values", repos, "count", len(repos))
+	logger.LogDebug(ctx.Context, "Total repos from which SBOMs will be fetched", "count", len(repos), "repos", repos)
 
 	logger.LogDebug(ctx.Context, "Processing Mode", "strategy", g.ProcessingMode)
 
@@ -477,7 +475,7 @@ func (g *GitHubAdapter) fetchSBOMsSequentially(ctx tcontext.TransferMetadata, re
 	logger.LogDebug(ctx.Context, "Fetching SBOMs sequentially")
 
 	var sbomList []*iterator.SBOM
-	giter := &GitHubIterator{client: g.client}
+	giter := &GitHubIterator{client: g.client, binaryPath: g.BinaryPath}
 
 	// Iterate over repositories one by one (sequential processing)
 	for _, repo := range repos {
@@ -513,7 +511,7 @@ func (g *GitHubAdapter) fetchSBOMsSequentially(ctx tcontext.TransferMetadata, re
 
 			releaseSBOM, err := giter.fetchSBOMFromTool(ctx)
 			if err != nil {
-				logger.LogInfo(ctx.Context, "Failed to fetch SBOMs from Tool Method for", "repo", repo)
+				logger.LogInfo(ctx.Context, "Failed to generate SBOMs via Tool Method for", "repo", repo)
 				continue
 			}
 

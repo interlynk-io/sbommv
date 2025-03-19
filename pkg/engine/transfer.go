@@ -145,15 +145,13 @@ func sbomProcessing(ctx tcontext.TransferMetadata, config types.Config, sbomIter
 
 	// convert sbom to cdx for DTrack adapter only
 	if types.AdapterType(config.DestinationAdapter) == types.DtrackAdapterType {
-		logger.LogDebug(ctx.Context, "Adapter eligible for conversion layer", "adapter type", config.DestinationAdapter)
 
-		logger.LogDebug(ctx.Context, "SBOM conversion will take place")
+		logger.LogDebug(ctx.Context, "Adapter is eligible for SBOM conversion", "adapter type", config.DestinationAdapter)
 		// convertedSBOMs := sbomConversion(sbomIterator, ctx)
 		return iterator.NewConvertedIterator(sbomIterator, sbom.FormatSpecCycloneDX)
 		// return iterator.NewMemoryIterator(convertedSBOMs)
 	} else {
-		logger.LogDebug(ctx.Context, "Adapter accept both SPDX and CDX SBOM, therefore doesn't require conversion layer", "adapter type", config.DestinationAdapter)
-		logger.LogDebug(ctx.Context, "SBOM conversion will not take place")
+		logger.LogDebug(ctx.Context, "Adapter is not eligible for SBOM conversion", "adapter type", config.DestinationAdapter)
 		return sbomIterator
 	}
 }

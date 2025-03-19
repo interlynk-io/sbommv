@@ -39,7 +39,7 @@ func NewSequentialUploader() *SequentialUploader {
 }
 
 func (u *SequentialUploader) Upload(ctx tcontext.TransferMetadata, config *DependencyTrackConfig, client *DependencyTrackClient, iter iterator.SBOMIterator) error {
-	logger.LogDebug(ctx.Context, "Uploading SBOMs to Dependency-Track sequentially")
+	logger.LogDebug(ctx.Context, "Initializing SBOMs uploading to Dependency-Track sequentially")
 
 	totalSBOMs := 0
 	successfullyUploaded := 0
@@ -77,21 +77,21 @@ func (u *SequentialUploader) Upload(ctx tcontext.TransferMetadata, config *Depen
 			u.createdProjects[finalProjectName] = true
 		}
 
-		logger.LogDebug(ctx.Context, "Initializing uploading SBOM file", "file", sbom.Path)
+		logger.LogDebug(ctx.Context, "Initializing uploading SBOM content", "size", len(sbom.Data), "file", sbom.Path)
 
 		err = client.UploadSBOM(ctx, finalProjectName, projectVersion, sbom.Data)
 		if err != nil {
-			logger.LogDebug(ctx.Context, "Upload Failed for", "project", finalProjectName, "file", sbom.Path, "error", err)
+			logger.LogDebug(ctx.Context, "Upload Failed for", "project", finalProjectName, "size", len(sbom.Data), "file", sbom.Path, "error", err)
 			continue
 		}
 		successfullyUploaded++
-		logger.LogDebug(ctx.Context, "Successfully uploaded SBOM file", "file", sbom.Path)
+		logger.LogDebug(ctx.Context, "Successfully uploaded SBOM file", "size", len(sbom.Data), "file", sbom.Path)
 	}
 	logger.LogInfo(ctx.Context, "Successfully Uploaded", "Total count", totalSBOMs, "Success", successfullyUploaded, "Failed", totalSBOMs-successfullyUploaded)
 	return nil
 }
 
-// // ParallelUploader uploads SBOMs to Dependency-Track concurrently.
+// ParallelUploader uploads SBOMs to Dependency-Track concurrently.
 type ParallelUploader struct {
 	createdProjects map[string]bool
 	mu              sync.Mutex // Protects access to createdProjects.
@@ -106,7 +106,7 @@ func NewParallelUploader() *ParallelUploader {
 
 // Upload implements the SBOMUploader interface for ParallelUploader.
 func (u *ParallelUploader) Upload(ctx tcontext.TransferMetadata, config *DependencyTrackConfig, client *DependencyTrackClient, iter iterator.SBOMIterator) error {
-	logger.LogDebug(ctx.Context, "Uploading SBOMs to Dependency-Track in parallel mode")
+	logger.LogDebug(ctx.Context, "Initializing SBOMs uploading to Dependency-Track parallely")
 
 	sbomChan := make(chan *iterator.SBOM, 100)
 	totalSBOMs := 0
