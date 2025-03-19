@@ -48,13 +48,17 @@ func (u *SequentialUploader) Upload(ctx tcontext.TransferMetadata, config *Depen
 		if err == io.EOF {
 			break
 		}
+
 		totalSBOMs++
+
 		if err != nil {
-			return err
+			logger.LogDebug(ctx.Context, "Next: failed to get next SBOM continuing", "error", err)
+			continue
 		}
 
 		projectName, err := getProjectName(ctx, config.ProjectName, sbom.Namespace)
 		if err != nil {
+			logger.LogDebug(ctx.Context, "Failed to get DT project name", "error", err)
 			continue
 		}
 
@@ -68,7 +72,6 @@ func (u *SequentialUploader) Upload(ctx tcontext.TransferMetadata, config *Depen
 			_, err = client.FindOrCreateProject(ctx, finalProjectName, projectVersion)
 			if err != nil {
 				logger.LogInfo(ctx.Context, "Failed to find or create project", "project", projectName, "error", err)
-				// u.mu.Unlock()
 				continue
 			}
 			u.createdProjects[finalProjectName] = true
@@ -78,13 +81,13 @@ func (u *SequentialUploader) Upload(ctx tcontext.TransferMetadata, config *Depen
 
 		err = client.UploadSBOM(ctx, finalProjectName, projectVersion, sbom.Data)
 		if err != nil {
-			logger.LogDebug(ctx.Context, "Failed to upload SBOM", "project", finalProjectName, "file", sbom.Path, "error", err)
+			logger.LogDebug(ctx.Context, "Upload Failed for", "project", finalProjectName, "file", sbom.Path, "error", err)
 			continue
 		}
 		successfullyUploaded++
 		logger.LogDebug(ctx.Context, "Successfully uploaded SBOM file", "file", sbom.Path)
 	}
-	logger.LogInfo(ctx.Context, "Successfully Uploaded", "count", successfullyUploaded)
+	logger.LogInfo(ctx.Context, "Successfully Uploaded", "Total count", totalSBOMs, "Success", successfullyUploaded, "Failed", totalSBOMs-successfullyUploaded)
 	return nil
 }
 

@@ -38,7 +38,6 @@ func ConvertSPDX22ToSPDX23(ctx tcontext.TransferMetadata, sbomData []byte) ([]by
 	// Parse SPDX 2.2 JSON
 	err = json.Unmarshal(sbomData, &sourceDoc)
 	if err != nil {
-		logger.LogInfo(ctx.Context, "Failed to unmarshal SPDX 2.2 JSON")
 		logger.LogDebug(ctx.Context, "Failed to unmarshal SPDX 2.2 JSON", "error", err)
 		return nil, fmt.Errorf("unmarshaling SPDX 2.2 JSON: %w", err)
 	}
@@ -46,7 +45,6 @@ func ConvertSPDX22ToSPDX23(ctx tcontext.TransferMetadata, sbomData []byte) ([]by
 	// Convert 2.2 to 2.3
 	err = convert.Document(&sourceDoc, &targetDoc)
 	if err != nil {
-		logger.LogInfo(ctx.Context, "Failed to convert SPDX 2.2 to 2.3")
 		logger.LogDebug(ctx.Context, "Failed to convert SPDX 2.2 to 2.3", "error", err)
 		return nil, fmt.Errorf("converting SPDX 2.2 to 2.3: %w", err)
 	}
