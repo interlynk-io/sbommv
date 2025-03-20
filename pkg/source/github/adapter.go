@@ -489,7 +489,7 @@ func (g *GitHubAdapter) fetchSBOMsSequentially(ctx tcontext.TransferMetadata, re
 
 			releaseSBOM, err := giter.fetchSBOMFromAPI(ctx)
 			if err != nil {
-				logger.LogInfo(ctx.Context, "Failed to fetch SBOMs from API Method for", "repo", repo)
+				logger.LogDebug(ctx.Context, "Failed to fetch SBOMs from API Method for", "repo", repo)
 				continue
 			}
 			if len(releaseSBOM) > 0 {
@@ -500,7 +500,7 @@ func (g *GitHubAdapter) fetchSBOMsSequentially(ctx tcontext.TransferMetadata, re
 
 			releaseSBOMs, err := giter.fetchSBOMFromReleases(ctx)
 			if err != nil {
-				logger.LogInfo(ctx.Context, "Failed to fetch SBOMs from Release Method for", "repo", repo)
+				logger.LogDebug(ctx.Context, "Failed to fetch SBOMs from Release Method for", "repo", repo)
 				continue
 			}
 			if len(releaseSBOMs) > 0 {
@@ -511,7 +511,7 @@ func (g *GitHubAdapter) fetchSBOMsSequentially(ctx tcontext.TransferMetadata, re
 
 			releaseSBOM, err := giter.fetchSBOMFromTool(ctx)
 			if err != nil {
-				logger.LogInfo(ctx.Context, "Failed to generate SBOMs via Tool Method for", "repo", repo)
+				logger.LogDebug(ctx.Context, "Failed to generate SBOMs via Tool Method for", "repo", repo)
 				continue
 			}
 

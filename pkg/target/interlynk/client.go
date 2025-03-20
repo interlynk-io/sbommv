@@ -55,21 +55,23 @@ const (
 
 // Client handles interactions with the Interlynk API
 type Client struct {
-	ApiURL      string
-	token       string
-	client      *http.Client
-	ProjectName string
-	ProjectEnv  string
+	ApiURL         string
+	token          string
+	client         *http.Client
+	ProjectName    string
+	ProjectEnv     string
+	ProjectVersion string
 }
 
 // Config holds the configuration for the Interlynk client
 type Config struct {
-	APIURL      string
-	Token       string
-	ProjectName string
-	ProjectEnv  string
-	Timeout     time.Duration
-	MaxAttempts int
+	APIURL         string
+	Token          string
+	ProjectName    string
+	ProjectVersion string
+	ProjectEnv     string
+	Timeout        time.Duration
+	MaxAttempts    int
 }
 
 // NewClient creates a new Interlynk API client
@@ -92,17 +94,10 @@ func NewClient(config Config) *Client {
 	}
 }
 
-func (c *Client) FindOrCreateProjectGroup(ctx tcontext.TransferMetadata, repoName, version string) (string, string, error) {
-	logger.LogDebug(ctx.Context, "Finding or creating project group", "repo", repoName, "version", version)
+func (c *Client) FindOrCreateProjectGroup(ctx tcontext.TransferMetadata, finalProjectName string) (string, string, error) {
+	logger.LogDebug(ctx.Context, "Finding or creating project group", "name", finalProjectName)
 
-	projectName, err := getProjectName(ctx, c.ProjectName, repoName)
-	if err != nil {
-		return "", "", err
-	}
-
-	projectVersion := getProjectVersion(ctx, "", version)
-	finalProjectName := fmt.Sprintf("%s-%s", projectName, projectVersion)
-	logger.LogDebug(ctx.Context, "Project Details", "name", finalProjectName, "version", projectVersion)
+	logger.LogDebug(ctx.Context, "Project Details", "name", finalProjectName)
 
 	env := c.ProjectEnv
 

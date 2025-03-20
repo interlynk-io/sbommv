@@ -54,9 +54,6 @@ func (u *SequentialUploader) Upload(ctx tcontext.TransferMetadata, config *Folde
 			return err
 		}
 		outputDir := config.FolderPath
-		if outputDir == "" {
-			outputDir = sbom.Namespace
-		}
 
 		if err := os.MkdirAll(outputDir, 0o755); err != nil {
 			logger.LogError(ctx.Context, err, "Failed to create folder", "path", outputDir)

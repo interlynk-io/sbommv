@@ -16,11 +16,13 @@ package dependencytrack
 import (
 	"fmt"
 	"io"
+	"path/filepath"
 	"sync"
 
 	"github.com/interlynk-io/sbommv/pkg/iterator"
 	"github.com/interlynk-io/sbommv/pkg/logger"
 	"github.com/interlynk-io/sbommv/pkg/tcontext"
+	"github.com/interlynk-io/sbommv/pkg/utils"
 )
 
 type SBOMUploader interface {
@@ -56,13 +58,20 @@ func (u *SequentialUploader) Upload(ctx tcontext.TransferMetadata, config *Depen
 			continue
 		}
 
-		projectName, err := getProjectName(ctx, config.ProjectName, sbom.Namespace)
-		if err != nil {
-			logger.LogDebug(ctx.Context, "Failed to get DT project name", "error", err)
-			continue
+		sourceAdapter := ctx.Value("source")
+
+		// if project name is provided that's well and good, else we need to construct project name from:
+		// SBOM primary component name and lasly from file name
+		projectName, projectVersion := utils.ConstructProjectName(ctx, config.ProjectName, config.ProjectVersion, sbom.Namespace, sbom.Version, sbom.Data, sourceAdapter.(string))
+		if projectName == "" {
+			// THIS CASE OCCURS WHEN SBOM IS NOT IN JSON FORMAT
+			// when a JSON SBOM has empty primary comp and version, use the file name as project name
+
+			projectName = filepath.Base(sbom.Path)
+			projectName = projectName[:len(projectName)-len(filepath.Ext(projectName))]
+			projectVersion = "latest"
 		}
 
-		projectVersion := getProjectVersion(ctx, config.ProjectVersion, sbom.Version)
 		finalProjectName := fmt.Sprintf("%s-%s", projectName, projectVersion)
 		logger.LogDebug(ctx.Context, "Project Details", "name", finalProjectName, "version", projectVersion)
 
@@ -138,12 +147,20 @@ func (u *ParallelUploader) Upload(ctx tcontext.TransferMetadata, config *Depende
 			defer wg.Done()
 			for sbom := range sbomChan {
 
-				projectName, err := getProjectName(ctx, config.ProjectName, sbom.Namespace)
-				if err != nil {
-					continue
+				// if project name is provided that's well and good, else we need to construct project name from:
+				// SBOM primary component name
+				// and lasly from file name
+				sourceAdapter := ctx.Value("source")
+				projectName, projectVersion := utils.ConstructProjectName(ctx, config.ProjectName, config.ProjectVersion, sbom.Namespace, sbom.Version, sbom.Data, sourceAdapter.(string))
+				if projectName == "" {
+					// THIS CASE OCCURS WHEN SBOM IS NOT IN JSON FORMAT
+					// when a JSON SBOM has empty primary comp and version, use the file name as project name
+
+					projectName = filepath.Base(sbom.Path)
+					projectName = projectName[:len(projectName)-len(filepath.Ext(projectName))]
+					projectVersion = "latest"
 				}
 
-				projectVersion := getProjectVersion(ctx, config.ProjectVersion, sbom.Version)
 				finalProjectName := fmt.Sprintf("%s-%s", projectName, projectVersion)
 				logger.LogDebug(ctx.Context, "Project Details", "name", finalProjectName, "version", projectVersion)
 
@@ -163,7 +180,7 @@ func (u *ParallelUploader) Upload(ctx tcontext.TransferMetadata, config *Depende
 				logger.LogDebug(ctx.Context, "Uploading SBOM file", "file", sbom.Path)
 
 				// Upload the SBOM.
-				err = client.UploadSBOM(ctx, finalProjectName, projectVersion, sbom.Data)
+				err := client.UploadSBOM(ctx, finalProjectName, projectVersion, sbom.Data)
 				if err != nil {
 					logger.LogDebug(ctx.Context, "Failed to upload SBOM", "project", finalProjectName, "file", sbom.Path, "error", err)
 					continue
@@ -178,38 +195,4 @@ func (u *ParallelUploader) Upload(ctx tcontext.TransferMetadata, config *Depende
 	wg.Wait()
 	logger.LogInfo(ctx.Context, "Successfully Uploaded", "Total count", totalSBOMs, "Success", successfullyUploaded, "Failed", totalSBOMs-successfullyUploaded)
 	return nil
-}
-
-func getProjectName(ctx tcontext.TransferMetadata, providedProjectName string, namespace string) (string, error) {
-	if providedProjectName == "" && namespace == "" {
-		return "", fmt.Errorf("no project name specified and SBOM namespace is empty")
-	}
-
-	var projectName string
-	if providedProjectName != "" {
-		projectName = providedProjectName
-		logger.LogDebug(ctx.Context, "Project Name is provided by the user", "name", projectName)
-	} else {
-		projectName = namespace
-		logger.LogDebug(ctx.Context, "Project Name as sbom.Namespace will be used", "sbom.Namespace", namespace)
-	}
-
-	return projectName, nil
-}
-
-func getProjectVersion(ctx tcontext.TransferMetadata, providedProjectVersion string, version string) string {
-	var projectVersion string
-	if providedProjectVersion == "" && version == "" {
-		projectVersion = "latest"
-	}
-
-	if providedProjectVersion != "" {
-		projectVersion = providedProjectVersion
-		logger.LogDebug(ctx.Context, "Project Version is provided by the user", "version", projectVersion)
-	} else {
-		projectVersion = version
-		logger.LogDebug(ctx.Context, "Project Version as sbom.Version will be used", "sbom.Version", projectVersion)
-	}
-
-	return projectVersion
 }

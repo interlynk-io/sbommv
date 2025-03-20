@@ -26,17 +26,18 @@ import (
 )
 
 type FolderReporter struct {
-	verbose   bool
-	outputDir string
+	verbose    bool
+	inputDir   string
+	folderPath string
 }
 
-func NewFolderReporter(verbose bool, outputDir string) *FolderReporter {
-	return &FolderReporter{verbose: verbose, outputDir: outputDir}
+func NewFolderReporter(verbose bool, inputDir, folderPath string) *FolderReporter {
+	return &FolderReporter{verbose: verbose, inputDir: inputDir, folderPath: folderPath}
 }
 
 func (r *FolderReporter) DryRun(ctx tcontext.TransferMetadata, iter iterator.SBOMIterator) error {
 	logger.LogDebug(ctx.Context, "Dry-run mode: Displaying SBOMs fetched from folder")
-	processor := sbom.NewSBOMProcessor(r.outputDir, r.verbose)
+	processor := sbom.NewSBOMProcessor(r.inputDir, r.verbose)
 	sbomCount := 0
 	fmt.Println("\n📦 Details of all Fetched SBOMs by Folder Input Adapter")
 
@@ -55,7 +56,7 @@ func (r *FolderReporter) DryRun(ctx tcontext.TransferMetadata, iter iterator.SBO
 			logger.LogError(ctx.Context, err, "Failed to process SBOM")
 			return err
 		}
-		if r.outputDir != "" {
+		if r.inputDir != "" {
 			if err := processor.WriteSBOM(doc, ""); err != nil {
 				logger.LogError(ctx.Context, err, "Failed to write SBOM")
 				return err
@@ -70,7 +71,7 @@ func (r *FolderReporter) DryRun(ctx tcontext.TransferMetadata, iter iterator.SBO
 		}
 		sbomCount++
 		fmt.Printf(" - 📁 Folder: %s | Format: %s | SpecVersion: %s | Filename: %s\n",
-			sbom.Namespace, doc.Format, doc.SpecVersion, doc.Filename)
+			r.folderPath, doc.Format, doc.SpecVersion, doc.Filename)
 	}
 	fmt.Printf("📊 Total SBOMs: %d\n", sbomCount)
 	return nil
