@@ -17,11 +17,13 @@ package dependencytrack
 import (
 	"fmt"
 	"io"
+	"path/filepath"
 
 	"github.com/interlynk-io/sbommv/pkg/iterator"
 	"github.com/interlynk-io/sbommv/pkg/logger"
 	"github.com/interlynk-io/sbommv/pkg/sbom"
 	"github.com/interlynk-io/sbommv/pkg/tcontext"
+	"github.com/interlynk-io/sbommv/pkg/utils"
 )
 
 type DependencyTrackReporter struct {
@@ -41,7 +43,7 @@ func NewDependencyTrackReporter(apiURL, projectName, projectVersion string) *Dep
 func (r *DependencyTrackReporter) DryRun(ctx tcontext.TransferMetadata, iter iterator.SBOMIterator) error {
 	logger.LogDebug(ctx.Context, "Dry-run mode: Simulating SBOM upload to Dependency-Track")
 	fmt.Println("\n📦 Dependency-Track Output Adapter Dry-Run")
-	fmt.Printf("📦 API Endpoint: %s\n", r.apiURL)
+	fmt.Printf("📦 DTrack API Endpoint: %s\n", r.apiURL)
 	sbomCount := 0
 
 	processor := sbom.NewSBOMProcessor("", false)
@@ -62,23 +64,22 @@ func (r *DependencyTrackReporter) DryRun(ctx tcontext.TransferMetadata, iter ite
 			return err
 		}
 
-		var projectName, projectVersion string
+		sourceAdapter := ctx.Value("source")
 
-		if r.projectName != "" {
-			projectName, projectVersion = getExplicitProjectVersion(ctx, r.projectName, r.projectVersion)
-		} else if sbom.Namespace != "" {
-			projectName, projectVersion = getImplicitProjectVersion(ctx, sbom.Namespace, sbom.Version)
-		} else {
-			continue
+		projectName, projectVersion := utils.ConstructProjectName(ctx, r.projectName, r.projectVersion, sbom.Namespace, sbom.Version, sbom.Data, sourceAdapter.(string))
+		if projectName == "" {
+			projectName = filepath.Base(sbom.Path)
+			projectName = projectName[:len(projectName)-len(filepath.Ext(projectName))]
+			projectVersion = "latest"
 		}
 
 		finalProjectName := fmt.Sprintf("%s-%s", projectName, projectVersion)
 
-		fmt.Printf("- 📁 Would upload to project '%s' | Format: %s | SpecVersion: %s\n",
-			finalProjectName, doc.Format, doc.SpecVersion)
+		fmt.Printf("- 📁 Would upload to project '%s' | Format: %s | SpecVersion: %s | Filename: %s\n",
+			finalProjectName, doc.Format, doc.SpecVersion, sbom.Path)
 		sbomCount++
 	}
-	fmt.Printf("📦 DTrack API Endpoint: %s\n", r.apiURL)
 	fmt.Printf("\n 📊 Total SBOMs to upload: %d\n", sbomCount)
+	fmt.Println("\n✅ Dry-run completed. No data was uploaded to DTrack.")
 	return nil
 }

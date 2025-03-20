@@ -110,16 +110,14 @@ func (f *WatcherFetcher) Fetch(ctx tcontext.TransferMetadata, config *FolderConf
 					}
 
 					if source.IsSBOMFile(content) {
-						projectName, projectVersion := getProjectNameAndVersion(ctx, event.Name, content)
-						logger.LogDebug(ctx.Context, "Project Details", "name", projectName, "version", projectVersion)
+						logger.LogDebug(ctx.Context, "Locally SBOM located folder", "path", config.FolderPath)
 
 						fileName := getFilePath(config.FolderPath, event.Name)
 						logger.LogDebug(ctx.Context, "Detected SBOM", "file", fileName)
 						sbomChan <- &iterator.SBOM{
 							Data:      content,
 							Path:      fileName,
-							Namespace: projectName,
-							Version:   projectVersion,
+							Namespace: config.FolderPath,
 						}
 					}
 				}

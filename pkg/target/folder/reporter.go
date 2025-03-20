@@ -35,7 +35,7 @@ func NewFolderOutputReporter(folderPath string) *FolderOutputReporter {
 
 func (r *FolderOutputReporter) DryRun(ctx tcontext.TransferMetadata, iter iterator.SBOMIterator) error {
 	logger.LogDebug(ctx.Context, "Dry-run mode: Displaying SBOMs for folder output")
-	fmt.Println("\n📦 **Folder Output Adapter Dry-Run**")
+	fmt.Println("\n📦 Folder Output Adapter Dry-Run")
 	sbomCount := 0
 
 	for {
@@ -52,7 +52,10 @@ func (r *FolderOutputReporter) DryRun(ctx tcontext.TransferMetadata, iter iterat
 		if namespace == "" {
 			namespace = fmt.Sprintf("sbom_%s.json", uuid.New().String())
 		}
-		outputPath := filepath.Join(r.folderPath, namespace)
+
+		// outputPath := filepath.Join(r.folderPath, namespace)
+		outputPath := r.folderPath
+
 		outputFile := filepath.Join(outputPath, sbom.Path)
 		if sbom.Path == "" {
 			outputFile = filepath.Join(outputPath, fmt.Sprintf("%s.sbom.json", uuid.New().String()))

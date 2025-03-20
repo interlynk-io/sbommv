@@ -16,7 +16,6 @@ package sbom
 
 import (
 	"encoding/json"
-	"fmt"
 	"strings"
 )
 
@@ -25,7 +24,7 @@ type PrimaryComponent struct {
 	Version string
 }
 
-func ExtractPrimaryComponentName(content []byte) (PrimaryComponent, error) {
+func ExtractPrimaryComponentName(content []byte) PrimaryComponent {
 	// get primaryComp for cyclonedx
 	var cdx struct {
 		Metadata struct {
@@ -36,11 +35,17 @@ func ExtractPrimaryComponentName(content []byte) (PrimaryComponent, error) {
 		} `json:"metadata"`
 	}
 
-	if err := json.Unmarshal(content, &cdx); err == nil && cdx.Metadata.Component.Name != "" && cdx.Metadata.Component.Version != "" {
+	if err := json.Unmarshal(content, &cdx); err == nil && cdx.Metadata.Component.Name != "" {
+		var projectVersion string
+		if cdx.Metadata.Component.Version == "" {
+			projectVersion = "unknown"
+		} else {
+			projectVersion = cdx.Metadata.Component.Version
+		}
 		return PrimaryComponent{
 			Name:    cdx.Metadata.Component.Name,
-			Version: cdx.Metadata.Component.Version,
-		}, nil
+			Version: projectVersion,
+		}
 	}
 
 	// get primaryComp for cyclonedx
@@ -70,13 +75,19 @@ func ExtractPrimaryComponentName(content []byte) (PrimaryComponent, error) {
 
 		// Match targetID to a package
 		for _, pkg := range spdx.Packages {
-			if pkg.SPDXID == targetID && pkg.Name != "" && pkg.VersionInfo != "" {
+			if pkg.SPDXID == targetID && pkg.Name != "" {
+				var pkgVersion string
+				if pkg.VersionInfo == "" {
+					pkgVersion = "unknown"
+				} else {
+					pkgVersion = pkg.VersionInfo
+				}
 				return PrimaryComponent{
 					Name:    pkg.Name,
-					Version: pkg.VersionInfo,
-				}, nil
+					Version: pkgVersion,
+				}
 			}
 		}
 	}
-	return PrimaryComponent{}, fmt.Errorf("no primary component found in JSON SBOM")
+	return PrimaryComponent{}
 }

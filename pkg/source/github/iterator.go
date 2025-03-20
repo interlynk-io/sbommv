@@ -68,8 +68,10 @@ func (it *GitHubIterator) fetchSBOMFromAPI(ctx tcontext.TransferMetadata) ([]*it
 	var sbomSlice []*iterator.SBOM
 
 	sbomSlice = append(sbomSlice, &iterator.SBOM{
-		Path:      "",
-		Data:      sbomData,
+		Path: "",
+		Data: sbomData,
+
+		// namespace as owner/repo, where SBOM are present
 		Namespace: fmt.Sprintf("%s/%s", it.client.Owner, it.client.Repo),
 		Version:   "latest",
 	})
@@ -90,8 +92,10 @@ func (it *GitHubIterator) fetchSBOMFromReleases(ctx tcontext.TransferMetadata) (
 	for version, sbomDataList := range sbomFiles {
 		for _, sbomData := range sbomDataList { // sbomPath is a string (file path)
 			sbomSlice = append(sbomSlice, &iterator.SBOM{
-				Path:      sbomData.Filename,
-				Data:      sbomData.Content,
+				Path: sbomData.Filename,
+				Data: sbomData.Content,
+
+				// namespace as owner/repo, where SBOM are present
 				Namespace: fmt.Sprintf("%s/%s", it.client.Owner, it.client.Repo),
 				Version:   version,
 			})
@@ -131,8 +135,10 @@ func (it *GitHubIterator) fetchSBOMFromTool(ctx tcontext.TransferMetadata) ([]*i
 	}
 
 	sbomSlice = append(sbomSlice, &iterator.SBOM{
-		Path:      "",
-		Data:      sbomBytes,
+		Path: "",
+		Data: sbomBytes,
+
+		// namespace as owner/repo, where SBOM are present
 		Namespace: fmt.Sprintf("%s/%s", it.client.Owner, it.client.Repo),
 		Version:   it.client.Version,
 		Branch:    it.client.Branch,

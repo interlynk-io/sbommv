@@ -94,21 +94,10 @@ func NewClient(config Config) *Client {
 	}
 }
 
-func (c *Client) FindOrCreateProjectGroup(ctx tcontext.TransferMetadata, repoName, version string) (string, string, error) {
-	logger.LogDebug(ctx.Context, "Finding or creating project group", "repo", repoName, "version", version)
+func (c *Client) FindOrCreateProjectGroup(ctx tcontext.TransferMetadata, finalProjectName string) (string, string, error) {
+	logger.LogDebug(ctx.Context, "Finding or creating project group", "name", finalProjectName)
 
-	var projectName, projectVersion string
-
-	if c.ProjectName != "" {
-		projectName, projectVersion = getExplicitProjectVersion(ctx, c.ProjectName, c.ProjectVersion)
-	} else if repoName != "" {
-		projectName, projectVersion = getImplicitProjectVersion(ctx, repoName, version)
-	} else {
-		return "", "", fmt.Errorf("no project name or repo name provided")
-	}
-	finalProjectName := fmt.Sprintf("%s-%s", projectName, projectVersion)
-
-	logger.LogDebug(ctx.Context, "Project Details", "name", finalProjectName, "version", projectVersion)
+	logger.LogDebug(ctx.Context, "Project Details", "name", finalProjectName)
 
 	env := c.ProjectEnv
 

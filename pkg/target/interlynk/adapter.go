@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"path/filepath"
 	"strings"
 
 	"github.com/interlynk-io/sbommv/pkg/iterator"
@@ -203,7 +204,20 @@ func (i *InterlynkAdapter) uploadSequential(ctx tcontext.TransferMetadata, sboms
 
 		logger.LogDebug(ctx.Context, "Uploading SBOM", "file", sbom.Path, "data size", len(sbom.Data))
 
-		projectID, projectName, err := client.FindOrCreateProjectGroup(ctx, sbom.Namespace, sbom.Version)
+		sourceAdapter := ctx.Value("source")
+
+		projectName, projectVersion := utils.ConstructProjectName(ctx, client.ProjectName, client.ProjectVersion, sbom.Namespace, sbom.Version, sbom.Data, sourceAdapter.(string))
+
+		if projectName == "" {
+			// THIS CASE OCCURS WHEN SBOM IS NOT IN JSON FORMAT
+			// when a JSON SBOM has empty primary comp and version, use the file name as project name
+			projectName = filepath.Base(sbom.Path)
+			projectName = projectName[:len(projectName)-len(filepath.Ext(projectName))]
+			projectVersion = "latest"
+		}
+		finalProjectName := fmt.Sprintf("%s-%s", projectName, projectVersion)
+
+		projectID, projectName, err := client.FindOrCreateProjectGroup(ctx, finalProjectName)
 		if err != nil {
 			logger.LogInfo(ctx.Context, "error", err)
 			continue
@@ -265,18 +279,18 @@ func (i *InterlynkAdapter) DryRun(ctx tcontext.TransferMetadata, sbomIterator it
 			continue
 		}
 
-		var projectName, projectVersion string
+		sourceAdapter := ctx.Value("source")
 
-		if i.ProjectName != "" {
-			projectName, projectVersion = getExplicitProjectVersion(ctx, i.ProjectName, i.ProjectVersion)
-		} else if sbom.Namespace != "" {
-			projectName, projectVersion = getImplicitProjectVersion(ctx, sbom.Namespace, sbom.Version)
-		} else {
-			continue
+		projectName, projectVersion := utils.ConstructProjectName(ctx, i.ProjectName, i.ProjectVersion, sbom.Namespace, sbom.Version, sbom.Data, sourceAdapter.(string))
+		if projectName == "" {
+			// THIS CASE OCCURS WHEN SBOM IS NOT IN JSON FORMAT
+			// when a JSON SBOM has empty primary comp and version, use the file name as project name
+			projectName = filepath.Base(sbom.Path)
+			projectName = projectName[:len(projectName)-len(filepath.Ext(projectName))]
+			projectVersion = "latest"
 		}
-		finalProjectName := fmt.Sprintf("%s-%s", projectName, projectVersion)
 
-		// env := getProjectVersion(ctx, "", sbom.Version)
+		finalProjectName := fmt.Sprintf("%s-%s", projectName, projectVersion)
 
 		projectKey := fmt.Sprintf("%s", finalProjectName)
 		projectSBOMs[projectKey] = append(projectSBOMs[projectKey], doc)
@@ -302,6 +316,6 @@ func (i *InterlynkAdapter) DryRun(ctx tcontext.TransferMetadata, sbomIterator it
 		}
 	}
 
-	fmt.Println("\n✅ **Dry-run completed**. No data was uploaded to Interlynk.")
+	fmt.Println("\n✅ Dry-run completed. No data was uploaded to Interlynk.")
 	return nil
 }

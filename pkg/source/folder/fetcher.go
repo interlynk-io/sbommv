@@ -41,7 +41,6 @@ type SequentialFetcher struct{}
 // 3. Reads the content & adds it to the iterator along with path.
 func (f *SequentialFetcher) Fetch(ctx tcontext.TransferMetadata, config *FolderConfig) (iterator.SBOMIterator, error) {
 	logger.LogDebug(ctx.Context, "Fetching SBOMs Sequentially")
-
 	var sbomList []*iterator.SBOM
 	err := filepath.Walk(config.FolderPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -64,16 +63,13 @@ func (f *SequentialFetcher) Fetch(ctx tcontext.TransferMetadata, config *FolderC
 		}
 
 		if source.IsSBOMFile(content) {
-
-			projectName, projectVersion := getProjectNameAndVersion(ctx, path, content)
-			logger.LogDebug(ctx.Context, "Project Details", "name", projectName, "version", projectVersion)
+			logger.LogDebug(ctx.Context, "Locally SBOM located folder", "path", config.FolderPath)
 
 			fileName := getFilePath(config.FolderPath, path)
 			sbomList = append(sbomList, &iterator.SBOM{
 				Data:      content,
 				Path:      fileName,
-				Namespace: projectName,
-				Version:   projectVersion,
+				Namespace: config.FolderPath,
 			})
 		} else {
 			logger.LogDebug(ctx.Context, "Skipping non-SBOM file", "path", getFilePath(config.FolderPath, path))
@@ -128,8 +124,7 @@ func (f *ParallelFetcher) Fetch(ctx tcontext.TransferMetadata, config *FolderCon
 					continue
 				}
 
-				projectName, projectVersion := getProjectNameAndVersion(ctx, path, content)
-				logger.LogDebug(ctx.Context, "Project Details", "name", projectName, "version", projectVersion)
+				logger.LogDebug(ctx.Context, "Locally SBOM located folder", "path", config.FolderPath)
 
 				//  get a relative file path.
 				fileName := getFilePath(config.FolderPath, path)
@@ -138,8 +133,7 @@ func (f *ParallelFetcher) Fetch(ctx tcontext.TransferMetadata, config *FolderCon
 				sbomList = append(sbomList, &iterator.SBOM{
 					Data:      content,
 					Path:      fileName,
-					Namespace: projectName,
-					Version:   projectVersion,
+					Namespace: config.FolderPath,
 				})
 				mu.Unlock()
 			}

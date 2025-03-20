@@ -16,11 +16,13 @@ package dependencytrack
 import (
 	"fmt"
 	"io"
+	"path/filepath"
 	"sync"
 
 	"github.com/interlynk-io/sbommv/pkg/iterator"
 	"github.com/interlynk-io/sbommv/pkg/logger"
 	"github.com/interlynk-io/sbommv/pkg/tcontext"
+	"github.com/interlynk-io/sbommv/pkg/utils"
 )
 
 type SBOMUploader interface {
@@ -56,14 +58,18 @@ func (u *SequentialUploader) Upload(ctx tcontext.TransferMetadata, config *Depen
 			continue
 		}
 
-		var projectName, projectVersion string
+		sourceAdapter := ctx.Value("source")
 
-		if config.ProjectName != "" {
-			projectName, projectVersion = getExplicitProjectVersion(ctx, config.ProjectName, config.ProjectVersion)
-		} else if sbom.Namespace != "" {
-			projectName, projectVersion = getImplicitProjectVersion(ctx, sbom.Namespace, sbom.Version)
-		} else {
-			continue
+		// if project name is provided that's well and good, else we need to construct project name from:
+		// SBOM primary component name and lasly from file name
+		projectName, projectVersion := utils.ConstructProjectName(ctx, config.ProjectName, config.ProjectVersion, sbom.Namespace, sbom.Version, sbom.Data, sourceAdapter.(string))
+		if projectName == "" {
+			// THIS CASE OCCURS WHEN SBOM IS NOT IN JSON FORMAT
+			// when a JSON SBOM has empty primary comp and version, use the file name as project name
+
+			projectName = filepath.Base(sbom.Path)
+			projectName = projectName[:len(projectName)-len(filepath.Ext(projectName))]
+			projectVersion = "latest"
 		}
 
 		finalProjectName := fmt.Sprintf("%s-%s", projectName, projectVersion)
@@ -141,14 +147,18 @@ func (u *ParallelUploader) Upload(ctx tcontext.TransferMetadata, config *Depende
 			defer wg.Done()
 			for sbom := range sbomChan {
 
-				var projectName, projectVersion string
+				// if project name is provided that's well and good, else we need to construct project name from:
+				// SBOM primary component name
+				// and lasly from file name
+				sourceAdapter := ctx.Value("source")
+				projectName, projectVersion := utils.ConstructProjectName(ctx, config.ProjectName, config.ProjectVersion, sbom.Namespace, sbom.Version, sbom.Data, sourceAdapter.(string))
+				if projectName == "" {
+					// THIS CASE OCCURS WHEN SBOM IS NOT IN JSON FORMAT
+					// when a JSON SBOM has empty primary comp and version, use the file name as project name
 
-				if config.ProjectName != "" {
-					projectName, projectVersion = getExplicitProjectVersion(ctx, config.ProjectName, config.ProjectVersion)
-				} else if sbom.Namespace != "" {
-					projectName, projectVersion = getImplicitProjectVersion(ctx, sbom.Namespace, sbom.Version)
-				} else {
-					continue
+					projectName = filepath.Base(sbom.Path)
+					projectName = projectName[:len(projectName)-len(filepath.Ext(projectName))]
+					projectVersion = "latest"
 				}
 
 				finalProjectName := fmt.Sprintf("%s-%s", projectName, projectVersion)
@@ -185,20 +195,4 @@ func (u *ParallelUploader) Upload(ctx tcontext.TransferMetadata, config *Depende
 	wg.Wait()
 	logger.LogInfo(ctx.Context, "Successfully Uploaded", "Total count", totalSBOMs, "Success", successfullyUploaded, "Failed", totalSBOMs-successfullyUploaded)
 	return nil
-}
-
-func getExplicitProjectVersion(ctx tcontext.TransferMetadata, providedProjectName string, providedProjectVersion string) (string, string) {
-	if providedProjectVersion == "" {
-		return providedProjectName, "latest"
-	}
-
-	return providedProjectName, providedProjectVersion
-}
-
-func getImplicitProjectVersion(ctx tcontext.TransferMetadata, providedProjectName string, providedProjectVersion string) (string, string) {
-	if providedProjectVersion == "" {
-		return providedProjectName, "unknown"
-	}
-
-	return providedProjectName, providedProjectVersion
 }
