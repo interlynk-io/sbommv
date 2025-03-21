@@ -35,72 +35,77 @@ type FolderAdapter struct {
 
 ### Step 2: Implement `AddCommandParams`
 
-- This method adds CLI flags related to the adapter.
+This method defines adapter-specific CLI flags.
 
 ```go
-// AddCommandParams adds folder adapter-specific CLI flags
 func (f *FolderAdapter) AddCommandParams(cmd *cobra.Command) {
-// implementation code
+	// Register CLI flags (e.g., folder path, recursive, etc.)
 }
 ```
 
-- This ensures the correct flags are registered depending on the adapter role.
+This ensures users can configure the adapter via command-line arguments.
 
 ### Step 3: Implement `ParseAndValidateParams`
 
-- This method validates and extracts CLI parameters.
+Parses and validates the CLI input passed to the adapter.
 
 ```go
-// ParseAndValidateParams extracts and validates folder adapter parameters
 func (f *FolderAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
-// implementation code
+	// Extract and validate parameters like folder path
 }
 ```
 
-- This ensures we have valid folder paths before proceeding.
+This ensures validating folder configuration values before proceeding.
 
 ### Step 4: Implement `FetchSBOMs` for Input Adapter
 
-- This method scans a folder, detects SBOMs, and returns an iterator.
+Responsible for retrieving SBOMs from the source.
 
 ```go
-// FetchSBOMs retrieves SBOMs from the specified folder
 func (f *FolderAdapter) FetchSBOMs(ctx *tcontext.TransferMetadata) (iterator.SBOMIterator, error) {
-// implementation code
+	// Scan folder and return an iterator over SBOMs
 }
 ```
 
-- This method:
+This method:
 
-  - Scans the directory recursively, if resursive flag is `true`.
-  - Detects SBOMs using utils.IsValidSBOM().
-  - Returns an iterator for processing SBOMs.
+- Scans the directory recursively, if resursive flag is `true`, otherwise only scans parent directory.
+- Identify valid SBOMs using utilities like  `utils.IsValidSBOM()`.
+- Returns an iterator for processing SBOMs.
 
 ### Step 5: Implement UploadSBOMs for Output Adapter
 
-- This method saves SBOMs to the specified folder.
+Responsible for uploading or storing SBOMs to the destination.
 
 ```go
 // UploadSBOMs writes SBOMs to the specified folder
 func (f *FolderAdapter) UploadSBOMs(ctx *tcontext.TransferMetadata, it iterator.SBOMIterator) error {
-  // implementation code
+	// Write SBOMs to the target folder
 }
 ```
 
-- This method:
-  - Creates a folder if it doesn’t exist.
-  - Writes SBOMs using either their original filename or a generated UUID.
+This method:
+
+- Create the output folder if it doesn’t exist.
+- Write SBOMs using original or generated filenames via UUID.
 
 ### Step 6: Implement DryRun
 
+Simulates the adapter’s behavior without real file transfers.
+
 ```go
-// DryRun simulates fetching or uploading SBOMs
 func (f *FolderAdapter) DryRun(ctx *tcontext.TransferMetadata, it iterator.SBOMIterator) error {
-// implementation code
+	// Log what would be fetched (input) or saved (output)
 }
 ```
 
-- This method:
+This method:
 
-  - In input mode, lists detected SBOMs.
-  - In output mode, shows where SBOMs will be saved.
+- Input adapters list all detected SBOMs
+- Output adapters show where SBOMs would be sent or saved
+
+✅ Summary
+
+By implementing these six methods, you can fully integrate a new adapter into sbommv—whether it’s for fetching from a custom source, uploading to a private platform, or supporting new SBOM delivery mechanisms.
+
+Adapters let sbommv scale across ecosystems without changing core logic. Stick to the shared interface, and the rest of the pipeline just works.
