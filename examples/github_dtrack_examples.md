@@ -19,48 +19,7 @@ GitHub offers three methods to retrieve/fetch SBOMs from a Repository:
 
 ### Uploading SBOMs to DependencyTrack
 
-Once SBOMs are fetched, they need to be uploaded to DependencyTrack. To use DependencyTrack, you need to:
-
-1. Run a DependencyTrack locally in your system via [docker](https://docs.dependencytrack.org/getting-started/deploy-docker/#quickstart-manual-execution).
-
-    ```bash
-    # Pull the image from the Docker Hub OWASP repo
-    docker pull dependencytrack/bundled
-
-    # Creates a dedicated volume where data can be stored outside the container
-    docker volume create --name dependency-track
-
-    # Run the bundled container with 8GB RAM on port 8080
-    docker run -d -m 8192m -p 8080:8080 --name dependency-track -v dependency-track:/data dependencytrack/bundled
-    ```
-
-2. Go to <http://localhost:8080>
-3. Login with [user and password](https://docs.dependencytrack.org/getting-started/initial-startup/):
-   - user: admin
-   - password: admin
-4. Now change your password.
-5. Finally you landed into homepage of DependencyTrack platform.
-6. Let's create `DTRACK_API_KEY` token, which is important to access the platform.
-7. On the left hand side, go to **Adminstration** --> **Access Management** --> **Teams** --> click on **Adminsitrator** -->  copy the below *API keys*, something like this:
-    ![alt text](image.png)
-8. Now, export this token in your CLI, before running `sbommv`
-
-```bash
-export DTRACK_API_KEY="odt_WYMdgLZ8sQNEVAfTwD7C5tV55ysQI1Ps"
-```
-
-**NOTE**:
-
-- In case you don't want to leverage your API key with soo much permission, then you can proceed with Automation one, and make sure to allow all these below permission:
-  - `VIEW_PORTFOLIO`
-  - `BOM_UPLOAD`
-  - `PORTFOLIO_MANAGEMENT`
-
-- see below image:
-
-    ![alt text](image-1.png)
-
-- **Automation** keys are best for CI/CD pipelines.
+Once SBOMs are fetched, they need to be uploaded to DependencyTrack. To setup DependencyTrack, follow this [guide](https://github.com/interlynk-io/sbommv/blob/v0.0.3/examples/setup_dependency_track.md).
 
 ## 1. Basic Transfer(Single Repository): GitHub  → DependencyTrack
 

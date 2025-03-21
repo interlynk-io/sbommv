@@ -1,105 +1,80 @@
+# Input Adapters and Respective Flags
 
-# Input Adapter
+In sbommv, **input adapters** are responsible for fetching SBOMs from supported source systems. These sources include:
 
-Adapters are representation of systems. Sbommv fetches SBOMs from one system and push to another system. The input systems are represented by input adapters. Popular examples of input adapters are e.g., GitHub, AWS, folders, local files or any system with source of SBOMs.
+- GitHub (via API, releases, or external SBOM tools),
+- Local folders,
+- AWS S3 buckets *(upcoming)*,
+- Interlynk platform *(upcoming)*,
+- Dependency-Track *(upcoming)*.
 
-In short, it's responsible for fetching SBOMs from sources. Let's discuss input system one by one:
+Each input adapter exposes **CLI flags** specific to its configuration and behavior. This guide outlines the available input adapters, how they work, and the flags needed to use them.
 
-## 1. GitHub
+## 1. GitHub Adapter
 
-The **GitHub adapter** allows you to extract/download SBOMs from GitHub. This adapter provides the following methods of extracting SBOMs:
+Fetches SBOMs from GitHub repositories. Supports three methods:
 
-- **Release**:  
-  This method looks at the releases page for the repository and extracts all the SBOMs that follow the recognized file patterns as described by **CycloneDX** & **SPDX** specs.
+- **API (default)** – Uses GitHub’s Dependency Graph API to fetch an SPDX-JSON SBOM for the default branch.  
+- **Release** – Downloads SBOM artifacts from the repository’s Releases section.  
+- **Tool** – Clones the repo and generates SBOMs using tools like `syft`.
 
-- **API** *(Default)*:
-  This method uses the Dependency Graph API to download **SPDX-JSON** SBOM for the repository, if available.
+### **Supported Flags**
 
-- **Tool**:  
-  This method clones the repository and runs your tool of choice to generate the SBOM.
+- `--in-github-url` – Repository or organization URL.  
+- `--in-github-method` – Extraction method: `api`, `release`, or `tool`.  
+- `--in-github-version` – (Optional) Specific release tag (e.g., `v1.0.0`).  
+- `--in-github-include-repos` – Comma-separated list of repos to include.  
+- `--in-github-exclude-repos` – Comma-separated list of repos to exclude.
 
-  **NOTE**: Currently we support [syft](https://github.com/anchore/syft), in future will add support for more sbom generating tools.
+### **Usage Examples**
 
-- **Github Adapter specific CLI parameters**
+```bash
+# Fetch from latest release
+--in-github-url=https://github.com/interlynk-io/sbomqs
+--in-github-method="release"
 
-  - `--in-github-url`: Takes the repository or owner URL for GitHub.  
-  - `--in-github-include-repos`: Specifies repositories from which SBOMs should be extracted.  
-  - `--in-github-exclude-repos`: Specifies repositories to exclude from SBOM extraction.  
-  - `--in-github-method`: Specifies the method of extraction (`release`, `api`, or `tool`).  
+# Fetch from a specific release tag
+--in-github-version="v1.0.0"
 
-- **Github Adapter Usage Examples**
+# Include specific repos from an org
+--in-github-url=https://github.com/interlynk-io
+--in-github-include-repos=sbomqs,sbomasm
 
-1. **For the latest release version of `sbomqs` using the release method**:  
-   This will look for the latest release of the repository and check if SBOMs are generated.
+# Exclude specific repos from an org
+--in-github-exclude-repos=sbomqs
+```
 
-   ```bash
-   --in-github-url=https://github.com/interlynk-io/sbomqs
-   --in-github-method="release"
-   ```
+---
 
-2. **For a particular release (`v1.0.0`) of `sbomqs` using the release method**:
+## 2. Folder Adapter
 
-   ```bash
-   --in-github-url=https://github.com/interlynk-io/sbomqs
-   --in-github-version="v1.0.0"
-   --in-github-method="release"
-   ```
+Scans a local folder for valid SBOM files.
 
-3. **For only certain repositories (`sbomqs`, `sbomasm`) of `interlynk-io` using the API method**:
+### Supported Flags
 
-   ```bash
-   --in-github-url=https://github.com/interlynk-io \
-   --in-github-include-repos=sbomqs,sbomasm 
-   ```
+- `--in-folder-path` – Path to the root folder.  
+- `--in-folder-recursive` – `true` or `false`. Defaults to `false`.  
 
-4. **To exclude specific repositories (`sbomqs`) from `interlynk-io` using the API method**:
+### Usage Examples
 
-   ```bash
-   --in-github-url=https://github.com/interlynk-io \
-   --in-github-exclude-repos=sbomqs
-   ```
+```bash
+# non-recursive
+--in-folder-path=sboms_ws
+--in-folder-recursive=false
 
-5. **All repositories from `interlynk-io` using the API method**:
+--in-folder-recursive=true
+```
 
-   ```bash
-   --in-github-url=https://github.com/interlynk-io 
-   ```
+---
 
-## 2. Folder
+## Coming Soon
 
-The **Folder Adapter** allows you to extract/fetch SBOMs from local Folder. The adapter job is to fetch SBOMs (Software Bills of Materials) from a local filesystem directory.  It’s designed to scan a specified folder, optionally including subdirectories. Unlike the GitHub adapter, which interacts with a remote service, the Folder adapter works with local files.
+- **AWS S3 Adapter** – Fetch SBOMs from S3 buckets using object paths or filters.  
+- **Interlynk Adapter** – Pull SBOMs using project ID from the Interlynk platform.  
+- **Dependency-Track Adapter** – Fetch SBOMs by project UUID from Dependency-Track.
 
-- **Folder Adapter specific CLI parameters**
+---
 
-  - `--in-folder-path`: Takes the folder path.  
-  - `--in-folder-recursive`: Specifies whether to scan within sub-directories. By default(`false`), it doesn't scn within sub-directories.
-  - `in-folder-processing-mode`: Mode of fetching SBOMs, in sequential/parallel. By default, it's `sequential`.
+## Summary
 
-- **Folder Adapter Usage Examples**
-
-1. **To fetch SBOM from root folder `sboms_ws` in a sequential manner**.
-   This will look for the latest release of the repository and check if SBOMs are generated.
-
-   ```bash
-   --in-folder-path=sboms_ws
-   --in-folder-recursive=false
-   --in-folder-processing-mode="sequential"
-   ```
-
-2. **To fetch SBOM from root folder `sboms_ws` as well as it's sub-directories in a sequential mode**.
-   This will look for the latest release of the repository and check if SBOMs are generated.
-
-   ```bash
-   --in-folder-path=sboms_ws
-   --in-folder-recursive=true
-   --in-folder-processing-mode="sequential"
-   ```
-
-3. **To fetch SBOM from root folder `sboms_ws` as well as it's sub-directories in a parallel mode**.
-   This will look for the latest release of the repository and check if SBOMs are generated.
-
-   ```bash
-   --in-folder-path=sboms_ws
-   --in-folder-recursive=true
-   --in-folder-processing-mode="parallel"
-
+Input adapters allow sbommv to ingest SBOMs from multiple sources in a standardized way. This document outlines the CLI flags required to configure each adapter so that they can be dropped into automation workflows with ease.

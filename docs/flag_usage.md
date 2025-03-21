@@ -1,71 +1,172 @@
+# ⚙️ sbommv Command Flags & Usage Guide
 
-# ⚙️ SBOMMV Command Flags & Usage Guide
+This guide explains the **CLI flags** available in `sbommv transfer`, detailing how to configure both input and output systems using adapters. It also includes usage guidance to help you apply flags effectively in real-world scenarios.
 
-This guide provides a **detailed breakdown** of the available flags for `sbommv transfer`, explaining their purpose and how to use them effectively.
+---
 
 ## 🟢 Global Flags
 
-These flags apply to **all commands**, regardless of input or output adapters.
+These flags apply to all transfer commands, regardless of the adapter used:
 
-- `-D, --debug` : Enables **debug logging** to provide detailed insights into execution. Useful for troubleshooting.
-- `--dry-run` : **Simulates the transfer process** without actually uploading SBOMs. This allows users to preview the results before making real changes.
-- `-h, --help` : Displays the help menu for the `sbommv transfer` command.
+- `--processing-mode`  
+  Sets how SBOMs are fetched and uploaded: `"sequential"` *(default)* or `"parallel"`. Parallel mode improves performance on large sets.
 
-## 1. Input Adapter GitHub Flags
+- `--dry-run`  
+  Simulates a full SBOM transfer (input + output) **without actual uploads**, providing a preview of what will be fetched and where it would be sent.
 
-The **GitHub adapter** allows fetching SBOMs from repositories or organizations. The following flags control how SBOMs are retrieved.
+- `--debug`, `-D`  
+  Enables debug logging for detailed execution output.
 
-- `--input-adapter=github`: **Specifies GitHub as the input system** to fetch SBOMs. **(Required for GitHub input)** 
-- `--in-github-url <URL>`: **GitHub repository or organization URL** from which to fetch SBOMs. **Supports both individual repositories & organizations.**
-- `--in-github-method <method>`: Specifies the method for retrieving SBOMs. **Options:** `"release"`, `"api"`, `"tool"`. Default: `"api"`.
-- `--in-github-branch <branch>`: **(Tool Method Only)** Specifies a branch when using the **`tool` method** (e.g., `"main"`, `"develop"`). **Ignored for API and Release methods.**
-- `--in-github-include-repos <repos>`: **(Org-Level Fetching Only)** Comma-separated list of repositories to **include** when fetching SBOMs from a GitHub organization. Not used for single repos.
-- `--in-github-exclude-repos <repos>`: **(Org-Level Fetching Only)** Comma-separated list of repositories to **exclude** when fetching SBOMs from a GitHub organization. **Cannot be used with `--in-github-include-repos` simultaneously.**
+- `--help`, `-h`  
+  Displays the help menu for the current command.
 
-### 📌 When to use these Github Input Adalpter flags?
+---
 
-- **For a specific repository** → Use `--in-github-url="<repo_url>"`
-  - Example: `--in-github-url=https://github.com/sigstore/cosign`
-- **For an entire organization** → Use `--in-github-url="<org_url>"` with  `--in-github-include-repos` OR `--in-github-exclude-repos`
-  - Example: `--in-github-url=https://github.com/sigstore`
-- **For a specific branch** → Use `--in-github-branch="<branch_name>"` (only with the tool method)  
+## 🔄 Input Adapters
 
-## 2. Input Adapter Folder Flags
+### 1. GitHub Input Adapter
 
-The **Folder adapter** allows fetching/scanning SBOMs from directories and sub-directories. The following flags control how SBOMs are retrieved.
+Fetches SBOMs from GitHub repositories or organizations.
 
-- `--input-adapter=folder`: **Specifies Folder as the input system** to fetch SBOMs. **(Required)** 
-- `--in-folder-path=<path>`: **Folder path** from which to scan/fetch SBOMs.
-- `--in-folder-recursive=true`: Specifies to scan from all sub-directories under provided path.
-- `--in-folder-processing-mode="parallel`: **SBOM fetching mode**, fetch or scan sboms cuncurrently or parralelly, which is quite faster than sequential mode.
+#### Required Flag
+
+- `--input-adapter=github`  
+
+#### Adapter-Specific Flags
+
+- `--in-github-url=<URL>`  
+  GitHub repository or organization URL.
+
+- `--in-github-version`
+  GitHub release version to fetch SBOMs from.
+  - "latest" (default) – fetches SBOM from the most recent release.
+  - "*" – fetches SBOMs from all available releases.
+  - Github API Method is not applicable.
+- **NOTE**: On fetching from multiple version, github has request limiter, to avoid it you need to export `GITHUB_TOKEN`
+
+- `--in-github-method=<method>`  
+  Method of fetching: `api` *(default)*, `release`, or `tool`.
+
+- `--in-github-branch=<branch>`  
+  *(Tool method only)* Branch to scan (e.g., `main`, `develop`).
+
+- `--in-github-include-repos=<repos>`
+  *(Org-level only)* Comma-separated list of repos to include.
+
+- `--in-github-exclude-repos=<repos>`  
+  *(Org-level only)* Comma-separated list of repos to exclude. Cannot be combined with `--include-repos`.
+
+#### ✅ When to Use These
+
+- Fetch SBOMs from a specific repo for latest version → `--in-github-url=https://github.com/org/repo`  
+- Fetch SBOMs from a specific repo for it's all version → `--in-github-url=https://github.com/org/repo`  + `--in-github-version="*"`
+- Fetch from all repos in an org → Use org URL + include/exclude filters  
+- Scan a specific branch (tool ) → Add `--in-github-branch=main`
+
+---
+
+### 2. Folder Input Adapter
+
+Fetches SBOMs from local folders.
+
+#### Required Flag
+
+- `--input-adapter=folder`
+
+#### Adapter-Specific Flags
+
+- `--in-folder-path=<path>`method  
+  Path to the folder to scan.
+
+- `--in-folder-recursive=true|false`  
+  Whether to scan subdirectories. Default is `false`.
+
+---
+
+## 📤 Output Adapters
+
+### 3. Dependency-Track Output Adapter
+
+Uploads SBOMs to a Dependency-Track instance. If the specified project doesn't exist, sbommv will auto-create one using the SBOM’s metadata (e.g., name and version). Authentication is handled via the DTRACK_API_KEY environment variable.
+
+#### Required Flag
+
+- `--output-adapter=dtrack`
+
+#### Adapter-Specific Flags
+
+- `--out-dtrack-url=<URL>`
+URL of the Dependency-Track API (e.g., <http://localhost:8081>).
+
+- `--out-dtrack-project-name=<name>`
+Name of the project in Dependency-Track to upload SBOMs to.
+If not provided, sbommv automatically generates the project name based on the source:
+- From folder → Derived from the SBOM's primary component name and version.
+- From GitHub → Formatted as organization/repo with version set to "latest" by default.
+
+- `--out-dtrack-project-version=<version>`
+Version of the project. Defaults to "latest" if not specified.
+
+**NOTE**:
+
+- Make sure to generate `DTRACK_API_KEY` to access Dependency-Track platform.
 
 
-## 1. Output Adapter: Interlynk Flags
+✅ When to Use These
 
-The **Interlynk adapter** is used for uploading SBOMs to **Interlynk’s SBOM Management Platform**.
+- Upload SBOMs to a named project → `--out-dtrack-project-name="my-app"`
+- Set a specific version → `--out-dtrack-project-version="v1.2.3"`, if not provided, `"latest"` taken as *default*.
+- Connect to a self-hosted DTrack instance → `--out-dtrack-url=http://your-dtrack-instance:8080`
 
-- `--output-adapter=interlynk`: **Specifies Interlynk as the output system.** **(Required for Interlynk output)**
-- `--out-interlynk-url <URL>`: **Interlynk API URL**. Defaults to `"https://api.interlynk.io/lynkapi"`. Can be overridden for self-hosted instances.
-- `--out-interlynk-project-name <name>`: **Name of the Interlynk project** to upload SBOMs to. If not provided, a project is auto-created based on the repository name.
-- `--out-interlynk-project-env <env>`: **Project environment in Interlynk.** Default: `"default"`. Other options: `"development"`, `"production"`.
+### 2. Interlynk Output Adapter
 
-### 📌 When to use these Interlynk Output Adapter flags?
+Uploads SBOMs to the **Interlynk SBOM Management Platform**.
 
-- **Uploading to a specific Interlynk project** → Use `--out-interlynk-project-name="<name>"`  
-- **Uploading to a custom environment** → Use `--out-interlynk-project-env="development"`
-- **NOTE**: For entire organization, no need to provide specific project, it will be automatically created as per requirements.
+#### Required Flag
 
-## 2. Ouput Adapter Folder Flags
+- `--output-adapter=interlynk`
 
-The **Folder adapter** allows fetching/scanning SBOMs from directories and sub-directories. The following flags control how SBOMs are retrieved.
+#### Adapter-Specific Flags
 
-- `--output-adapter=folder`: **Specifies Folder as the output system** to save SBOMs. **(Required)**
-- `--out-folder-path=<path>`: **Folder path** to which to save or download the SBOMs.
-- `--out-folder-processing-mode="parallel`: **SBOM saving mode**, save sboms cuncurrently or parralelly, which is quite faster than sequential mode.
+- `--out-interlynk-url=<URL>`
+  Interlynk API URL. Defaults to `https://api.interlynk.io/lynkapi`.
 
-## 📌 NOTE
+- `--out-interlynk-project-name=<name>`  
+  Project name to upload SBOMs to. If not provided, it's auto-generated.
 
-✅ To see the display of how many SBOMs are fetched or how many SBOMs to be uploaded, use `--dry-run`. It provides you rough idea about what being fetched and what would be uploaded.  
+- `--out-interlynk-project-env=<env>`  
+  Environment to associate with the project. Default is `"default"`.
 
-📌 **Looking for command examples?** → [Check out the Example Guide](https://github.com/interlynk-io/sbommv/blob/main/docs/examples.md)  
-📌 **Want to get started quickly?** → [Read Getting Started with sbommv]([./docs/GettingStarted.md](https://github.com/interlynk-io/sbommv/blob/main/docs/getting_started.md))  
+#### ✅ When to Use These
+
+- Upload to a known project → Provide `--out-interlynk-project-name`  
+- Assign an environment (e.g., staging, production) → Use `--out-interlynk-project-env`  
+
+**Note:**
+
+- If project details aren't specified, sbommv will auto-create them.
+- Make sure to generate `INTERLYNK_SECURITY_TOKEN` to access Interlynk platform.
+
+---
+
+### 3. Folder Output Adapter
+
+Saves SBOMs locally to a folder.
+
+#### Required Flag
+
+- `--output-adapter=folder`
+
+#### Adapter-Specific Flags
+
+- `--out-folder-path=<path>`  
+  Target directory for storing SBOMs.
+
+---
+
+## 📌 **Tips & References**
+
+✅ **Use `--dry-run`** to preview the SBOMs that will be fetched and where they’ll be uploaded—without making changes.
+
+📘 **Examples** → [View Example Commands](https://github.com/interlynk-io/sbommv/blob/main/docs/examples.md)  
+🚀 **Getting Started Guide** → [Start Here](https://github.com/interlynk-io/sbommv/blob/main/docs/getting_started.md)

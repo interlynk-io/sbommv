@@ -1,78 +1,108 @@
 # Adapters
 
-## Why sbommv need Adapters ?
+## Why Does sbommv Use Adapters?
 
-- In the sbommv project, we aim to design and implement a robust system of input adapters to handle the retrieval or generation of SBOMs from diverse sources. These sources are:
-  - GitHub (by scanning releases, utilizing GitHub APIs, or generating SBOMs using tools like cdxgen),
-  - local folders containing SBOM files,
-  - individual SBOM files,
-  - AWS S3 buckets,
-  - the Interlynk platform (via project ID), and
-  - Dependency Track (via project ID)
+sbommv is designed to automate the transfer of SBOMs across systems—from where they’re generated to where they’re analyzed or stored. To support a wide variety of SBOM sources and destinations systems, it uses a modular adapter-based architecture.
 
-- To achieve this, we want to ensure the input adapters are modular, adhere to best practices in software design (such as the adapter pattern), and integrate seamlessly with intermediary conversion layers for format handling and output adapters for SBOM transfer.
+Adapter allows sbommv to interact with external systems like GitHub, local folders, AWS S3, Interlynk, and Dependency-Track—
+without embedding system specific logic in the core engine. This approach keeps the architecture clean, extensible and easy to maintain, while enabling future support for additional systems based on evolving usecases and requirements.
 
-## Understanding Adapters
+To make this work, all adapter follows a common interface, adhere to software design best practices(such as the adapter pattern), and integrate seamlessly with conversion layers to handle format translation and according to the acceptability of SBOMs of output or destination systems.
 
-The adapter design pattern is used to make incompatible interfaces compatible. It allows your program to use different types of input (or external systems) in a consistent way.
+## Understanding Adapters from sbommv perspective
 
-Here’s the general flow of how an adapter works:
+An adapter in a sbommv is a pluggable component responsible for interacting with a specific system—whether it’s fetching SBOMs from a source or uploading them to a destination. sbommv follows the adapter design pattern, which decouples system-specific logic from the core engine and ensures all adapters conform to a unified interface.
 
-- **Client**: The part of your code that needs data or functionality (e.g., sbommv's core logic).
-- **Target Interface**: Defines the expected methods or behavior (e.g., InputAdapter).
-- **Adapter**: Implements the Target Interface by bridging it to an incompatible external system or library (e.g., GitHub API, local folder scanning, etc.).
+## Adapter Interface
 
-## sbommv Input Adapters
-
-Each input adapter should:
-
-- **Retrieve SBOMs**: From a respective source (GitHub, S3, Folder, Interlynk, dTrack, etc.).
-- **Expose a Common Interface**: Regardless of the source, all adapters will conform to a shared interface.
-- **Be Modular and Independent**: Allow easy addition or replacement of adapters.
-
-## Implementation
-
-InputAdapter defines the interface that all SBOM input adapters must implement
+All adapters must implement the following interface:
 
 ```go
-type InputAdapter interface {
- // GetSBOMs retrieves all SBOMs from the source
- GetSBOMs(ctx context.Context) ([]SBOM, error)
+type Adapter interface {
+	AddCommandParams(cmd *cobra.Command)
+	ParseAndValidateParams(cmd *cobra.Command) error
+	FetchSBOMs(ctx tcontext.TransferMetadata) (iterator.SBOMIterator, error)
+	UploadSBOMs(ctx tcontext.TransferMetadata, iterator iterator.SBOMIterator) error
+	DryRun(ctx tcontext.TransferMetadata, iterator iterator.SBOMIterator) error
 }
 ```
 
-## Examples of Input Adapters
+### General Flow of Adapters in sbommv
 
-### 1. GitHub Adapter
+#### 1. Parameter Handling
 
-- **Purpose**: Fetch SBOMs from a **repository’s release page** or **generate them using GitHub’s Dependency Graph API** or **generate via external sbom generating tools**.
-- **Key Logic**:
-  - Identify SBOM files in releases (already explored previously).
-  - Use GitHub’s API to generate an SBOM for the repository.
-  - Clone the repository and generate SBOMs using tools like cdxgen.
+Each adapter defines it's own CLI flags and arguments via `AddCommandParams`, allowing users to configure inputs and outputs per system.
 
-### 2. Folder Adapter
+#### 2. Validation
 
-- **Purpose**:  Scan a local directory for SBOM files.
-- Key Logic:
-  - Identify valid SBOM files and returns all SBOMs.
+Adapters validate the provided arguments using `ParseAndValidateParams` before initiating any action.
 
-### 3. AWS S3 Adapter
+#### 3. Fetching SBOMs (Input Adapter)
 
-- **Purpose**: Fetch SBOMs from an AWS S3 bucket.
-- Key Logic:
-  - Download and store identified SBOMs locally.
+The selected input adapter lazily retrieves SBOMs using the `FetchSBOMs` method. This returns an iterator, allowing sbommv to process large sets of SBOMs efficiently and in a streaming fashion.
 
-### 4. Interlynk Platform Adapter
+#### 4. SBOM Processing Layer
 
-- **Purpose**: Retrieve SBOMs from the Interlynk platform based on a project ID.
-- **Key Logic**:
-  - Use the Interlynk API to fetch SBOMs.
-  - And returns all SBOMs from a project ID.
+This layer is triggered only when required by the destination system. For example, Dependency-Track only supports SBOMs in CycloneDX format, so sbommv automatically converts SBOMs from formats like SPDX to CycloneDX as part of the upload process.
 
-### 6. Dependency Track Adapter
+Internally, sbommv leverages the protobom library to handle format conversion and normalization. This ensures compatibility without requiring the user to pre-process SBOMs manually.
 
-- **Purpose**: Fetch SBOMs from Dependency Track based on a project ID.
-- **Key Logic**:
-  - Interact with Dependency Track’s API to retrieve SBOMs.
-  - Return the fetched SBOMs.
+#### 5. Uploading SBOMs (Output Adapter)
+
+The output adapter takes the processed SBOMs and sends them to the target system using `UploadSBOMs`. Depending on the destination, this could involve pushing to an API, writing to disk, or uploading to cloud storage.
+
+#### 6. Dry-Run Support
+
+Both input and output adapters optionally implement `DryRun` to simulate the transfer and display what would be fetched or uploaded—without actually performing any operation.
+
+## Supported Adapters
+
+### Input Adapters
+
+Adapters responsible for retrieving SBOMs:
+
+#### 1. GitHub Adapter
+
+Fetches or generates SBOMs from GitHub repositories:
+
+- **API method** – Uses GitHub’s Dependency Graph API (SPDX format only).
+- **Release metho**d – Downloads SBOMs attached to GitHub Releases.
+- **Tool method** – Clones the repo and generates SBOMs using tools like syft.
+
+#### 2. Folder Adapter
+
+Scans a local directory and returns valid SBOMs for processing.
+
+#### 3. AWS S3 Adapter (Upcoming)
+
+Downloads SBOMs from an S3 bucket and returns them for transfer.
+
+#### 4. Interlynk Adapter (Upcoming)
+
+Fetches SBOMs from the Interlynk platform using a project ID.
+
+#### 5. Dependency-Track Adapter (Upcoming)
+
+Fetches SBOMs from Dependency-Track using a project UUID.
+
+### Output Adapters
+
+Adapters responsible for uploading SBOMs:
+
+#### 1. Folder Adapter
+
+Stores SBOMs into a specified local directory.
+
+#### 2. Dependency-Track Adapter
+
+Pushes SBOMs to Dependency-Track instance.
+
+#### 3. Interlynk Adapter
+
+Uploads SBOMs to Interlynk platform.
+
+## Wrapping Up
+
+Adapters are at the heart of sbommv’s flexibility. By abstracting how SBOMs are retrieved and where they are sent, sbommv provides a clean and scalable way to manage SBOM movement between systems. As the SBOM ecosystem continues to grow, this modular approach ensures sbommv can evolve with it—supporting more sources, formats, and platforms, without sacrificing maintainability.
+
+Whether you're integrating with GitHub, cloud storage, local tools, or enterprise platforms—sbommv adapters handle the complexity so you don’t have to. If you are looking to integrate own system for seamlessly flow, open a feature request via [issue](https://github.com/interlynk-io/sbommv/issues/new).
