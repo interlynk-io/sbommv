@@ -105,6 +105,4 @@ Uploads SBOMs to Interlynk platform.
 
 Adapters are at the heart of sbommv’s flexibility. By abstracting how SBOMs are retrieved and where they are sent, sbommv provides a clean and scalable way to manage SBOM movement between systems. As the SBOM ecosystem continues to grow, this modular approach ensures sbommv can evolve with it—supporting more sources, formats, and platforms, without sacrificing maintainability.
 
-Whether you're integrating with GitHub, cloud storage, local tools, or enterprise platforms—sbommv adapters handle the complexity so you don’t have to.
-
-
+Whether you're integrating with GitHub, cloud storage, local tools, or enterprise platforms—sbommv adapters handle the complexity so you don’t have to. If you are looking to integrate own system for seamlessly flow, open a feature request via [issue](https://github.com/interlynk-io/sbommv/issues/new).

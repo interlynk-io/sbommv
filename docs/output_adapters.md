@@ -1,94 +1,113 @@
-# Output Adapter
+# Output Adapters and Respective Flags
 
-Adapters are representation of systems. Sbommv fetches SBOMs from one system and push to another system. The destination/output systems are represented by output adapters. Popular examples are Interlynk, Dependency-Track, folder, security tools or any SBOM analysis platform.
+In sbommv, **output adapters** represent the destination systems where SBOMs are uploaded or stored. These destinations can include:
 
-In short, it's responsible for pushing SBOMs to destination. Let's discuss output system one by one:
+- SBOM management platforms like **Dependency-Track** and **Interlynk**,  
+- Local **folders**,
+- Or other **security and analysis tools**.
 
-## 1. Dependency-Track(DTrack)
+Output adapters are responsible for **receiving and processing SBOMs** after they've been fetched and optionally transformed.
 
-The **Dependency-Track Adapter** allows you to upload SBOMs to Dependency Track platform to a particular project. If no project name is specified, it will auto-create project. To access this platform `DTRACK_API_KEY`, will be required.
+This document outlines the available output adapters, their CLI flags, and usage examples.
 
-- **DTrack Adapter CLI Parameters**
+---
 
-  - `--out-dtrack-url` [Optional]: URL for the interlynk service. Defaults to `https://api.interlynk.io/lynkapi`  
-  - `--out-dtrack-project-name` [Optional]:  Name of the project to upload the SBOM to, this is optional, if not-provided then it auto-creates it.
-  - `--out-dtrack-project-version` [Optional]:  Version of the project, this is optional, if not-provided then it feeds "latest" value.
+## 1. Dependency-Track Adapter
 
-- **Usage Examples**
+The **Dependency-Track output adapter** uploads SBOMs to a Dependency-Track project. If a project does not exist, it can be automatically created. You must provide a valid `DTRACK_API_KEY` to authenticate with the platform.
 
-1. **Upload SBOMs to a particular project with a version "latest"**:  
+### Supported Flags
 
-   ```bash
-   --out-dtrack-project-name=xyz
-   ```
+- `--out-dtrack-url` (required) – URL of the Dependency-Track instance. Defaults to `http://localhost:8081`.  
+- `--out-dtrack-project-name` *(Optional)* – Name of the project to upload SBOMs to. If not provided, one is auto-created based on the SBOM’s primary component.
+- `--out-dtrack-project-version` *(Optional)* – Version of the project. Defaults to `"latest"` if not specified.
 
-2. **Upload SBOMs to a particular project with a version "v0.1.0"**:  
+### Authentication
 
-   ```bash
-   --out-dtrack-project-name=xyz
-   --out-dtrack-project-version=v0.1.0
-   ```
+Before running the command, export your Dependency-Track API key:
 
-**NOTE**: Make sure to export `DTRACK_API_KEY` before pushing any SBOMs to dependency track platform
+```bash
+export DTRACK_API_KEY="your_api_key_here"
+```
 
-   ```bash
-   export DTRACK_API_KEY="odt_LU1VVtDHFtSPkGOtr8QE84CFshZBCWXh"
-   ```
+Follow this [guide](https://github.com/interlynk-io/sbommv/blob/v0.0.3/examples/github_dtrack_examples.md) to generate Token.
 
-- In case, if a Team name is **Automation**, make sure to check these all Permission:
-  - BOM_UPLOAD
-  - PORTFOLIO_MANAGEMENT
-  - VIEW_PORTFOLIO
-- Whereas for **Administrators** team, already all permissions are checked.
+Ensure your team in Dependency-Track has these permissions:
 
-## 2. Interlynk
+- `BOM_UPLOAD`  
+- `PORTFOLIO_MANAGEMENT`  
+- `VIEW_PORTFOLIO`  
 
-The **Interlynk adapter** allows you to upload SBOMs to Interlynk Enterprise Platform. If no repository name is specified, it will auto-create projects & the env on the platform.
-To access this platform `INTERLYNK_SECURITY_TOKEN`, will be required.
+(Teams with the `Administrators` role have these by default.)
 
-- **Interlynk Adapter CLI Parameters**
+### Usage Examples
 
-  - `--out-interlynk-url` [Optional]: URL for the interlynk service. Defaults to `https://api.interlynk.io/lynkapi`  
-  - `--out-interlynk-project-name` [Optional]:  Name of the project to upload the SBOM to, this is optional, if not-provided then it auto-creates it.
-  - `--out-interlynk-project-env` [Optional]: Defaults to the "default" env.
+```bash
+# Upload SBOMs to a project named "xyz" with default version
+--out-dtrack-project-name=xyz
 
-- **Usage Examples**
+# Upload to a specific version
+--out-dtrack-project-name=xyz
+--out-dtrack-project-version=v0.1.0
+```
 
-1. **Upload SBOMs to a particular project**:  
+---
 
-   ```bash
-   --out-interlynk-project-name=abc
-   ```
+## 2. Interlynk Adapter
 
-2. **Upload SBOMs to a particular project and env**:  
+The **Interlynk output adapter** uploads SBOMs to the Interlynk Platform. If the specified project does not exist, it will be automatically created. Projects can be assigned to environments such as `"production"` or `"staging"`. By default environment is `"default"`. Authentication is handled via a security token `INTERLYNK_SECURITY_TOKEN`.
 
-   ```bash
-   --out-interlynk-project-name=abc
-   --out-interlynk-project-env=production
-   ```
+### Supported Flags
 
-## 3. Folder
+- `--out-interlynk-url` *(Required)* – URL of the Interlynk API. Defaults to `https://api.interlynk.io/lynkapi`.  
+- `--out-interlynk-project-name` *(Optional)* – Name of the target project. If not specified, it will be auto-created.  
+- `--out-interlynk-project-env` *(Optional)* – Project environment. Defaults to `"default"`.
 
-The **Folder Adapter** allows you to save SBOMs to local Folder. The adapter job is to save SBOMs (Software Bills of Materials) to a local filesystem directory.  It’s designed to save a specified folder. Unlike the Interlynk adapter, which interacts with a remote service, the Folder adapter works with local folders.
+### Authentication
 
-- **Folder Adapter specific CLI parameters**
+Before using this adapter, export your security token:
 
-  - `--out-folder-path`: folder path to save SBOMs.  
-  - `--out-folder-processing-mode`: Mode of saving SBOMs i.e in sequential/parallel. By default, it's `sequential`.
+```bash
+export INTERLYNK_SECURITY_TOKEN="your_token_here"
+```
 
-- **Folder Adapter Usage Examples**
+Follow this [guide](https://github.com/interlynk-io/sbommv/blob/v0.0.3/docs/getting_started.md#2-configuring-interlynk-authentication) to generate a token.
 
-1. **To save SBOM to root folder `temp` in a sequential manner**.
-   This will look for the latest release of the repository and check if SBOMs are generated.
+### Usage Examples
 
-   ```bash
-   --out-folder-path=temp
-   --out-folder-processing-mode="sequential"
-   ```
+```bash
+# Upload to a project named "abc"
+--out-interlynk-project-name=abc
 
-2. **To save SBOMs to root folder `temp` in a parallel/concurrent mode**.
-   This will look for the latest release of the repository and check if SBOMs are generated.
+# Upload to a project under the "production" environment
+--out-interlynk-project-name=abc
+--out-interlynk-project-env=production
+```
 
-   ```bash
-   --out-folder-path=temp
-   --out-folder-processing-mode="parallel"
+---
+
+## 3. Folder Adapter
+
+The **Folder output adapter** writes SBOMs to a specified directory on the local filesystem. This adapter is useful for debugging, local archiving, or integrating with tools that watch a folder for new SBOMs.
+
+### Supported Flags
+
+- `--out-folder-path` – Path to the folder where SBOMs should be saved.  
+
+### Usage Examples
+
+```bash
+# Save SBOMs to folder "temp" in sequential mode
+--out-folder-path=temp
+--processing-mode="sequential" # global flag
+
+# Save SBOMs to folder "temp" in parallel mode
+--out-folder-path=temp
+-processing-mode="parallel" # global flag
+```
+
+---
+
+## Summary
+
+Output adapters define where your SBOMs go after retrieval. Whether you’re sending them to a cloud platform, a security tool, or simply saving them to disk, sbommv makes it easy to route SBOMs to the right destination through clear, declarative flags.
