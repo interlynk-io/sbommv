@@ -1,7 +1,7 @@
 
 # 🔹 Folder --> Interlynk Examples 🔹
 
-Scan SBOM from Folder System(adapter) and upload it to Interlynk System(adapter)
+This guide demonstrates how to use sbommv to transfer SBOMs from a local folder to the Interlynk SBOM Management Platform.
 
 ## Overview
 
