@@ -22,7 +22,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -95,7 +94,7 @@ func TestTransferGitHubToDependencyTrack_ValidRepo_WithProject(t *testing.T) {
 			return
 		}
 		if r.Method == "PUT" && r.URL.Path == "/api/v1/bom" {
-			w.Header().Set("Content-Type", "application/json")
+			// w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
 			token := uuid.New().String()
 			response := fmt.Sprintf(`{"token":"%s"}`, token)
@@ -152,33 +151,115 @@ func TestTransferGitHubToDependencyTrack_ValidRepo_WithProject(t *testing.T) {
 	t.Log("Errors:", errBuf.String())
 
 	assert.NoError(t, err, "Expected successful transfer")
+	assert.Contains(t, outBuf.String(), "Initializing Input Adapter", "Expected Input adapter Initialization")
+	assert.Contains(t, outBuf.String(), `{"InputAdapter": "github"}`, "Expected Input adapter")
+	assert.Contains(t, outBuf.String(), "Initializing Output Adapter", "Expected Output adapter Initialization")
+	assert.Contains(t, outBuf.String(), `{"OutputAdapter": "dtrack"}`, "Expected Output adapter")
 	assert.Contains(t, outBuf.String(), "Initializing SBOMs uploading to Dependency-Track sequentially", "Expected upload start")
 	assert.Contains(t, outBuf.String(), "Fetched SBOM successfully", "Expected fetch success")
 	assert.Contains(t, outBuf.String(), "New project will be created", "Expected project creation")
 	assert.Contains(t, outBuf.String(), "Successfully Uploaded", "Expected successful upload completion")
+	assert.Contains(t, outBuf.String(), `{"Total count": 1, "Success": 1, "Failed": 0}`, "Expected upload counts")
+}
 
-	type UploadStats struct {
-		TotalCount int `json:"Total count"`
-		Success    int `json:"Success"`
-		Failed     int `json:"Failed"`
+func TestTransferFolderToDependencyTrack_ValidSBOMs(t *testing.T) {
+	// Check if SBOM folder exists
+	folderPath := SBOMFolderPath()
+	if _, err := os.Stat(folderPath); os.IsNotExist(err) {
+		t.Skipf("SBOM folder %s does not exist, skipping test", folderPath)
 	}
 
-	var stats UploadStats
-	lines := strings.Split(outBuf.String(), "\n")
-	for _, line := range lines {
-		if strings.Contains(line, "Successfully Uploaded") {
-
-			jsonStart := strings.Index(line, "{")
-			if jsonStart != -1 {
-				jsonStr := line[jsonStart:]
-				err := json.Unmarshal([]byte(jsonStr), &stats)
-				if err == nil {
-					break
-				}
-			}
+	dtrackServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "GET" && r.URL.Path == "/health" {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"status": "ok"}`))
+			return
 		}
+		if r.Method == "GET" && r.URL.Path == "/api/version" {
+			w.Write([]byte(`{"version":"4.12.5","timestamp":"2025-02-17T15:58:13Z","uuid":"550e8400-e29b-41d4-a716-446655440000"}`))
+			return
+		}
+		if r.Method == "GET" && r.URL.Path == "/api/v1/project" {
+			w.Write([]byte(`[]`))
+			return
+		}
+		if r.Method == "PUT" && r.URL.Path == "/api/v1/project" {
+			w.Write([]byte(`{"uuid": "39a35c94-b369-46e2-b67f-aed235cbc9c1", "name": "test-project-latest", "version": "latest"}`))
+			return
+		}
+		if r.Method == "PUT" && r.URL.Path == "/api/v1/bom" {
+			w.WriteHeader(http.StatusOK)
+			token := uuid.New().String()
+			response := fmt.Sprintf(`{"token":"%s"}`, token)
+			w.Write([]byte(response))
+			return
+		}
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(`{"error": "Invalid endpoint"}`))
+	}))
+	defer dtrackServer.Close()
+
+	// Set environment variable for Dependency-Track API key
+	os.Setenv("DTRACK_API_KEY", "dummy-key")
+	defer os.Unsetenv("DTRACK_API_KEY")
+
+	// Setup command
+	cmd := rootCmd
+	cmd.SetArgs([]string{
+		"transfer",
+		"--input-adapter=folder",
+		"--in-folder-path=" + folderPath,
+		"--output-adapter=dtrack",
+		"--out-dtrack-url=" + dtrackServer.URL,
+		"--out-dtrack-project-name=test-project",
+		"--processing-mode=sequential",
+		"-D",
+	})
+
+	// Set up buffers for capturing output
+	outBuf := bytes.NewBuffer(nil)
+	errBuf := bytes.NewBuffer(nil)
+
+	// Create a pipe to capture os.Stdout (logger output)
+	origStdout := os.Stdout
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("Failed to create pipe: %v", err)
 	}
-	assert.Equal(t, 1, stats.TotalCount, "Expected total count to be 1")
-	assert.Equal(t, 1, stats.Success, "Expected success count to be 1")
-	assert.Equal(t, 0, stats.Failed, "Expected failed count to be 0")
+	os.Stdout = w
+
+	// Redirect command output/error (optional, for completeness)
+	cmd.SetOut(outBuf)
+	cmd.SetErr(errBuf)
+
+	// Run the command
+	t.Log("Before Execute")
+	err = cmd.Execute()
+
+	// Close the writer and restore os.Stdout
+	w.Close()
+	os.Stdout = origStdout
+
+	// Copy pipe contents to outBuf
+	_, err = io.Copy(outBuf, r)
+	if err != nil {
+		t.Fatalf("Failed to copy pipe output: %v", err)
+	}
+
+	t.Logf("Execute error: %v", err)
+	t.Log("Output:", outBuf.String())
+	t.Log("Errors:", errBuf.String())
+
+	// Assertions
+	assert.NoError(t, err, "Expected no error for valid SBOM transfer")
+	assert.Contains(t, outBuf.String(), "Initializing Input Adapter", "Expected Input adapter Initialization")
+	assert.Contains(t, outBuf.String(), `{"InputAdapter": "folder"}`, "Expected Input adapter")
+	assert.Contains(t, outBuf.String(), "Initializing Output Adapter", "Expected Output adapter Initialization")
+	assert.Contains(t, outBuf.String(), `{"OutputAdapter": "dtrack"}`, "Expected Output adapter")
+	assert.Contains(t, outBuf.String(), "Locally SBOM located folder", "Expected sbom fetching")
+	assert.Contains(t, outBuf.String(), `{"path": "../testdata/github"}`, "Expected folder path")
+	assert.Contains(t, outBuf.String(), "Initializing SBOMs uploading to Dependency-Track sequentially", "Expected upload start")
+	assert.Contains(t, outBuf.String(), "New project will be created", "Expected project creation")
+	assert.Contains(t, outBuf.String(), "Successfully Uploaded", "Expected successful upload completion")
+	assert.Contains(t, outBuf.String(), `{"Total count": 1, "Success": 1, "Failed": 0}`, "Expected upload counts")
 }
