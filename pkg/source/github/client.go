@@ -441,7 +441,6 @@ func (c *Client) GetAllRepositories(ctx tcontext.TransferMetadata) ([]string, er
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.Token))
 	}
 
-	// Set required headers
 	req.Header.Set("Accept", "application/vnd.github.v3+json")
 
 	resp, err := c.httpClient.Do(req)
@@ -450,14 +449,13 @@ func (c *Client) GetAllRepositories(ctx tcontext.TransferMetadata) ([]string, er
 	}
 	defer resp.Body.Close()
 
-	// Check if response is successful
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		return nil, fmt.Errorf("GitHub API returned status %d: %s", resp.StatusCode, string(body))
 	}
 
 	// Decode the JSON response
-	var repos []map[string]interface{} // Handle dynamic JSON structure
+	var repos []map[string]interface{}
 	if err := json.NewDecoder(resp.Body).Decode(&repos); err != nil {
 		return nil, fmt.Errorf("decoding response: %w", err)
 	}

@@ -21,9 +21,9 @@ type DependencyTrackConfig struct {
 	ProjectVersion string // Added field for project version
 }
 
-func NewDependencyTrackConfig() *DependencyTrackConfig {
+func NewDependencyTrackConfig(apiURL, version string) *DependencyTrackConfig {
 	return &DependencyTrackConfig{
-		APIURL:         "http://localhost:8081/api/v1",
-		ProjectVersion: "latest", // Default version
+		APIURL:         apiURL,
+		ProjectVersion: version,
 	}
 }

@@ -11,6 +11,7 @@ require (
 	github.com/spdx/tools-golang v0.5.5
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/viper v1.20.0
+	github.com/stretchr/testify v1.10.0
 	go.uber.org/zap v1.27.0
 	sigs.k8s.io/release-utils v0.11.0
 )
@@ -21,9 +22,11 @@ require (
 	github.com/CycloneDX/cyclonedx-go v0.9.2 // indirect
 	github.com/anchore/go-struct-converter v0.0.0-20250211213226-cce56d595160 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
+	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/go-viper/mapstructure/v2 v2.2.1 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
 	golang.org/x/mod v0.24.0 // indirect
 	google.golang.org/protobuf v1.36.5 // indirect
 	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f // indirect
