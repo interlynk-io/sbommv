@@ -104,6 +104,15 @@ func (f *WatcherFetcher) Fetch(ctx tcontext.TransferMetadata, config *FolderConf
 					if info.IsDir() {
 						logger.LogInfo(ctx.Context, "New directory created", "path", event.Name)
 
+						// if recurssive is true, add subdirectory to the watcher
+						if config.Recursive {
+							if err := watcher.Add(event.Name); err != nil {
+								logger.LogError(ctx.Context, err, "Failed to watch new directory", "path", event.Name)
+							} else {
+								logger.LogInfo(ctx.Context, "Added new directory to watcher", "path", event.Name)
+							}
+						}
+
 						dirEntries, err := os.ReadDir(event.Name)
 						if err != nil {
 							logger.LogError(ctx.Context, err, "Failed to read directory", "path", event.Name)
@@ -111,7 +120,7 @@ func (f *WatcherFetcher) Fetch(ctx tcontext.TransferMetadata, config *FolderConf
 						}
 
 						if len(dirEntries) == 0 {
-							logger.LogDebug(ctx.Context, "No files in new directory, skipping", "path", event.Name)
+							logger.LogInfo(ctx.Context, "No files in new directory, skipping", "path", event.Name)
 							continue
 						}
 
@@ -137,12 +146,14 @@ func (f *WatcherFetcher) Fetch(ctx tcontext.TransferMetadata, config *FolderConf
 							logger.LogDebug(ctx.Context, "Locally SBOM located folder", "path", config.FolderPath)
 
 							fileName := getFilePath(config.FolderPath, filePath)
-							logger.LogDebug(ctx.Context, "Detected SBOM", "file", fileName)
+							logger.LogInfo(ctx.Context, "Detected SBOM File", "path", filePath)
 							sbomChan <- &iterator.SBOM{
 								Data:      content,
 								Path:      fileName,
 								Namespace: config.FolderPath,
 							}
+						} else {
+							logger.LogInfo(ctx.Context, "Detected Non-SBOM File", "path", filePath)
 						}
 					}
 				}
