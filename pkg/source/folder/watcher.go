@@ -82,42 +82,67 @@ func (f *WatcherFetcher) Fetch(ctx tcontext.TransferMetadata, config *FolderConf
 					return
 				}
 
-				// Check if the path is a file (not a directory)
+				logger.LogInfo(ctx.Context, "Event Triggered", "name", event)
+
+				// handle removal or renaming events explicitly.
+				if event.Has(fsnotify.Rename) || event.Has(fsnotify.Remove) {
+					// just log and continue.
+					logger.LogInfo(ctx.Context, "Resource removed from watched folder", "path", event.Name)
+					continue
+				}
+
 				info, err := os.Stat(event.Name)
 				if err != nil {
 					logger.LogError(ctx.Context, err, "Failed to stat path", "path", event.Name)
 					continue
 				}
-				if info.IsDir() {
-					if config.Recursive {
-						// Add new subdirectory to watcher in recursive mode
-						if err := watcher.Add(event.Name); err != nil {
-							logger.LogError(ctx.Context, err, "Failed to watch new directory", "path", event.Name)
-						} else {
-							logger.LogDebug(ctx.Context, "Added new directory to watcher", "path", event.Name)
-						}
-					}
-					continue // Skip directories
-				}
 
-				logger.LogDebug(ctx.Context, "Event Triggered", "name", event)
 				if event.Has(fsnotify.Write) || event.Has(fsnotify.Create) {
 					logger.LogInfo(ctx.Context, "Event Triggered", "name", event)
-					content, err := os.ReadFile(event.Name)
-					if err != nil {
-						logger.LogError(ctx.Context, err, "Failed to read SBOM", "path", event.Name)
-						continue
+
+					var allFiles []string
+					if info.IsDir() {
+						logger.LogInfo(ctx.Context, "New directory created", "path", event.Name)
+
+						dirEntries, err := os.ReadDir(event.Name)
+						if err != nil {
+							logger.LogError(ctx.Context, err, "Failed to read directory", "path", event.Name)
+							continue
+						}
+
+						if len(dirEntries) == 0 {
+							logger.LogDebug(ctx.Context, "No files in new directory, skipping", "path", event.Name)
+							continue
+						}
+
+						for _, entry := range dirEntries {
+							if !entry.IsDir() {
+								logger.LogInfo(ctx.Context, "Found file in new directory", "path", entry.Name())
+								allFiles = append(allFiles, filepath.Join(event.Name, entry.Name()))
+							}
+						}
+					} else {
+						// add file directly to allFiles.
+						allFiles = append(allFiles, event.Name)
 					}
 
-					if source.IsSBOMFile(content) {
-						logger.LogDebug(ctx.Context, "Locally SBOM located folder", "path", config.FolderPath)
+					for _, filePath := range allFiles {
+						content, err := os.ReadFile(filePath)
+						if err != nil {
+							logger.LogError(ctx.Context, err, "Failed to read SBOM", "path", filePath)
+							continue
+						}
 
-						fileName := getFilePath(config.FolderPath, event.Name)
-						logger.LogDebug(ctx.Context, "Detected SBOM", "file", fileName)
-						sbomChan <- &iterator.SBOM{
-							Data:      content,
-							Path:      fileName,
-							Namespace: config.FolderPath,
+						if source.IsSBOMFile(content) {
+							logger.LogDebug(ctx.Context, "Locally SBOM located folder", "path", config.FolderPath)
+
+							fileName := getFilePath(config.FolderPath, filePath)
+							logger.LogDebug(ctx.Context, "Detected SBOM", "file", fileName)
+							sbomChan <- &iterator.SBOM{
+								Data:      content,
+								Path:      fileName,
+								Namespace: config.FolderPath,
+							}
 						}
 					}
 				}
