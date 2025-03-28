@@ -90,14 +90,22 @@ func TransferRun(ctx context.Context, cmd *cobra.Command, config types.Config) e
 	// 	return fmt.Errorf("failed to fetch SBOMs: %w", err)
 	// }
 
-	if config.DryRun {
-		logger.LogDebug(transferCtx.Context, "Dry-run mode enabled: Displaying retrieved SBOMs", "values", config.DryRun)
-		dryRun(*transferCtx, sbomIterator, inputAdapterInstance, outputAdapterInstance)
-		return nil
-	}
+	// if config.DryRun {
+	// 	logger.LogDebug(transferCtx.Context, "Dry-run mode enabled: Displaying retrieved SBOMs", "values", config.DryRun)
+	// 	dryRun(*transferCtx, sbomIterator, inputAdapterInstance, outputAdapterInstance)
+	// 	return nil
+	// }
 
 	var convertedIterator iterator.SBOMIterator
 	convertedIterator = sbomProcessing(*transferCtx, config, sbomIterator)
+
+	if config.DryRun {
+		if config.Daemon {
+		}
+		logger.LogDebug(transferCtx.Context, "Dry-run mode enabled: Displaying retrieved SBOMs", "values", config.DryRun)
+		dryRun(*transferCtx, convertedIterator, inputAdapterInstance, outputAdapterInstance, config)
+		return nil
+	}
 
 	// Process & Upload SBOMs Sequentially
 	if err := outputAdapterInstance.UploadSBOMs(*transferCtx, convertedIterator); err != nil {
@@ -108,35 +116,80 @@ func TransferRun(ctx context.Context, cmd *cobra.Command, config types.Config) e
 	return nil
 }
 
-func dryRun(ctx tcontext.TransferMetadata, sbomIterator iterator.SBOMIterator, input, output adapter.Adapter) error {
-	// Step 1: Store SBOMs in memory (avoid consuming iterator)
-	var sboms []*iterator.SBOM
-	for {
-		sbom, err := sbomIterator.Next(ctx)
-		if err == io.EOF {
-			break
+func dryRun(ctx tcontext.TransferMetadata, sbomIterator iterator.SBOMIterator, input, output adapter.Adapter, config types.Config) error {
+	// dry-run mode for daemon
+	if config.Daemon {
+		logger.LogDebug(ctx.Context, "Dry-run mode in daemon: Previewing SBOMs in real-time")
+		fmt.Println("-----------------🌐 DAEMON MODE DRY-RUN PREVIEW 🌐-----------------")
+
+		for {
+			select {
+			case <-ctx.Done():
+				fmt.Println("\n✅ Dry-run stopped due to context cancellation")
+				return ctx.Err()
+
+			default:
+				sbom, err := sbomIterator.Next(ctx)
+				if err != nil {
+					if err == context.Canceled || err == context.DeadlineExceeded {
+						fmt.Println("\n✅ Dry-run stopped due to context cancellation")
+						return err
+					}
+					logger.LogError(ctx.Context, err, "Error retrieving SBOM from iterator")
+					continue
+				}
+				fmt.Println()
+				fmt.Println("-----------------🌐 INPUT ADAPTER DRY-RUN OUTPUT 🌐-----------------")
+
+				// preview single SBOM for input
+				inputIter := iterator.NewMemoryIterator([]*iterator.SBOM{sbom})
+				if err := input.DryRun(ctx, inputIter); err != nil {
+					logger.LogError(ctx.Context, err, "Input dry-run failed")
+					continue
+				}
+
+				fmt.Println()
+				fmt.Println("-----------------🌐 OUTPUT ADAPTER DRY-RUN OUTPUT 🌐-----------------")
+
+				// preview single SBOM for output
+				outputIter := iterator.NewMemoryIterator([]*iterator.SBOM{sbom})
+				if err := output.DryRun(ctx, outputIter); err != nil {
+					logger.LogError(ctx.Context, err, "Output dry-run failed")
+					continue
+				}
+
+				fmt.Println("------------------------------------------------------")
+			}
 		}
-		if err != nil {
-			logger.LogError(ctx.Context, err, "Error retrieving SBOM from iterator")
-			continue
+	} else {
+		// Step 1: Store SBOMs in memory (avoid consuming iterator)
+		var sboms []*iterator.SBOM
+		for {
+			sbom, err := sbomIterator.Next(ctx)
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				logger.LogError(ctx.Context, err, "Error retrieving SBOM from iterator")
+				continue
+			}
+			sboms = append(sboms, sbom)
 		}
-		sboms = append(sboms, sbom)
-	}
-	fmt.Println()
+		fmt.Println()
 
-	fmt.Println("-----------------🌐 INPUT ADAPTER DRY-RUN OUTPUT 🌐-----------------")
-	// Step 2: Use stored SBOMs for input dry-run
-	if err := input.DryRun(ctx, iterator.NewMemoryIterator(sboms)); err != nil {
-		return fmt.Errorf("failed to execute dry-run mode for input adapter: %v", err)
-	}
-	fmt.Println()
-	fmt.Println("-----------------🌐 OUTPUT ADAPTER DRY-RUN OUTPUT 🌐-----------------")
+		fmt.Println("-----------------🌐 INPUT ADAPTER DRY-RUN OUTPUT 🌐-----------------")
+		// Step 2: Use stored SBOMs for input dry-run
+		if err := input.DryRun(ctx, iterator.NewMemoryIterator(sboms)); err != nil {
+			return fmt.Errorf("failed to execute dry-run mode for input adapter: %v", err)
+		}
+		fmt.Println()
+		fmt.Println("-----------------🌐 OUTPUT ADAPTER DRY-RUN OUTPUT 🌐-----------------")
 
-	// Step 3: Use the same stored SBOMs for output dry-run
-	if err := output.DryRun(ctx, iterator.NewMemoryIterator(sboms)); err != nil {
-		return fmt.Errorf("failed to execute dry-run mode for output adapter: %v", err)
+		// Step 3: Use the same stored SBOMs for output dry-run
+		if err := output.DryRun(ctx, iterator.NewMemoryIterator(sboms)); err != nil {
+			return fmt.Errorf("failed to execute dry-run mode for output adapter: %v", err)
+		}
 	}
-
 	return nil
 }
 
@@ -149,7 +202,6 @@ func sbomProcessing(ctx tcontext.TransferMetadata, config types.Config, sbomIter
 		logger.LogDebug(ctx.Context, "Adapter is eligible for SBOM conversion", "adapter type", config.DestinationAdapter)
 		// convertedSBOMs := sbomConversion(sbomIterator, ctx)
 		return iterator.NewConvertedIterator(sbomIterator, sbom.FormatSpecCycloneDX)
-		// return iterator.NewMemoryIterator(convertedSBOMs)
 	} else {
 		logger.LogDebug(ctx.Context, "Adapter is not eligible for SBOM conversion", "adapter type", config.DestinationAdapter)
 		return sbomIterator
