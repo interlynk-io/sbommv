@@ -270,7 +270,7 @@ func (g *GitHubAdapter) FetchSBOMs(ctx tcontext.TransferMetadata) (iterator.SBOM
 }
 
 func (g *GitHubAdapter) Monitor(ctx tcontext.TransferMetadata) (iterator.SBOMIterator, tcontext.TransferMetadata, error) {
-	return nil, ctx, fmt.Errorf("Currently gitHub adapter does not support monitoring")
+	return nil, ctx, fmt.Errorf("GitHub adapter does not support real-time monitoring in daemon mode")
 }
 
 // OutputSBOMs should return an error since GitHub does not support SBOM uploads
