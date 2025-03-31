@@ -35,3 +35,12 @@ jobs:
 
       - name: Install dependencies
         run: go mod download
+
+      - name: Set SBOMMV_TEST_FOLDER environment variable
+        run: echo "SBOMMV_TEST_FOLDER=$(pwd)/testdata/github" >> $GITHUB_ENV
+
+      - name: Run TestUploadGithubAPIToDTrack
+        run: go test -v ./cmd -run ^TestUploadGithubAPIToDTrack
+
+      - name: Run TestUploadFolderToDTrack
+        run: go test -v ./cmd -run ^TestUploadFolderToDTrack

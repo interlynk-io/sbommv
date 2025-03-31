@@ -101,3 +101,11 @@ func LogDebug(ctx context.Context, msg string, keysAndValues ...interface{}) {
 func LogInfo(ctx context.Context, msg string, keysAndValues ...interface{}) {
 	FromContext(ctx).Infow(msg, keysAndValues...)
 }
+
+// DeinitLogger deinitializes the logger by syncing and resetting it.
+func DeinitLogger() {
+	if logger != nil {
+		_ = logger.Sync()
+		logger = nil
+	}
+}

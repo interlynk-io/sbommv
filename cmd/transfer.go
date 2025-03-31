@@ -112,6 +112,7 @@ func transferSBOM(cmd *cobra.Command, args []string) error {
 	// Initialize logger based on debug flag
 	debug, _ := cmd.Flags().GetBool("debug")
 	logger.InitLogger(debug, false)
+	defer logger.DeinitLogger()
 	defer logger.Sync()
 
 	ctx := logger.WithLogger(context.Background())

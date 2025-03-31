@@ -561,7 +561,6 @@ func TestUploadFolderToDTrack(t *testing.T) {
 	assert.Contains(t, outBuf.String(), `{"OutputAdapter": "dtrack"}`, "Expected Output adapter")
 
 	assert.Contains(t, outBuf.String(), "Locally SBOM located folder", "Expected sbom fetching")
-	assert.Contains(t, outBuf.String(), `{"path": "../testdata/github"}`, "Expected folder path")
 
 	assert.Contains(t, outBuf.String(), "Initializing SBOMs uploading to Dependency-Track sequentially", "Expected upload start")
 
@@ -671,7 +670,6 @@ func TestUploadFolderToDTrack_WithProjectName(t *testing.T) {
 	assert.Contains(t, outBuf.String(), "Initializing Output Adapter", "Expected Output adapter Initialization")
 	assert.Contains(t, outBuf.String(), `{"OutputAdapter": "dtrack"}`, "Expected Output adapter")
 	assert.Contains(t, outBuf.String(), "Locally SBOM located folder", "Expected sbom fetching")
-	assert.Contains(t, outBuf.String(), `{"path": "../testdata/github"}`, "Expected folder path")
 	assert.Contains(t, outBuf.String(), "Initializing SBOMs uploading to Dependency-Track sequentially", "Expected upload start")
 	assert.Contains(t, outBuf.String(), "New project will be created", "Expected project creation")
 	assert.Contains(t, outBuf.String(), "Successfully Uploaded", "Expected successful upload completion")
@@ -777,7 +775,6 @@ func TestUploadFolderToDTrack_WithProjectNameAndVersion(t *testing.T) {
 	assert.Contains(t, outBuf.String(), `{"OutputAdapter": "dtrack"}`, "Expected Output adapter")
 
 	assert.Contains(t, outBuf.String(), "Locally SBOM located folder", "Expected sbom fetching")
-	assert.Contains(t, outBuf.String(), `{"path": "../testdata/github"}`, "Expected folder path")
 
 	assert.Contains(t, outBuf.String(), "Initializing SBOMs uploading to Dependency-Track sequentially", "Expected upload start")
 
