@@ -120,7 +120,10 @@ func dryRun(ctx tcontext.TransferMetadata, sbomIterator iterator.SBOMIterator, i
 	// dry-run mode for daemon
 	if config.Daemon {
 		logger.LogDebug(ctx.Context, "Dry-run mode in daemon: Previewing SBOMs in real-time")
-		fmt.Println("-----------------🌐 DAEMON MODE DRY-RUN PREVIEW 🌐-----------------")
+		fmt.Println("\n------------------------------------------                                 ------------------------------------------")
+		fmt.Println("------------------------------------------🌐 DAEMON MODE DRY-RUN PREVIEW 🌐------------------------------------------")
+		fmt.Println("------------------------------------------                                 ------------------------------------------\n")
+		fmt.Println()
 
 		for {
 			select {
@@ -139,7 +142,7 @@ func dryRun(ctx tcontext.TransferMetadata, sbomIterator iterator.SBOMIterator, i
 					continue
 				}
 				fmt.Println()
-				fmt.Println("-----------------🌐 INPUT ADAPTER DRY-RUN OUTPUT 🌐-----------------")
+				fmt.Println("------------------------------------------🌐 INPUT ADAPTER DRY-RUN OUTPUT 🌐------------------------------------------")
 
 				// preview single SBOM for input
 				inputIter := iterator.NewMemoryIterator([]*iterator.SBOM{sbom})
@@ -149,7 +152,7 @@ func dryRun(ctx tcontext.TransferMetadata, sbomIterator iterator.SBOMIterator, i
 				}
 
 				fmt.Println()
-				fmt.Println("-----------------🌐 OUTPUT ADAPTER DRY-RUN OUTPUT 🌐-----------------")
+				fmt.Println("------------------------------------------🌐 OUTPUT ADAPTER DRY-RUN OUTPUT 🌐------------------------------------------")
 
 				// preview single SBOM for output
 				outputIter := iterator.NewMemoryIterator([]*iterator.SBOM{sbom})
@@ -158,7 +161,7 @@ func dryRun(ctx tcontext.TransferMetadata, sbomIterator iterator.SBOMIterator, i
 					continue
 				}
 
-				fmt.Println("------------------------------------------------------")
+				fmt.Println("\n                              +-+-+-+-+-+-+ SBOM DRY-RUN COMPLETED +-+-+-+-+\n")
 			}
 		}
 	} else {

@@ -94,6 +94,7 @@ func (u *SequentialUploader) Upload(ctx tcontext.TransferMetadata, config *Depen
 			continue
 		}
 		successfullyUploaded++
+		logger.LogInfo(ctx.Context, "Successfully uploaded SBOM to dependency track", "project", finalProjectName, "version", projectVersion, "file", sbom.Path)
 		logger.LogDebug(ctx.Context, "Successfully uploaded SBOM file", "size", len(sbom.Data), "file", sbom.Path)
 	}
 	logger.LogInfo(ctx.Context, "Successfully Uploaded", "Total count", totalSBOMs, "Success", successfullyUploaded, "Failed", totalSBOMs-successfullyUploaded)
