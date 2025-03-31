@@ -116,17 +116,15 @@ func (d *DependencyTrackAdapter) ParseAndValidateParams(cmd *cobra.Command) erro
 		uploader = NewParallelUploader()
 	}
 
-	cfg := NewDependencyTrackConfig()
-	cfg.APIURL = apiURL
+	cfg := NewDependencyTrackConfig(apiURL, projectVersion)
 	cfg.APIKey = token
 	cfg.ProjectName = projectName
-	cfg.ProjectVersion = projectVersion
 
 	// Set values to struct
 	d.Config = cfg
 
 	// Initialize the DependencyTrack client
-	client := NewDependencyTrackClient(d.Config)
+	client := NewDependencyTrackClient(cfg)
 	d.client = client
 	d.Uploader = uploader
 

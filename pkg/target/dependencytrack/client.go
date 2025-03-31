@@ -57,6 +57,11 @@ func (c *DependencyTrackClient) FindProject(ctx tcontext.TransferMetadata, proje
 		return "", err
 	}
 
+	if projects.Items == nil {
+		logger.LogDebug(ctx.Context, "No projects found or nil response")
+		return "", nil
+	}
+
 	logger.LogDebug(ctx.Context, "Total Number of Projects Available in Dependency Track Platform", "count", projects.TotalCount)
 
 	for _, project := range projects.Items {

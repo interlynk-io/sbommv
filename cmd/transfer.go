@@ -111,11 +111,13 @@ func transferSBOM(cmd *cobra.Command, args []string) error {
 
 	// Initialize logger based on debug flag
 	debug, _ := cmd.Flags().GetBool("debug")
-	logger.InitLogger(debug, false) // Using console format as default
-	defer logger.Sync()             // Flush logs on exit
+	logger.InitLogger(debug, false)
+	defer logger.DeinitLogger()
+	defer logger.Sync()
 
 	ctx := logger.WithLogger(context.Background())
 	viper.AutomaticEnv()
+	logger.LogDebug(ctx, "Starting transferSBOM")
 
 	// Parse config
 	config, err := parseConfig(cmd)
