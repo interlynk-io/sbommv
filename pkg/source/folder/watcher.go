@@ -23,8 +23,10 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"github.com/interlynk-io/sbommv/pkg/iterator"
 	"github.com/interlynk-io/sbommv/pkg/logger"
+	"github.com/interlynk-io/sbommv/pkg/sbom"
 	"github.com/interlynk-io/sbommv/pkg/source"
 	"github.com/interlynk-io/sbommv/pkg/tcontext"
+	"github.com/interlynk-io/sbommv/pkg/utils"
 )
 
 type WatcherFetcher struct{}
@@ -35,6 +37,8 @@ func NewWatcherFetcher() *WatcherFetcher {
 
 func (f *WatcherFetcher) Fetch(ctx tcontext.TransferMetadata, config *FolderConfig) (iterator.SBOMIterator, error) {
 	logger.LogDebug(ctx.Context, "Starting folder watcher", "path", config.FolderPath, "recurssive", config.ProcessingMode)
+
+	processor := sbom.NewSBOMProcessor("", false)
 
 	// Create new watcher.
 	watcher, err := fsnotify.NewWatcher()
@@ -82,29 +86,28 @@ func (f *WatcherFetcher) Fetch(ctx tcontext.TransferMetadata, config *FolderConf
 					return
 				}
 
-				logger.LogInfo(ctx.Context, "Event Triggered", "name", event)
+				logger.LogDebug(ctx.Context, "Event Triggered", "name", event)
 
 				// handle removal or renaming events explicitly.
 				if event.Has(fsnotify.Rename) || event.Has(fsnotify.Remove) {
 					// just log and continue.
-					logger.LogInfo(ctx.Context, "Resource removed from watched folder", "path", event.Name)
+					logger.LogDebug(ctx.Context, "Resource removed from watched folder", "path", event.Name)
 					continue
 				}
 
 				info, err := os.Stat(event.Name)
 				if err != nil {
-					logger.LogError(ctx.Context, err, "Failed to stat path", "path", event.Name)
+					logger.LogDebug(ctx.Context, "err", "Failed to stat path", "path", event.Name)
 					continue
 				}
-
-				if event.Has(fsnotify.Write) || event.Has(fsnotify.Create) {
-					logger.LogInfo(ctx.Context, "Event Triggered", "name", event)
+				// || event.Has(fsnotify.Create)
+				if event.Has(fsnotify.Write) {
 
 					var allFiles []string
 					if info.IsDir() {
-						logger.LogInfo(ctx.Context, "New directory created", "path", event.Name)
+						logger.LogDebug(ctx.Context, "New directory created", "path", event.Name)
 
-						// if recurssive is true, add subdirectory to the watcher
+						// if recurssive is true, add subdirectory to the watcher created during real-time monitoring.
 						if config.Recursive {
 							if err := watcher.Add(event.Name); err != nil {
 								logger.LogError(ctx.Context, err, "Failed to watch new directory", "path", event.Name)
@@ -115,18 +118,18 @@ func (f *WatcherFetcher) Fetch(ctx tcontext.TransferMetadata, config *FolderConf
 
 						dirEntries, err := os.ReadDir(event.Name)
 						if err != nil {
-							logger.LogError(ctx.Context, err, "Failed to read directory", "path", event.Name)
+							logger.LogDebug(ctx.Context, "err", "Failed to read directory", "path", event.Name)
 							continue
 						}
 
 						if len(dirEntries) == 0 {
-							logger.LogInfo(ctx.Context, "No files in new directory, skipping", "path", event.Name)
+							logger.LogDebug(ctx.Context, "No files in new directory, skipping", "path", event.Name)
 							continue
 						}
 
 						for _, entry := range dirEntries {
 							if !entry.IsDir() {
-								logger.LogInfo(ctx.Context, "Found file in new directory", "path", entry.Name())
+								logger.LogDebug(ctx.Context, "Found file in new directory", "path", entry.Name())
 								allFiles = append(allFiles, filepath.Join(event.Name, entry.Name()))
 							}
 						}
@@ -138,7 +141,7 @@ func (f *WatcherFetcher) Fetch(ctx tcontext.TransferMetadata, config *FolderConf
 					for _, filePath := range allFiles {
 						content, err := os.ReadFile(filePath)
 						if err != nil {
-							logger.LogError(ctx.Context, err, "Failed to read SBOM", "path", filePath)
+							logger.LogDebug(ctx.Context, "err", "Failed to read SBOM", "path", filePath)
 							continue
 						}
 
@@ -146,15 +149,30 @@ func (f *WatcherFetcher) Fetch(ctx tcontext.TransferMetadata, config *FolderConf
 							logger.LogDebug(ctx.Context, "Locally SBOM located folder", "path", config.FolderPath)
 
 							fileName := getFilePath(config.FolderPath, filePath)
-							logger.LogInfo(ctx.Context, "Detected SBOM File", "path", filePath)
+							processor.Update(content, "", fileName)
+
+							doc, err := processor.ProcessSBOMs()
+							if err != nil {
+								logger.LogDebug(ctx.Context, "err", "Failed to process SBOM")
+								continue
+							}
+
+							sourceAdapter := ctx.Value("source")
+							primaryCompName, primaryCompVersion := utils.ConstructProjectName(ctx, "", "", "", "", content, sourceAdapter.(string))
+
+							fmt.Printf("\n 📜 Detected SBOM File: %s\n", filePath)
+							fmt.Printf(" FORMAT: %s | SPEC: %s  | PRIMARY_COMP: %s | PRIMARY_COMP_VERSION: %s\n\n", doc.Format, doc.SpecVersion, primaryCompName, primaryCompVersion)
+
 							sbomChan <- &iterator.SBOM{
 								Data:      content,
 								Path:      fileName,
 								Namespace: config.FolderPath,
 							}
+
 						} else {
 							logger.LogInfo(ctx.Context, "Detected Non-SBOM File", "path", filePath)
 						}
+
 					}
 				}
 
