@@ -33,6 +33,7 @@ type DependencyTrackAdapter struct {
 	Uploader       SBOMUploader
 	Role           types.AdapterRole
 	ProcessingMode types.ProcessingMode
+	Overwrite      bool
 }
 
 // func NewDependencyTrackAdapter(config *DependencyTrackConfig, client *DependencyTrackClient) *DependencyTrackAdapter {
@@ -48,7 +49,6 @@ func (d *DependencyTrackAdapter) AddCommandParams(cmd *cobra.Command) {
 	cmd.Flags().String("out-dtrack-url", "", "Dependency Track API URL")
 	cmd.Flags().String("out-dtrack-project-name", "", "Project name to upload SBOMs to")
 	cmd.Flags().String("out-dtrack-project-version", "", "Project version (default: latest)")
-	cmd.Flags().Bool("out-dtrack-project-overwrite", false, "Overwrite existing project version (default: false)")
 }
 
 // ParseAndValidateParams validates the Dependency-Track adapter params
@@ -95,7 +95,7 @@ func (d *DependencyTrackAdapter) ParseAndValidateParams(cmd *cobra.Command) erro
 	}
 	projectName, _ := cmd.Flags().GetString(projectNameFlag)
 	projectVersion, _ := cmd.Flags().GetString(projectVersionFlag)
-	projectOverride, _ := cmd.Flags().GetBool("out-dtrack-project-overwrite")
+	projectOverwrite := d.Overwrite
 	// Validate DTrack connectivity before proceeding
 	if err := ValidateDTrackConnection(apiURL, token); err != nil {
 		return fmt.Errorf("DTrack API %s validation failed: %w", apiURL, err)
@@ -117,7 +117,7 @@ func (d *DependencyTrackAdapter) ParseAndValidateParams(cmd *cobra.Command) erro
 		uploader = NewParallelUploader()
 	}
 
-	cfg := NewDependencyTrackConfig(apiURL, projectVersion, projectOverride)
+	cfg := NewDependencyTrackConfig(apiURL, projectVersion, projectOverwrite)
 	cfg.APIKey = token
 	cfg.ProjectName = projectName
 

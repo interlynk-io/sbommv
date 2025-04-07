@@ -30,12 +30,32 @@ The monitoring of a folder is done on the following basis:
   - It triggered 2 events:
     - `REPLACE` and `WRITE`
 
-### 🚀 Real-time Uploading SBOMs to Dependency-Track(dtrack)
+### 🚀 Real-time Uploading SBOMs to Dependency-Track (dtrack)
 
-Once SBOMs are triggered in a local folder, they need to be uploaded to DependencyTrack. To setup DependencyTrack, follow this [guide](https://github.com/interlynk-io/sbommv/blob/v0.0.3/examples/setup_dependency_track.md).
+Once SBOMs appear in a monitored folder, `sbommv` automatically picks them up and uploads them to Dependency-Track. If you haven’t set up Dependency-Track yet, follow this [setup guide](https://github.com/interlynk-io/sbommv/blob/v0.0.3/examples/setup_dependency_track.md).
 
-- **Default Behavior**: SBOMs are uploaded only if the corresponding project in Dependency-Track (identified by project name and version) does not already have an SBOM. This prevents overwriting existing SBOMs.
-- **Overwrite Option**: Use the `--out-dtrack-overwrite` flag to force upload every time, overwriting any existing SBOM for the project, regardless of its current state.
+By default, here's how the upload behavior works:
+
+- **Default Behavior**:
+  `sbommv` uploads an SBOM **only if** there isn’t already one for the same project (based on primary component name + version). This helps avoid unnecessary overwrites.  
+  While Dependency-Track itself *always* replaces an existing SBOM when a new one is uploaded—even if it's identical—`sbommv` adds a protective layer to avoid redundant uploads.
+
+- **Overwrite Option**:
+  If you want to always replace the existing SBOM—regardless of whether it’s the same or not—you can use the `--overwrite=true` flag. This forces the upload every time and updates the SBOM in Dependency-Track.
+
+📝 **Note**:  
+The `--overwrite` flag is handled entirely by `sbommv` and works the same across all adapters.  
+By default, `--overwrite=false`, which means:
+
+- SBOMs with the same project name and version won’t be uploaded again.
+- If you've changed other parts of the SBOM (like license info, dependency metadata, etc.) but kept the same component name and version, you’ll need to set `--overwrite=true` to ensure it's updated.
+
+In short:
+
+- ✅ Want to skip duplicates? Leave `--overwrite=false` (default).
+- 🔁 Want to always upload and replace? Set `--overwrite=true`.
+
+This gives you full control over how SBOM updates are handled—especially important in automated workflows.
 
 ## ✅ Transfer SBOMs
 

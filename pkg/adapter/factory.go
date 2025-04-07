@@ -86,18 +86,17 @@ func NewAdapter(ctx tcontext.TransferMetadata, config types.Config) (map[types.A
 		switch types.AdapterType(config.DestinationAdapter) {
 
 		case types.FolderAdapterType:
-			adapters[types.OutputAdapterRole] = &ofolder.FolderAdapter{Role: types.OutputAdapterRole, Uploader: &ofolder.SequentialUploader{}}
+			adapters[types.OutputAdapterRole] = &ofolder.FolderAdapter{Role: types.OutputAdapterRole, Uploader: &ofolder.SequentialUploader{}, Overwrite: config.Overwrite}
 			outputAdp = "folder"
 
 		case types.InterlynkAdapterType:
 
 			// TODO: hard-coded, processing mode as sequential. Currently it doesn't support parallel processing-mode.
-			adapters[types.OutputAdapterRole] = &interlynk.InterlynkAdapter{Role: types.OutputAdapterRole, ProcessingMode: types.ProcessingMode("sequential")}
+			adapters[types.OutputAdapterRole] = &interlynk.InterlynkAdapter{Role: types.OutputAdapterRole, ProcessingMode: types.ProcessingMode("sequential"), Overwrite: config.Overwrite}
 			outputAdp = "interlynk"
 
 		case types.DtrackAdapterType:
-			// adapters[types.OutputAdapterRole] = &dependencytrack.DependencyTrackAdapter{Role: types.OutputAdapterRole, Uploader: dependencytrack.NewSequentialUploader()}
-			adapters[types.OutputAdapterRole] = &dependencytrack.DependencyTrackAdapter{Role: types.OutputAdapterRole, ProcessingMode: processingMode}
+			adapters[types.OutputAdapterRole] = &dependencytrack.DependencyTrackAdapter{Role: types.OutputAdapterRole, ProcessingMode: processingMode, Overwrite: config.Overwrite}
 
 			outputAdp = "dtrack"
 		default:
