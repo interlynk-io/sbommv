@@ -19,11 +19,13 @@ type DependencyTrackConfig struct {
 	APIKey         string
 	ProjectName    string
 	ProjectVersion string // Added field for project version
+	Overwrite      bool
 }
 
-func NewDependencyTrackConfig(apiURL, version string) *DependencyTrackConfig {
+func NewDependencyTrackConfig(apiURL, version string, overwite bool) *DependencyTrackConfig {
 	return &DependencyTrackConfig{
 		APIURL:         apiURL,
 		ProjectVersion: version,
+		Overwrite:      overwite,
 	}
 }

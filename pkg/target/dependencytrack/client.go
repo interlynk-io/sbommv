@@ -101,13 +101,13 @@ func (c *DependencyTrackClient) FindOrCreateProject(ctx tcontext.TransferMetadat
 	logger.LogDebug(ctx.Context, "Processing finding or Creating Project", "project", projectName, "version", projectVersion)
 
 	// find project using project name and project version
-	uuid, err := c.FindProject(ctx, projectName, projectVersion)
+	projectUUID, err := c.FindProject(ctx, projectName, projectVersion)
 	if err != nil {
 		return "", fmt.Errorf("finding project: %w", err)
 	}
-	if uuid != "" {
-		logger.LogDebug(ctx.Context, "Project already exists, therefor it wouldn't create a new", "project", projectName, "uuid", uuid)
-		return uuid, nil
+	if projectUUID != "" {
+		logger.LogDebug(ctx.Context, "Project already exists, therefor it wouldn't create a new", "project", projectName, "uuid", projectUUID)
+		return projectUUID, nil
 	}
 	logger.LogDebug(ctx.Context, "New project will be created", "name", projectName, "version", projectVersion)
 

@@ -30,4 +30,7 @@ type Config struct {
 
 	// daemon mode
 	Daemon bool
+
+	// overwrite mode
+	Overwrite bool
 }

@@ -78,6 +78,8 @@ func init() {
 
 	transferCmd.Flags().BoolP("debug", "D", false, "enable debug logging")
 
+	transferCmd.Flags().Bool("overwrite", false, "Overwrite existing SBOM (default: false)")
+
 	// Manually register adapter flags for each adapter
 	registerAdapterFlags(transferCmd)
 }
@@ -140,6 +142,7 @@ func parseConfig(cmd *cobra.Command) (types.Config, error) {
 	dr, _ := cmd.Flags().GetBool("dry-run")
 	processingMode, _ := cmd.Flags().GetString("processing-mode")
 	daemon, _ := cmd.Flags().GetBool("daemon")
+	overwrite, _ := cmd.Flags().GetBool("overwrite")
 
 	validInputAdapter := map[string]bool{"github": true, "folder": true}
 	validOutputAdapter := map[string]bool{"interlynk": true, "folder": true, "dtrack": true}
@@ -184,6 +187,7 @@ func parseConfig(cmd *cobra.Command) (types.Config, error) {
 		DryRun:             dr,
 		ProcessingStrategy: processingMode,
 		Daemon:             daemon,
+		Overwrite:          overwrite,
 	}
 
 	return config, nil

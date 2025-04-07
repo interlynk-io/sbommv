@@ -30,9 +30,32 @@ The monitoring of a folder is done on the following basis:
   - It triggered 2 events:
     - `REPLACE` and `WRITE`
 
-### 🚀 Real-time Uploading SBOMs to Dependency-Track(dtrack)
+### 🚀 Real-time Uploading SBOMs to Dependency-Track (dtrack)
 
-Once SBOMs are triggered in a local folder, they need to be uploaded to DependencyTrack. To setup DependencyTrack, follow this [guide](https://github.com/interlynk-io/sbommv/blob/v0.0.3/examples/setup_dependency_track.md).
+Once SBOMs appear in a monitored folder, `sbommv` automatically picks them up and uploads them to Dependency-Track. If you haven’t set up Dependency-Track yet, follow this [setup guide](https://github.com/interlynk-io/sbommv/blob/v0.0.3/examples/setup_dependency_track.md).
+
+By default, here's how the upload behavior works:
+
+- **Default Behavior**:
+  `sbommv` uploads an SBOM **only if** there isn’t already one for the same project (based on primary component name + version). This helps avoid unnecessary overwrites.  
+  While Dependency-Track itself *always* replaces an existing SBOM when a new one is uploaded—even if it's identical—`sbommv` adds a protective layer to avoid redundant uploads.
+
+- **Overwrite Option**:
+  If you want to always replace the existing SBOM—regardless of whether it’s the same or not—you can use the `--overwrite=true` flag. This forces the upload every time and updates the SBOM in Dependency-Track.
+
+📝 **Note**:  
+The `--overwrite` flag is handled entirely by `sbommv` and works the same across all adapters.  
+By default, `--overwrite=false`, which means:
+
+- SBOMs with the same project name and version won’t be uploaded again.
+- If you've changed other parts of the SBOM (like license info, dependency metadata, etc.) but kept the same component name and version, you’ll need to set `--overwrite=true` to ensure it's updated.
+
+In short:
+
+- ✅ Want to skip duplicates? Leave `--overwrite=false` (default).
+- 🔁 Want to always upload and replace? Set `--overwrite=true`.
+
+This gives you full control over how SBOM updates are handled—especially important in automated workflows.
 
 ## ✅ Transfer SBOMs
 
@@ -80,6 +103,15 @@ As soon as the SBOM is added to `demo` folder the following events are triggered
 If you check `projects` of dependency-track, a new project with `com.github.interlynk-io/sbomqs-main` is created and uploaded.
 ![alt text](image-4.png)
 
+
+#### Forcing Overwrite
+
+To overwrite an existing SBOM regardless of its presence:
+
+```bash
+sbommv transfer --input-adapter=folder --in-folder-path="demo" --output-adapter=dtrack --out-dtrack-url="http://localhost:8081" --out-dtrack-overwrite -d
+```
+
 ### 2 From root Folder + sub-directories(recursion) --> dtrack
 
 ```bash
@@ -125,6 +157,9 @@ You will see that, as soon as the SBOM is added to `demo/xyz` directory, these e
 2025-03-31T15:32:52.991+0530	INFO	logger/log.go:102	Successfully uploaded SBOM to dependency track	{"project": "com.github.interlynk-io/sbomqs-main", "version": "main", "file": "38225f82-cc16-4707-8d6d-0d8ad85021f4.sbom.json"}
 
 ```
+
+- **Default**: Uploads only if no SBOM exists for the project.
+- **With Overwrite**: Add `--out-dtrack-overwrite` to force upload and overwrite existing SBOMs.
 
 So, that's how sb-dir is also monitored. if you try to the same step by `--in-folder-recursive=false`, you won't see folder monitoring for sub-dir `xyz`.
 

@@ -33,6 +33,7 @@ type DependencyTrackAdapter struct {
 	Uploader       SBOMUploader
 	Role           types.AdapterRole
 	ProcessingMode types.ProcessingMode
+	Overwrite      bool
 }
 
 // func NewDependencyTrackAdapter(config *DependencyTrackConfig, client *DependencyTrackClient) *DependencyTrackAdapter {
@@ -94,7 +95,7 @@ func (d *DependencyTrackAdapter) ParseAndValidateParams(cmd *cobra.Command) erro
 	}
 	projectName, _ := cmd.Flags().GetString(projectNameFlag)
 	projectVersion, _ := cmd.Flags().GetString(projectVersionFlag)
-
+	projectOverwrite := d.Overwrite
 	// Validate DTrack connectivity before proceeding
 	if err := ValidateDTrackConnection(apiURL, token); err != nil {
 		return fmt.Errorf("DTrack API %s validation failed: %w", apiURL, err)
@@ -116,7 +117,7 @@ func (d *DependencyTrackAdapter) ParseAndValidateParams(cmd *cobra.Command) erro
 		uploader = NewParallelUploader()
 	}
 
-	cfg := NewDependencyTrackConfig(apiURL, projectVersion)
+	cfg := NewDependencyTrackConfig(apiURL, projectVersion, projectOverwrite)
 	cfg.APIKey = token
 	cfg.ProjectName = projectName
 

@@ -19,6 +19,7 @@ import "github.com/interlynk-io/sbommv/pkg/types"
 type FolderConfig struct {
 	FolderPath string
 	Settings   types.UploadSettings
+	Overwrite  bool
 }
 
 func NewFolderConfig() *FolderConfig {

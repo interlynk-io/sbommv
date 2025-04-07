@@ -28,9 +28,10 @@ import (
 
 // FolderAdapter handles storing SBOMs in a local folder
 type FolderAdapter struct {
-	Role     types.AdapterRole
-	config   *FolderConfig
-	Uploader SBOMUploader
+	Role      types.AdapterRole
+	config    *FolderConfig
+	Uploader  SBOMUploader
+	Overwrite bool
 }
 
 // AddCommandParams defines folder adapter CLI flags
@@ -76,6 +77,8 @@ func (f *FolderAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 		invalidFlags = append(invalidFlags, fmt.Sprintf("%s=%s (must be one of: sequential, parallel mode)", processingModeFlag, mode))
 	}
 
+	projectOverwrite := f.Overwrite
+
 	// Validate required flags
 	if len(missingFlags) > 0 {
 		return fmt.Errorf("missing output adapter required flags: %v\n\nUse 'sbommv transfer --help' for usage details.", missingFlags)
@@ -89,6 +92,7 @@ func (f *FolderAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 	cfg := FolderConfig{
 		FolderPath: folderPath,
 		Settings:   types.UploadSettings{ProcessingMode: types.UploadMode(mode)},
+		Overwrite:  projectOverwrite,
 	}
 	f.config = &cfg
 

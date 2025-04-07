@@ -47,6 +47,8 @@ type InterlynkAdapter struct {
 	client         *http.Client
 	settings       types.UploadSettings
 	ProcessingMode types.ProcessingMode
+
+	Overwrite bool
 }
 
 // AddCommandParams adds GitHub-specific CLI flags
@@ -129,6 +131,9 @@ func (i *InterlynkAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 		"url", i.BaseURL,
 		"project_name", i.ProjectName,
 		"project_env", i.ProjectEnv,
+		"overwrite", i.Overwrite,
+		"processing_mode", i.settings.ProcessingMode,
+		"role", i.Role,
 	)
 	return nil
 }
@@ -222,7 +227,7 @@ func (i *InterlynkAdapter) uploadSequential(ctx tcontext.TransferMetadata, sboms
 			logger.LogInfo(ctx.Context, "error", err)
 			continue
 		}
-		logger.LogDebug(ctx.Context, "SBOMs uploaded to project", "name", projectName, "id", projectID)
+		logger.LogDebug(ctx.Context, "SBOMs preparing to upload", "name", projectName, "id", projectID)
 
 		// Upload SBOM content (stored in memory)
 		err = client.UploadSBOM(ctx, projectID, sbom.Data)

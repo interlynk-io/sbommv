@@ -63,12 +63,36 @@ func (u *SequentialUploader) Upload(ctx tcontext.TransferMetadata, config *Folde
 		if sbom.Path == "" {
 			outputFile = filepath.Join(outputDir, fmt.Sprintf("%s.sbom.json", uuid.New().String()))
 		}
+
+		if !config.Overwrite {
+
+			// skip if file exists(default behavior)
+			if _, err := os.Stat(outputFile); err == nil {
+
+				// file exists, skip writing
+				logger.LogDebug(ctx.Context, "File already exists, skipping write (overwrite=false)", "path", outputFile)
+				successfullyUploaded++
+				continue
+
+			} else if !os.IsNotExist(err) {
+
+				// unexpected error (not just "file doesn’t exist")
+				logger.LogError(ctx.Context, err, "Failed to check file existence", "path", outputFile)
+				continue
+			}
+
+			// file doesn’t exist, proceed with writing
+			logger.LogDebug(ctx.Context, "File does not exist, proceeding with write", "path", outputFile)
+		}
+
+		// write the SBOM file (either overwrite is true or file doesn’t exist)
 		if err := os.WriteFile(outputFile, sbom.Data, 0o644); err != nil {
 			logger.LogError(ctx.Context, err, "Failed to write SBOM file", "path", outputFile)
-			return err
+			continue // Continue to next SBOM instead of returning error
 		}
+
 		successfullyUploaded++
-		logger.LogDebug(ctx.Context, "Successfully written SBOM", "path", outputFile)
+		logger.LogInfo(ctx.Context, "Successfully written SBOM", "path", outputFile)
 	}
 
 	logger.LogInfo(ctx.Context, "SBOM uploading processing done, no more SBOMs left")
