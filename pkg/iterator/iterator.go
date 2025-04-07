@@ -86,7 +86,7 @@ func (ci *ConvertedIterator) Next(ctx tcontext.TransferMetadata) (*SBOM, error) 
 			logger.LogDebug(ctx.Context, "Iterator stopped due to context cancellation")
 			return nil, err // Exit for daemon mode
 		}
-		logger.LogInfo(ctx.Context, "Error retrieving SBOM from inner iterator", "error", err)
+		logger.LogInfo(ctx.Context, "error", "message", err)
 		return nil, err
 	}
 	convertedData, err := converter.ConvertSBOM(ctx, sbom.Data, ci.targetFormat)

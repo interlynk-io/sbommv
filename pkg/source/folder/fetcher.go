@@ -44,7 +44,7 @@ func (f *SequentialFetcher) Fetch(ctx tcontext.TransferMetadata, config *FolderC
 	var sbomList []*iterator.SBOM
 	err := filepath.Walk(config.FolderPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			logger.LogInfo(ctx.Context, "Error accessing file", "path", path)
+			logger.LogInfo(ctx.Context, "error", "path", path, "error", err)
 			return nil
 		}
 
@@ -143,7 +143,7 @@ func (f *ParallelFetcher) Fetch(ctx tcontext.TransferMetadata, config *FolderCon
 	// walk the folder and send each file path into the channel.
 	err := filepath.Walk(config.FolderPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			logger.LogInfo(ctx.Context, "Error accessing file", "path", path)
+			logger.LogInfo(ctx.Context, "error", "path", path, "error", err)
 			return nil
 		}
 

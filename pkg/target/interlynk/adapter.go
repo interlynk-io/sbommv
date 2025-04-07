@@ -197,10 +197,9 @@ func (i *InterlynkAdapter) uploadSequential(ctx tcontext.TransferMetadata, sboms
 		}
 		totalSBOMs++
 		if err != nil {
-			logger.LogInfo(ctx.Context, "Failed to retrieve SBOM from iterator", err)
+			logger.LogInfo(ctx.Context, "error", err)
 			errorCount++
 			if errorCount >= maxRetries {
-				logger.LogInfo(ctx.Context, "Exceeded maximum retries", err)
 				break
 			}
 			continue
@@ -232,17 +231,14 @@ func (i *InterlynkAdapter) uploadSequential(ctx tcontext.TransferMetadata, sboms
 		// Upload SBOM content (stored in memory)
 		err = client.UploadSBOM(ctx, projectID, sbom.Data)
 		if err != nil {
-			logger.LogInfo(ctx.Context, "Failed to upload SBOM", "file", sbom.Path, "project name", projectName)
+			logger.LogInfo(ctx.Context, "error", "file", sbom.Path, "project name", projectName)
 		} else {
 			successfullyUploaded++
-			logger.LogDebug(ctx.Context, "Successfully uploaded SBOM", "file", sbom.Path, "project name", projectName)
+			logger.LogDebug(ctx.Context, "upload", "file", sbom.Path, "project name", projectName)
 		}
 	}
 
-	logger.LogInfo(ctx.Context, "SBOM uploading processing done, no more SBOMs left")
-	logger.LogInfo(ctx.Context, "Total SBOMs", "count", totalSBOMs)
-	logger.LogInfo(ctx.Context, "Successfully Uploaded", "count", successfullyUploaded)
-
+	logger.LogInfo(ctx.Context, "upload", "sboms", totalSBOMs, "success", successfullyUploaded, "failed", errorCount)
 	return nil
 }
 
