@@ -14,11 +14,15 @@
 package dependencytrack
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"path/filepath"
 	"sync"
 
+	"github.com/google/uuid"
 	"github.com/interlynk-io/sbommv/pkg/iterator"
 	"github.com/interlynk-io/sbommv/pkg/logger"
 	"github.com/interlynk-io/sbommv/pkg/tcontext"
@@ -75,10 +79,11 @@ func (u *SequentialUploader) Upload(ctx tcontext.TransferMetadata, config *Depen
 		finalProjectName := fmt.Sprintf("%s-%s", projectName, projectVersion)
 		logger.LogDebug(ctx.Context, "Project Details", "name", finalProjectName, "version", projectVersion)
 
+		var projectUUID string
 		if !u.createdProjects[finalProjectName] {
 
 			// find or create project using project name and project version
-			_, err = client.FindOrCreateProject(ctx, finalProjectName, projectVersion)
+			projectUUID, err = client.FindOrCreateProject(ctx, finalProjectName, projectVersion)
 			if err != nil {
 				logger.LogInfo(ctx.Context, "Failed to find or create project", "project", projectName, "error", err)
 				continue
@@ -88,6 +93,47 @@ func (u *SequentialUploader) Upload(ctx tcontext.TransferMetadata, config *Depen
 
 		logger.LogDebug(ctx.Context, "Initializing uploading SBOM content", "size", len(sbom.Data), "file", sbom.Path)
 
+		if config.Overwrite {
+			// Check if the SBOM file already exists in Dependency-Track
+			parsedUUID, err := uuid.Parse(projectUUID)
+			if err != nil {
+				logger.LogDebug(ctx.Context, "Failed to parse project UUID", "projectUUID", projectUUID, "error", err)
+				continue
+			}
+
+			// Check if project exists and has an SBOM (components)
+			project, err := client.Client.Project.Get(ctx.Context, parsedUUID)
+			if err != nil {
+				logger.LogDebug(ctx.Context, "Failed to fetch project, assuming it’s new", "project", finalProjectName, "error", err)
+			} else {
+
+				// BOM import occurs when you upload an SBOM file
+				// therefore, LastBomImport is non-zero)
+				hasSBOM := project.LastBOMImport != 0
+
+				// Optionally, check metrics if available
+				if project.Metrics.Components > 0 {
+					hasSBOM = true
+				}
+
+				logger.LogDebug(ctx.Context, "Project exists", "project", finalProjectName, "uuid", projectUUID)
+				logger.LogDebug(ctx.Context, "Project metrics", "components", project.Metrics.Components, "last_bom_import", project.LastBOMImport)
+				logger.LogDebug(ctx.Context, "Project active status", "active", project.Active)
+				logger.LogDebug(ctx.Context, "Project has SBOM", "has_sbom", hasSBOM)
+
+				if project.Active && hasSBOM {
+					logger.LogInfo(ctx.Context, "Project exists and has an SBOM, skipping upload",
+						"project", finalProjectName,
+						"uuid", projectUUID,
+						"last_bom_import", project.LastBOMImport,
+						"component_count", project.Metrics.Components)
+					successfullyUploaded++ // Count as successful since it’s an intentional skip
+					continue
+				}
+				logger.LogDebug(ctx.Context, "Project exists but no SBOM detected, proceeding with upload", "project", finalProjectName)
+			}
+
+		}
 		err = client.UploadSBOM(ctx, finalProjectName, projectVersion, sbom.Data)
 		if err != nil {
 			logger.LogDebug(ctx.Context, "Upload Failed for", "project", finalProjectName, "size", len(sbom.Data), "file", sbom.Path, "error", err)
@@ -99,6 +145,42 @@ func (u *SequentialUploader) Upload(ctx tcontext.TransferMetadata, config *Depen
 	}
 	logger.LogInfo(ctx.Context, "Successfully Uploaded", "Total count", totalSBOMs, "Success", successfullyUploaded, "Failed", totalSBOMs-successfullyUploaded)
 	return nil
+}
+
+// normalizeJSON removes insignificant whitespace and ensures consistent serialization
+func normalizeJSON(data []byte) ([]byte, error) {
+	// Parse JSON into a generic interface{}
+	var obj interface{}
+	if err := json.Unmarshal(data, &obj); err != nil {
+		return nil, fmt.Errorf("failed to parse JSON: %v", err)
+	}
+
+	// Re-serialize without indentation
+	return json.Marshal(obj)
+}
+
+// ComputeFileHash computes the SHA-256 hash of a file
+func ComputeContentHash(ctx tcontext.TransferMetadata, content []byte) (string, error) {
+	// Check if content is valid JSON
+	normalized, err := normalizeJSON(content)
+	if err != nil {
+		// If not JSON (e.g., XML), hash the raw bytes as fallback
+		logger.LogDebug(ctx.Context, "Content is not JSON, hashing raw bytes", "error", err)
+		hash := sha256.New()
+		_, err := hash.Write(content)
+		if err != nil {
+			return "", fmt.Errorf("failed to compute hash: %v", err)
+		}
+		return hex.EncodeToString(hash.Sum(nil)), nil
+	}
+
+	hash := sha256.New()
+	_, err = hash.Write(normalized)
+	if err != nil {
+		return "", fmt.Errorf("failed to compute hash: %v", err)
+	}
+
+	return hex.EncodeToString(hash.Sum(nil)), nil
 }
 
 // ParallelUploader uploads SBOMs to Dependency-Track concurrently.
