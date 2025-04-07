@@ -160,8 +160,7 @@ func (f *WatcherFetcher) Fetch(ctx tcontext.TransferMetadata, config *FolderConf
 							sourceAdapter := ctx.Value("source")
 							primaryCompName, primaryCompVersion := utils.ConstructProjectName(ctx, "", "", "", "", content, sourceAdapter.(string))
 
-							fmt.Printf("\n 📜 Detected SBOM File: %s\n", filePath)
-							fmt.Printf(" FORMAT: %s | SPEC: %s  | PRIMARY_COMP: %s | PRIMARY_COMP_VERSION: %s\n\n", doc.Format, doc.SpecVersion, primaryCompName, primaryCompVersion)
+							logger.LogInfo(ctx.Context,"Detected","format",doc.Format, "spec_version", doc.SpecVersion,"component", primaryCompName, "version", primaryCompVersion, "file", filePath)
 
 							sbomChan <- &iterator.SBOM{
 								Data:      content,

@@ -125,13 +125,8 @@ func (u *SequentialUploader) Upload(ctx tcontext.TransferMetadata, config *Depen
 				logger.LogDebug(ctx.Context, "Project has SBOM", "has_sbom", hasSBOM)
 
 				if project.Active && hasSBOM {
-					logger.LogInfo(ctx.Context, "Project exists and has an SBOM, skipping upload (overwrite=false)",
-						"project", finalProjectName,
-						"uuid", projectUUID,
-						"last_bom_import", project.LastBOMImport,
-						"component_count", project.Metrics)
+					logger.LogInfo(ctx.Context, "Project exists and has an SBOM, skipping upload (overwrite=false)", "project", finalProjectName, "uuid", projectUUID)
 					successfullyUploaded++
-					logger.LogDebug(ctx.Context, "Skipping upload for existing SBOM", "project", finalProjectName)
 					continue
 				}
 				logger.LogDebug(ctx.Context, "Project exists but no SBOM detected, proceeding with upload", "project", finalProjectName)
