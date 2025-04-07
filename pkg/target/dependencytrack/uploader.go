@@ -119,13 +119,13 @@ func (u *SequentialUploader) Upload(ctx tcontext.TransferMetadata, config *Depen
 					hasSBOM = true
 				}
 
-				logger.LogDebug(ctx.Context, "Project exists", "project", finalProjectName, "uuid", projectUUID)
-				logger.LogDebug(ctx.Context, "Project metrics", "components", project.Metrics, "last_bom_import", project.LastBOMImport)
-				logger.LogDebug(ctx.Context, "Project active status", "active", project.Active)
-				logger.LogDebug(ctx.Context, "Project has SBOM", "has_sbom", hasSBOM)
+				logger.LogDebug(ctx.Context, "Exists", "project", finalProjectName, "uuid", projectUUID)
+				logger.LogDebug(ctx.Context, "Metrics", "components", project.Metrics, "last_bom_import", project.LastBOMImport)
+				logger.LogDebug(ctx.Context, "Active Status", "active", project.Active)
+				logger.LogDebug(ctx.Context, "Has SBOM", "has_sbom", hasSBOM)
 
 				if project.Active && hasSBOM {
-					logger.LogInfo(ctx.Context, "Project exists and has an SBOM, skipping upload (overwrite=false)", "project", finalProjectName, "uuid", projectUUID)
+					logger.LogInfo(ctx.Context, "Exists", "skip upload", true, "project", finalProjectName, "uuid", projectUUID)
 					successfullyUploaded++
 					continue
 				}
@@ -141,10 +141,9 @@ func (u *SequentialUploader) Upload(ctx tcontext.TransferMetadata, config *Depen
 		}
 
 		successfullyUploaded++
-		logger.LogInfo(ctx.Context, "Successfully uploaded SBOM to dependency track", "project", finalProjectName, "version", projectVersion, "file", sbom.Path)
-		logger.LogDebug(ctx.Context, "Successfully uploaded SBOM file", "size", len(sbom.Data), "file", sbom.Path)
+		logger.LogInfo(ctx.Context, "Upload", "success", true, "project", finalProjectName, "version", projectVersion, "file", sbom.Path)
 	}
-	logger.LogInfo(ctx.Context, "Successfully Uploaded", "Total count", totalSBOMs, "Success", successfullyUploaded, "Failed", totalSBOMs-successfullyUploaded)
+	logger.LogInfo(ctx.Context, "Upload", "sbomst", totalSBOMs, "success", successfullyUploaded, "failed", totalSBOMs-successfullyUploaded)
 	return nil
 }
 
