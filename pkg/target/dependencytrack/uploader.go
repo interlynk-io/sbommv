@@ -77,7 +77,7 @@ func (u *SequentialUploader) Upload(ctx tcontext.TransferMetadata, config *Depen
 		if !u.createdProjects[finalProjectName] {
 			projectUUID, err = client.FindOrCreateProject(ctx, finalProjectName, projectVersion)
 			if err != nil {
-				logger.LogInfo(ctx.Context, "Failed to find or create project", "project", projectName, "error", err)
+				logger.LogInfo(ctx.Context, "error", "project", projectName, "error", err)
 				continue
 			}
 			u.createdProjects[finalProjectName] = true
@@ -125,7 +125,7 @@ func (u *SequentialUploader) Upload(ctx tcontext.TransferMetadata, config *Depen
 				logger.LogDebug(ctx.Context, "Has SBOM", "has_sbom", hasSBOM)
 
 				if project.Active && hasSBOM {
-					logger.LogInfo(ctx.Context, "Exists", "skip upload", true, "project", finalProjectName, "uuid", projectUUID)
+					logger.LogInfo(ctx.Context, "exists", "skip upload", true, "project", finalProjectName, "uuid", projectUUID)
 					successfullyUploaded++
 					continue
 				}
@@ -141,9 +141,9 @@ func (u *SequentialUploader) Upload(ctx tcontext.TransferMetadata, config *Depen
 		}
 
 		successfullyUploaded++
-		logger.LogInfo(ctx.Context, "Upload", "success", true, "project", finalProjectName, "version", projectVersion, "file", sbom.Path)
+		logger.LogInfo(ctx.Context, "upload", "success", true, "project", finalProjectName, "version", projectVersion, "file", sbom.Path)
 	}
-	logger.LogInfo(ctx.Context, "Upload", "sbomst", totalSBOMs, "success", successfullyUploaded, "failed", totalSBOMs-successfullyUploaded)
+	logger.LogInfo(ctx.Context, "upload", "sbomst", totalSBOMs, "success", successfullyUploaded, "failed", totalSBOMs-successfullyUploaded)
 	return nil
 }
 
@@ -216,7 +216,7 @@ func (u *ParallelUploader) Upload(ctx tcontext.TransferMetadata, config *Depende
 				if !u.createdProjects[finalProjectName] {
 					_, err := client.FindOrCreateProject(ctx, finalProjectName, projectVersion)
 					if err != nil {
-						logger.LogInfo(ctx.Context, "Failed to find or create project", "project", finalProjectName, "error", err)
+						logger.LogInfo(ctx.Context, "error", "project", finalProjectName, "error", err)
 						u.mu.Unlock()
 						continue
 					}
@@ -240,6 +240,6 @@ func (u *ParallelUploader) Upload(ctx tcontext.TransferMetadata, config *Depende
 
 	// wait for all workers to complete.
 	wg.Wait()
-	logger.LogInfo(ctx.Context, "Successfully Uploaded", "Total count", totalSBOMs, "Success", successfullyUploaded, "Failed", totalSBOMs-successfullyUploaded)
+	logger.LogInfo(ctx.Context, "upload", "sboms", totalSBOMs, "success", successfullyUploaded, "failed", totalSBOMs-successfullyUploaded)
 	return nil
 }

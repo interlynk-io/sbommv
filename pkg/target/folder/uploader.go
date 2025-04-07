@@ -92,10 +92,10 @@ func (u *SequentialUploader) Upload(ctx tcontext.TransferMetadata, config *Folde
 		}
 
 		successfullyUploaded++
-		logger.LogInfo(ctx.Context, "Wrote", "path", outputFile)
+		logger.LogInfo(ctx.Context, "wrote", "path", outputFile)
 	}
 
-	logger.LogInfo(ctx.Context,"Wrote", "sboms", totalSBOMs, "success", successfullyUploaded, "failed", 0)
+	logger.LogInfo(ctx.Context, "wrote", "sboms", totalSBOMs, "success", successfullyUploaded, "failed", 0)
 
 	return nil
 }

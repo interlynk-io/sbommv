@@ -112,7 +112,7 @@ func (f *WatcherFetcher) Fetch(ctx tcontext.TransferMetadata, config *FolderConf
 							if err := watcher.Add(event.Name); err != nil {
 								logger.LogError(ctx.Context, err, "Failed to watch new directory", "path", event.Name)
 							} else {
-								logger.LogInfo(ctx.Context, "Added new directory to watcher", "path", event.Name)
+								logger.LogInfo(ctx.Context, "monitoring", "path", event.Name)
 							}
 						}
 
@@ -160,7 +160,7 @@ func (f *WatcherFetcher) Fetch(ctx tcontext.TransferMetadata, config *FolderConf
 							sourceAdapter := ctx.Value("source")
 							primaryCompName, primaryCompVersion := utils.ConstructProjectName(ctx, "", "", "", "", content, sourceAdapter.(string))
 
-							logger.LogInfo(ctx.Context,"Found","file", filePath, "format",doc.Format, "spec_version", doc.SpecVersion,"component", primaryCompName, "version", primaryCompVersion)
+							logger.LogInfo(ctx.Context, "found", "file", filePath, "format", doc.Format, "spec_version", doc.SpecVersion, "component", primaryCompName, "version", primaryCompVersion)
 
 							sbomChan <- &iterator.SBOM{
 								Data:      content,
@@ -169,7 +169,7 @@ func (f *WatcherFetcher) Fetch(ctx tcontext.TransferMetadata, config *FolderConf
 							}
 
 						} else {
-							logger.LogInfo(ctx.Context, "Detected Non-SBOM File", "path", filePath)
+							logger.LogInfo(ctx.Context, "not-found", "path", filePath)
 						}
 
 					}
