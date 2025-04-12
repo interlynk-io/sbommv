@@ -34,7 +34,7 @@ brew install sbommv
 go install github.com/interlynk-io/sbommv@latest
 ```
 
-#### Using repo
+#### Developer Installation
 
 This approach involves cloning the repo and building it.
 
@@ -43,9 +43,9 @@ This approach involves cloning the repo and building it.
 3. make; make build
 4. To test if the build was successful run the following command `./build/sbommv version`
 
-### Hands-on
+## Quick Start
 
-#### Fetch/Pull SBOM from Github and save it to a local folder
+- Fetch/Pull SBOM from Github and save it to a local folder
 
 ```bash
 $ sbommv transfer --input-adapter=github \
@@ -54,7 +54,7 @@ $ sbommv transfer --input-adapter=github \
 --out-folder-path="demo"
 ```
 
-#### Fetch/Pull SBOM from Github and push it to a Dependency-Track
+- Fetch/Pull SBOM from Github and push it to a Dependency-Track
 
 ```bash
 $ sbommv transfer  --input-adapter=github  \
