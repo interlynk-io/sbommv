@@ -1,5 +1,5 @@
 
-# 🔹 Folder(Real time monitoring) --> DependencyTrack Examples 🔹
+# 🔹 Folder(Real time monitoring) --> DependencyTrack Examples
 
 This guide shows how to use `sbommv` to transfer SBOMs continously from a local **folder** via real-time monitoring to a **dtrack**(Dependency-Track).
 
