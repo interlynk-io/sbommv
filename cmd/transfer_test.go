@@ -186,8 +186,8 @@ func TestUploadGithubAPIToDTrack(t *testing.T) {
 	assert.Contains(t, outBuf.String(), "Fetched SBOM successfully", "Expected fetch success")
 	assert.Contains(t, outBuf.String(), "New project will be created", "Expected project creation")
 
-	assert.Contains(t, outBuf.String(), "Successfully Uploaded", "Expected successful upload completion")
-	assert.Contains(t, outBuf.String(), `{"Total count": 1, "Success": 1, "Failed": 0}`, "Expected upload counts")
+	assert.Contains(t, outBuf.String(), "upload", "Expected successful upload completion")
+	assert.Contains(t, outBuf.String(), `{"sboms": 1, "success": 1, "failed": 0}`, "Expected upload counts")
 }
 
 // upload from github_api to dtrack with a project name
@@ -324,8 +324,8 @@ func TestUploadGithubAPIToDTrack_WithProjectName(t *testing.T) {
 	assert.Contains(t, outBuf.String(), "Fetched SBOM successfully", "Expected fetch success")
 	assert.Contains(t, outBuf.String(), "New project will be created", "Expected project creation")
 
-	assert.Contains(t, outBuf.String(), "Successfully Uploaded", "Expected successful upload completion")
-	assert.Contains(t, outBuf.String(), `{"Total count": 1, "Success": 1, "Failed": 0}`, "Expected upload counts")
+	assert.Contains(t, outBuf.String(), "upload", "Expected successful upload completion")
+	assert.Contains(t, outBuf.String(), `{"sboms": 1, "success": 1, "failed": 0}`, "Expected upload counts")
 }
 
 // upload from github_api to dtrack with a project name and project version
@@ -461,8 +461,8 @@ func TestUploadGithubAPIToDTrack_WithProjectNameAndVersion(t *testing.T) {
 	assert.Contains(t, outBuf.String(), "Fetched SBOM successfully", "Expected fetch success")
 	assert.Contains(t, outBuf.String(), "New project will be created", "Expected project creation")
 
-	assert.Contains(t, outBuf.String(), "Successfully Uploaded", "Expected successful upload completion")
-	assert.Contains(t, outBuf.String(), `{"Total count": 1, "Success": 1, "Failed": 0}`, "Expected upload counts")
+	assert.Contains(t, outBuf.String(), "upload", "Expected successful upload completion")
+	assert.Contains(t, outBuf.String(), `{"sboms": 1, "success": 1, "failed": 0}`, "Expected upload counts")
 }
 
 // TEST:  uploaded folder to dtrack (without project name and project version)
@@ -570,8 +570,8 @@ func TestUploadFolderToDTrack(t *testing.T) {
 	assert.Contains(t, outBuf.String(), "Processing Uploading SBOMs", "Expected successful upload completion")
 	assert.Contains(t, outBuf.String(), `{"project": "com.github.interlynk-io/sbomqs-main", "version": "main"}`, "Expected project upload processsing")
 
-	assert.Contains(t, outBuf.String(), "Successfully Uploaded", "Expected successful upload completion")
-	assert.Contains(t, outBuf.String(), `{"Total count": 1, "Success": 1, "Failed": 0}`, "Expected upload counts")
+	assert.Contains(t, outBuf.String(), "upload", "Expected successful upload completion")
+	assert.Contains(t, outBuf.String(), `{"sboms": 1, "success": 1, "failed": 0}`, "Expected upload counts")
 }
 
 // TEST: uploaded folder to dtrack with a provided project name
@@ -672,8 +672,8 @@ func TestUploadFolderToDTrack_WithProjectName(t *testing.T) {
 	assert.Contains(t, outBuf.String(), "Locally SBOM located folder", "Expected sbom fetching")
 	assert.Contains(t, outBuf.String(), "Initializing SBOMs uploading to Dependency-Track sequentially", "Expected upload start")
 	assert.Contains(t, outBuf.String(), "New project will be created", "Expected project creation")
-	assert.Contains(t, outBuf.String(), "Successfully Uploaded", "Expected successful upload completion")
-	assert.Contains(t, outBuf.String(), `{"Total count": 1, "Success": 1, "Failed": 0}`, "Expected upload counts")
+	assert.Contains(t, outBuf.String(), "upload", "Expected successful upload completion")
+	assert.Contains(t, outBuf.String(), `{"sboms": 1, "success": 1, "failed": 0}`, "Expected upload counts")
 }
 
 // TEST:  uploaded folder to dtrack with a project name and version
@@ -784,6 +784,6 @@ func TestUploadFolderToDTrack_WithProjectNameAndVersion(t *testing.T) {
 	assert.Contains(t, outBuf.String(), "Processing Uploading SBOMs", "Expected successful upload completion")
 	assert.Contains(t, outBuf.String(), `{"project": "test-project-v1.0.1", "version": "v1.0.1"}`, "Expected project upload processsing")
 
-	assert.Contains(t, outBuf.String(), "Successfully Uploaded", "Expected successful upload completion")
-	assert.Contains(t, outBuf.String(), `{"Total count": 1, "Success": 1, "Failed": 0}`, "Expected upload counts")
+	assert.Contains(t, outBuf.String(), "upload", "Expected successful upload completion")
+	assert.Contains(t, outBuf.String(), `{"sboms": 1, "success": 1, "failed": 0}`, "Expected upload counts")
 }

@@ -143,7 +143,7 @@ func (u *SequentialUploader) Upload(ctx tcontext.TransferMetadata, config *Depen
 		successfullyUploaded++
 		logger.LogInfo(ctx.Context, "upload", "success", true, "project", finalProjectName, "version", projectVersion, "file", sbom.Path)
 	}
-	logger.LogInfo(ctx.Context, "upload", "sbomst", totalSBOMs, "success", successfullyUploaded, "failed", totalSBOMs-successfullyUploaded)
+	logger.LogInfo(ctx.Context, "upload", "sboms", totalSBOMs, "success", successfullyUploaded, "failed", totalSBOMs-successfullyUploaded)
 	return nil
 }
 
