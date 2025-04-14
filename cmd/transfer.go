@@ -20,6 +20,7 @@ import (
 
 	"github.com/interlynk-io/sbommv/pkg/engine"
 	ifolder "github.com/interlynk-io/sbommv/pkg/source/folder"
+	"github.com/interlynk-io/sbommv/pkg/source/s3"
 	"github.com/interlynk-io/sbommv/pkg/target/dependencytrack"
 	ofolder "github.com/interlynk-io/sbommv/pkg/target/folder"
 
@@ -94,7 +95,11 @@ func registerAdapterFlags(cmd *cobra.Command) {
 	folderInputAdapter := &ifolder.FolderAdapter{}
 	folderInputAdapter.AddCommandParams(cmd)
 
-	// Register Interlynk Adapter Flags
+	// Register Input S3 Adapter Flags
+	s3InputAdapter := &s3.S3Adapter{}
+	s3InputAdapter.AddCommandParams(cmd)
+
+	// Register Output Interlynk Adapter Flags
 	interlynkAdapter := &interlynk.InterlynkAdapter{}
 	interlynkAdapter.AddCommandParams(cmd)
 

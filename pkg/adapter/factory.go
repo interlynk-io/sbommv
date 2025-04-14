@@ -25,6 +25,7 @@ import (
 
 	ifolder "github.com/interlynk-io/sbommv/pkg/source/folder"
 	"github.com/interlynk-io/sbommv/pkg/source/github"
+	"github.com/interlynk-io/sbommv/pkg/source/s3"
 	"github.com/interlynk-io/sbommv/pkg/target/interlynk"
 	"github.com/interlynk-io/sbommv/pkg/tcontext"
 	"github.com/interlynk-io/sbommv/pkg/types"
@@ -69,6 +70,9 @@ func NewAdapter(ctx tcontext.TransferMetadata, config types.Config) (map[types.A
 		case types.FolderAdapterType:
 			adapters[types.InputAdapterRole] = &ifolder.FolderAdapter{Role: types.InputAdapterRole, Config: &ifolder.FolderConfig{ProcessingMode: processingMode, Daemon: config.Daemon}}
 			inputAdp = "folder"
+
+		case types.S3AdapterType:
+			adapters[types.InputAdapterRole] = &s3.S3Adapter{Role: types.InputAdapterRole, ProcessingMode: processingMode}
 
 		// case types.InterlynkAdapterType:
 		// 	adapters[types.InputAdapterRole] = &interlynk.InterlynkAdapter{Role: types.InputAdapterRole}

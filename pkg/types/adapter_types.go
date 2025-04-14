@@ -29,6 +29,7 @@ const (
 	InterlynkAdapterType AdapterType = "interlynk"
 	FolderAdapterType    AdapterType = "folder"
 	DtrackAdapterType    AdapterType = "dtrack"
+	S3AdapterType        AdapterType = "s3"
 )
 
 type ProcessingMode string
