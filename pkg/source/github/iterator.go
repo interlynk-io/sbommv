@@ -80,27 +80,37 @@ func (it *GitHubIterator) fetchSBOMFromAPI(ctx tcontext.TransferMetadata) ([]*it
 	return sbomSlice, nil
 }
 
-// Fetch SBOMs from GitHub Releases
+// fetchSBOMFromReleases converts retrieved SBOMData to iterator.SBOM
 func (it *GitHubIterator) fetchSBOMFromReleases(ctx tcontext.TransferMetadata) ([]*iterator.SBOM, error) {
-	sbomFiles, err := it.client.FetchSBOMFromReleases(ctx)
+	concurrency := 0 // default sequential
+
+	if val, ok := ctx.Value("concurrent").(bool); ok && val {
+		concurrency = 3 // Concurrent with 3 downloads
+	}
+
+	logger.LogDebug(ctx.Context, "Fetching SBOMs from Releases", "repository", it.client.RepoURL, "concurrency", concurrency)
+	sbomDataList, err := it.client.FindSBOMs(ctx, concurrency)
 	if err != nil {
 		return nil, fmt.Errorf("error retrieving SBOMs from releases: %w", err)
 	}
 
+	if len(sbomDataList) == 0 {
+		return nil, fmt.Errorf("no SBOMs found in repository")
+	}
+
 	var sbomSlice []*iterator.SBOM
 
-	for version, sbomDataList := range sbomFiles {
-		for _, sbomData := range sbomDataList { // sbomPath is a string (file path)
-			sbomSlice = append(sbomSlice, &iterator.SBOM{
-				Path: sbomData.Filename,
-				Data: sbomData.Content,
+	for _, sbomData := range sbomDataList { // sbomPath is a string (file path)
+		sbomSlice = append(sbomSlice, &iterator.SBOM{
+			Path: sbomData.Filename,
+			Data: sbomData.Content,
 
-				// namespace as owner/repo, where SBOM are present
-				Namespace: fmt.Sprintf("%s/%s", it.client.Owner, it.client.Repo),
-				Version:   version,
-			})
-		}
+			// namespace as owner/repo, where SBOM are present
+			Namespace: fmt.Sprintf("%s/%s", it.client.Owner, it.client.Repo),
+			Version:   sbomData.Release,
+		})
 	}
+
 	logger.LogDebug(ctx.Context, "SBOM successfully fetched using Release Method")
 	return sbomSlice, nil
 }
