@@ -30,7 +30,7 @@ func init() {
 	sbomRegex = regexp.MustCompile(`(sbom|bom|spdx|cdx)[-_\.].+\.(json|xml|yaml|yml|txt)$`)
 }
 
-// IsSBOMFile simply detect SBOMs file format and spec after reading the file.
+// IsSBOMFile detect SBOMs file format and spec after reading the content of SBOM file.
 func IsSBOMFile(content []byte) bool {
 	reader := bytes.NewReader(content)
 	spec, format, err := detect.Detect(reader)
