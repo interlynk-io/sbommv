@@ -16,8 +16,15 @@
 package s3
 
 import (
+	"fmt"
+	"io"
+
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/interlynk-io/sbommv/pkg/iterator"
 	"github.com/interlynk-io/sbommv/pkg/logger"
+	"github.com/interlynk-io/sbommv/pkg/source"
 	"github.com/interlynk-io/sbommv/pkg/tcontext"
 )
 
@@ -30,16 +37,71 @@ type (
 	S3ParallelFetcher   struct{}
 )
 
-func (s *S3SequentialFetcher) Fetch(ctx tcontext.TransferMetadata, config *S3Config) (iterator.SBOMIterator, error) {
-	logger.LogDebug(ctx.Context, "Fetching SBOMs Sequentially")
+func (s *S3ParallelFetcher) Fetch(ctx tcontext.TransferMetadata, config *S3Config) (iterator.SBOMIterator, error) {
+	logger.LogDebug(ctx.Context, "Fetching SBOMs Parallelly")
 
 	// implement logic here
 	return nil, nil
 }
 
-func (s *S3ParallelFetcher) Fetch(ctx tcontext.TransferMetadata, config *S3Config) (iterator.SBOMIterator, error) {
-	logger.LogDebug(ctx.Context, "Fetching SBOMs in Parallel")
+func (s *S3SequentialFetcher) Fetch(ctx tcontext.TransferMetadata, s3cfg *S3Config) (iterator.SBOMIterator, error) {
+	logger.LogDebug(ctx.Context, "Fetching SBOMs in ParalSequentiallylel")
 
-	// implement logic here
-	return nil, nil
+	// Load AWS config
+	cfg, err := config.LoadDefaultConfig(ctx.Context, config.WithRegion(s3cfg.Region))
+	if err != nil {
+		return nil, fmt.Errorf("failed to load AWS config: %w", err)
+	}
+
+	// Create S3 client
+	client := s3.NewFromConfig(cfg)
+
+	// List objects
+	resp, err := client.ListObjectsV2(ctx.Context, &s3.ListObjectsV2Input{
+		Bucket: aws.String(s3cfg.BucketName),
+		Prefix: aws.String(s3cfg.Prefix),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list objects: %w", err)
+	}
+
+	// Process objects
+	var sbomList []*iterator.SBOM
+	for _, obj := range resp.Contents {
+		if !source.DetectSBOMsFile(*obj.Key) {
+			logger.LogDebug(ctx.Context, "Skipping non-SBOM", "key", *obj.Key)
+			continue
+		}
+
+		// Download object
+		getResp, err := client.GetObject(ctx.Context, &s3.GetObjectInput{
+			Bucket: aws.String(s3cfg.BucketName),
+			Key:    obj.Key,
+		})
+		if err != nil {
+			logger.LogDebug(ctx.Context, "Failed to download", "key", *obj.Key, "error", err)
+			continue
+		}
+
+		content, err := io.ReadAll(getResp.Body)
+		getResp.Body.Close()
+		if err != nil {
+			logger.LogDebug(ctx.Context, "Failed to read", "key", *obj.Key, "error", err)
+			continue
+		}
+
+		// Validate SBOM content
+		if !source.IsSBOMFile(content) {
+			logger.LogDebug(ctx.Context, "Skipping invalid SBOM", "key", *obj.Key)
+			continue
+		}
+
+		sbomList = append(sbomList, &iterator.SBOM{
+			Path:      *obj.Key,
+			Data:      content,
+			Namespace: s3cfg.BucketName + "/" + s3cfg.Prefix,
+		})
+	}
+
+	return NewS3Iterator(sbomList), nil
 }
