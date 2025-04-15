@@ -54,7 +54,7 @@ func (s3 *S3Adapter) ParseAndValidateParams(cmd *cobra.Command) error {
 
 	err := utils.FlagValidation(cmd, types.S3AdapterType, types.InputAdapterFlagPrefix)
 	if err != nil {
-		return fmt.Errorf("folder flag validation failed: %w", err)
+		return fmt.Errorf("S3 flag validation failed: %w", err)
 	}
 
 	var bucketName, region, prefix string
@@ -67,6 +67,7 @@ func (s3 *S3Adapter) ParseAndValidateParams(cmd *cobra.Command) error {
 	} else {
 		return fmt.Errorf("unsupported processing mode: %s", s3.ProcessingMode)
 	}
+
 	// extract the bucket name
 	if bucketName, _ := cmd.Flags().GetString(bucketNameFlag); bucketName == "" {
 		missingFlags = append(missingFlags, bucketNameFlag)
@@ -74,7 +75,7 @@ func (s3 *S3Adapter) ParseAndValidateParams(cmd *cobra.Command) error {
 
 	// extrack the region name
 	if region, _ := cmd.Flags().GetString(regionFlag); region == "" {
-		missingFlags = append(missingFlags, regionFlag)
+		// missingFlags = append(missingFlags, regionFlag)
 	}
 
 	// extract the prefix name
@@ -107,11 +108,11 @@ func (s3 *S3Adapter) FetchSBOMs(ctx tcontext.TransferMetadata) (iterator.SBOMIte
 }
 
 func (s3 *S3Adapter) UploadSBOMs(ctx tcontext.TransferMetadata, iterator iterator.SBOMIterator) error {
-	// Implement upload logic here
-	return nil
+	return fmt.Errorf("S3 adapter does not support SBOM uploading")
 }
 
 func (s3 *S3Adapter) DryRun(ctx tcontext.TransferMetadata, iterator iterator.SBOMIterator) error {
 	// Implement dry run logic here
-	return nil
+	reporter := NewS3Reporter(false, "", s3.Config.BucketName, s3.Config.Prefix)
+	return reporter.DryRun(ctx, iterator)
 }
