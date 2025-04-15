@@ -399,7 +399,6 @@ func (g *GitHubAdapter) fetchSBOMsConcurrently(ctx tcontext.TransferMetadata, re
 		go func() {
 			defer wg.Done()
 			for repo := range repoChan {
-				// Apply rate limiting
 				if err := limiter.Wait(ctx.Context); err != nil {
 					logger.LogDebug(ctx.Context, "Rate limiter error", "repo", repo, "error", err)
 					continue
@@ -407,6 +406,7 @@ func (g *GitHubAdapter) fetchSBOMsConcurrently(ctx tcontext.TransferMetadata, re
 
 				g.client.updateRepo(repo)
 				iter := NewGitHubIterator(ctx, g, repo)
+				ctx.WithValue("concurrent", true)
 
 				var repoSboms []*iterator.SBOM
 				var err error
@@ -480,6 +480,10 @@ func (g *GitHubAdapter) fetchSBOMsSequentially(ctx tcontext.TransferMetadata, re
 	// Iterate over repositories one by one (sequential processing)
 	for _, repo := range repos {
 		giter.client.updateRepo(repo)
+		// Set sequential mode
+		ctx.WithValue("concurrent", false)
+		var repoSboms []*iterator.SBOM
+		var err error
 
 		logger.LogDebug(ctx.Context, "Repository", "value", repo)
 
@@ -487,36 +491,36 @@ func (g *GitHubAdapter) fetchSBOMsSequentially(ctx tcontext.TransferMetadata, re
 
 		case MethodAPI:
 
-			releaseSBOM, err := giter.fetchSBOMFromAPI(ctx)
+			repoSboms, err = giter.fetchSBOMFromAPI(ctx)
 			if err != nil {
 				logger.LogDebug(ctx.Context, "Failed to fetch SBOMs from API Method for", "repo", repo, "error", err)
 				continue
 			}
-			if len(releaseSBOM) > 0 {
-				sbomList = append(sbomList, releaseSBOM...)
+			if len(repoSboms) > 0 {
+				sbomList = append(sbomList, repoSboms...)
 			}
 
 		case MethodReleases:
 
-			releaseSBOMs, err := giter.fetchSBOMFromReleases(ctx)
+			repoSboms, err = giter.fetchSBOMFromReleases(ctx)
 			if err != nil {
 				logger.LogDebug(ctx.Context, "Failed to fetch SBOMs from Release Method for", "repo", repo, "error", err)
 				continue
 			}
-			if len(releaseSBOMs) > 0 {
-				sbomList = append(sbomList, releaseSBOMs...)
+			if len(repoSboms) > 0 {
+				sbomList = append(sbomList, repoSboms...)
 			}
 
 		case MethodTool:
 
-			releaseSBOM, err := giter.fetchSBOMFromTool(ctx)
+			repoSboms, err = giter.fetchSBOMFromTool(ctx)
 			if err != nil {
 				logger.LogDebug(ctx.Context, "Failed to generate SBOMs via Tool Method for", "repo", repo, "error", err)
 				continue
 			}
 
-			if len(releaseSBOM) > 0 {
-				sbomList = append(sbomList, releaseSBOM...)
+			if len(repoSboms) > 0 {
+				sbomList = append(sbomList, repoSboms...)
 			}
 
 		default:
