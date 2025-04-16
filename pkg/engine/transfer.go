@@ -96,8 +96,8 @@ func TransferRun(ctx context.Context, cmd *cobra.Command, config types.Config) e
 	// 	return nil
 	// }
 
-	var convertedIterator iterator.SBOMIterator
-	convertedIterator = sbomProcessing(*transferCtx, config, sbomIterator)
+	// var convertedIterator iterator.SBOMIterator
+	convertedIterator := sbomProcessing(*transferCtx, config, sbomIterator)
 
 	if config.DryRun {
 		if config.Daemon {

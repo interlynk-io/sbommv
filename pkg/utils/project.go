@@ -26,7 +26,7 @@ func ConstructProjectName(ctx tcontext.TransferMetadata, extProjectName, extProj
 	if extProjectName != "" {
 		return getExplicitProjectVersion(extProjectName, extProjectVersion)
 	}
-	if source != "folder" {
+	if source == "github" {
 		logger.LogDebug(ctx.Context, "Source is not folder, instead it's a github")
 		return getImplicitProjectVersion(intProjectName, intProjectVersion)
 	}
