@@ -72,7 +72,7 @@ func (s *S3Reporter) DryRun(ctx tcontext.TransferMetadata, iter iterator.SBOMIte
 		if s.verbose {
 			fmt.Printf("\n-------------------- 📜 SBOM Content --------------------\n")
 			fmt.Printf("📂 Filename: %s\n", doc.Filename)
-			fmt.Printf("📦 Format: %s | SpecVersion: %s\n\n", doc.Format, doc.SpecVersion)
+			fmt.Printf("📦 Format %s | SpecVersion: %s\n\n", doc.Format, doc.SpecVersion)
 			fmt.Println(string(doc.Content))
 			fmt.Println("------------------------------------------------------")
 		}
