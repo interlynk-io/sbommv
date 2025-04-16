@@ -149,7 +149,7 @@ func parseConfig(cmd *cobra.Command) (types.Config, error) {
 	daemon, _ := cmd.Flags().GetBool("daemon")
 	overwrite, _ := cmd.Flags().GetBool("overwrite")
 
-	validInputAdapter := map[string]bool{"github": true, "folder": true}
+	validInputAdapter := map[string]bool{"github": true, "folder": true, "s3": true}
 	validOutputAdapter := map[string]bool{"interlynk": true, "folder": true, "dtrack": true}
 
 	// Custom validation for required flags

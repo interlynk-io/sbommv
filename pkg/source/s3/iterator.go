@@ -37,9 +37,10 @@ func NewS3Iterator(sboms []*iterator.SBOM) *S3Iterator {
 
 // Next yields the next SBOM
 func (it *S3Iterator) Next(ctx tcontext.TransferMetadata) (*iterator.SBOM, error) {
-	it.index++
 	if it.index >= len(it.sboms) {
 		return nil, io.EOF
 	}
-	return it.sboms[it.index], nil
+	sbom := it.sboms[it.index]
+	it.index++
+	return sbom, nil
 }

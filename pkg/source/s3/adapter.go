@@ -22,7 +22,6 @@ import (
 	"github.com/interlynk-io/sbommv/pkg/logger"
 	"github.com/interlynk-io/sbommv/pkg/tcontext"
 	"github.com/interlynk-io/sbommv/pkg/types"
-	"github.com/interlynk-io/sbommv/pkg/utils"
 	"github.com/spf13/cobra"
 )
 
@@ -41,7 +40,7 @@ func (s3 *S3Adapter) AddCommandParams(cmd *cobra.Command) {
 }
 
 // ParseAndValidateParams validates the S3 adapter params
-func (s3 *S3Adapter) ParseAndValidateParams(cmd *cobra.Command) error {
+func (s *S3Adapter) ParseAndValidateParams(cmd *cobra.Command) error {
 	var (
 		bucketNameFlag, regionFlag, prefixFlag string
 		missingFlags                           []string
@@ -52,34 +51,37 @@ func (s3 *S3Adapter) ParseAndValidateParams(cmd *cobra.Command) error {
 	regionFlag = "in-s3-region"
 	prefixFlag = "in-s3-prefix"
 
-	err := utils.FlagValidation(cmd, types.S3AdapterType, types.InputAdapterFlagPrefix)
-	if err != nil {
-		return fmt.Errorf("S3 flag validation failed: %w", err)
-	}
+	// err := utils.FlagValidation(cmd, types.S3AdapterType, types.InputAdapterFlagPrefix)
+	// if err != nil {
+	// 	return fmt.Errorf("S3 flag validation failed: %w", err)
+	// }
 
 	var bucketName, region, prefix string
 	var fetcher SBOMFetcher
 
-	if s3.ProcessingMode == types.FetchSequential {
+	if s.ProcessingMode == types.FetchSequential {
 		fetcher = &S3SequentialFetcher{}
-	} else if s3.ProcessingMode == types.FetchParallel {
+	} else if s.ProcessingMode == types.FetchParallel {
 		fetcher = &S3ParallelFetcher{}
 	} else {
-		return fmt.Errorf("unsupported processing mode: %s", s3.ProcessingMode)
+		return fmt.Errorf("unsupported processing mode: %s", s.ProcessingMode)
 	}
 
 	// extract the bucket name
-	if bucketName, _ := cmd.Flags().GetString(bucketNameFlag); bucketName == "" {
+	bucketName, _ = cmd.Flags().GetString(bucketNameFlag)
+	if bucketName == "" {
 		missingFlags = append(missingFlags, bucketNameFlag)
 	}
 
 	// extrack the region name
-	if region, _ := cmd.Flags().GetString(regionFlag); region == "" {
+	region, _ = cmd.Flags().GetString(regionFlag)
+	if region == "" {
 		// missingFlags = append(missingFlags, regionFlag)
 	}
 
 	// extract the prefix name
-	if prefix, _ := cmd.Flags().GetString(prefixFlag); prefix == "" {
+	prefix, _ = cmd.Flags().GetString(prefixFlag)
+	if prefix == "" {
 		missingFlags = append(missingFlags, prefixFlag)
 	}
 
@@ -91,13 +93,21 @@ func (s3 *S3Adapter) ParseAndValidateParams(cmd *cobra.Command) error {
 		return fmt.Errorf("invalid input adapter flag usage:\n %s\n\nUse 'sbommv transfer --help' for correct usage.", strings.Join(invalidFlags, "\n "))
 	}
 
+	// cfg := S3Config{
+	// 	ProcessingMode: s.ProcessingMode,
+	// 	BucketName:     bucketName,
+	// 	Region:         region,
+	// 	Prefix:         prefix,
+	// }
 	cfg := NewS3Config()
-	cfg.SetProcessingMode(s3.ProcessingMode) // Default
+	cfg.SetProcessingMode(s.ProcessingMode) // Default
 	cfg.SetBucketName(bucketName)
 	cfg.SetRegion(region)
 	cfg.SetPrefix(prefix)
-	s3.Config = cfg
-	s3.Fetcher = fetcher
+	s.Config = cfg
+
+	fmt.Println("Config:", s.Config)
+	s.Fetcher = fetcher
 
 	return nil
 }

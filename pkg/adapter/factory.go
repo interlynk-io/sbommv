@@ -73,6 +73,7 @@ func NewAdapter(ctx tcontext.TransferMetadata, config types.Config) (map[types.A
 
 		case types.S3AdapterType:
 			adapters[types.InputAdapterRole] = &s3.S3Adapter{Role: types.InputAdapterRole, ProcessingMode: processingMode}
+			inputAdp = "s3"
 
 		// case types.InterlynkAdapterType:
 		// 	adapters[types.InputAdapterRole] = &interlynk.InterlynkAdapter{Role: types.InputAdapterRole}

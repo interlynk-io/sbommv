@@ -61,28 +61,3 @@ func (s *S3Config) SetPrefix(prefix string) {
 func (s *S3Config) SetProcessingMode(mode types.ProcessingMode) {
 	s.ProcessingMode = mode
 }
-
-// func (c *S3Config) Validate() error {
-// 	if c.BucketName == "" {
-// 		return types.NewInvalidConfigError("BucketName is required")
-// 	}
-// 	if c.Region == "" {
-// 		return types.NewInvalidConfigError("Region is required")
-// 	}
-// 	if c.Prefix == "" {
-// 		return types.NewInvalidConfigError("Prefix is required")
-// 	}
-// 	if !isValidProcessingMode(c.ProcessingMode) {
-// 		return types.NewInvalidConfigError("Invalid ProcessingMode")
-// 	}
-// 	return nil
-// }
-
-func isValidProcessingMode(mode types.ProcessingMode) bool {
-	switch mode {
-	case types.FetchSequential, types.FetchParallel:
-		return true
-	default:
-		return false
-	}
-}
