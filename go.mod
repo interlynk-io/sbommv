@@ -5,7 +5,7 @@ go 1.23.0
 toolchain go1.24.1
 
 require (
-	github.com/DependencyTrack/client-go v0.15.0
+	github.com/DependencyTrack/client-go v0.16.0
 	github.com/interlynk-io/sbomasm v1.0.1
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spdx/tools-golang v0.5.5
