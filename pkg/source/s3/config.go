@@ -89,7 +89,6 @@ func (s *S3Config) GetAWSClient(ctx tcontext.TransferMetadata) (*s3.Client, erro
 	var cfg aws.Config
 	var err error
 	if s.AccessKey != "" && s.SecretKey != "" {
-		fmt.Println("Using AWS credentials from flags")
 		creds := aws.Credentials{
 			AccessKeyID:     s.AccessKey,
 			SecretAccessKey: s.SecretKey,
