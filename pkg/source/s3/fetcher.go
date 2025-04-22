@@ -20,9 +20,8 @@ import (
 	"io"
 	"strings"
 
-	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/interlynk-io/sbommv/pkg/iterator"
 	"github.com/interlynk-io/sbommv/pkg/logger"
 	"github.com/interlynk-io/sbommv/pkg/source"
@@ -45,22 +44,14 @@ func (s *S3ParallelFetcher) Fetch(ctx tcontext.TransferMetadata, config *S3Confi
 	return nil, nil
 }
 
+// Fetching SBOMs from S3 bucket sequentially
 func (s *S3SequentialFetcher) Fetch(ctx tcontext.TransferMetadata, s3cfg *S3Config) (iterator.SBOMIterator, error) {
-	logger.LogDebug(ctx.Context, "Fetching SBOMs in Sequentially")
+	logger.LogDebug(ctx.Context, "Fetching SBOMs Sequentially")
+	bucketPrefix := s3cfg.Prefix
 
-	// Load AWS config
-	cfg, err := config.LoadDefaultConfig(ctx.Context, config.WithRegion(s3cfg.Region))
+	client, err := s3cfg.GetAWSClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load AWS config: %w", err)
-	}
-
-	bucketName := s3cfg.BucketName
-	if bucketName == "" {
-		return nil, fmt.Errorf("bucket name is required")
-	}
-	bucketPrefix := s3cfg.Prefix
-	if bucketPrefix == "" {
-		return nil, fmt.Errorf("bucket prefix is required")
 	}
 
 	// add "/" to prefix if not present in the end
@@ -68,31 +59,22 @@ func (s *S3SequentialFetcher) Fetch(ctx tcontext.TransferMetadata, s3cfg *S3Conf
 		bucketPrefix = bucketPrefix + "/"
 	}
 
-	client := s3.NewFromConfig(cfg)
-
 	// Validate bucket
-	_, err = client.HeadBucket(ctx.Context, &s3.HeadBucketInput{
-		Bucket: aws.String(s3cfg.BucketName),
-	})
+	_, err = client.HeadBucket(ctx.Context, &s3.HeadBucketInput{Bucket: aws.String(s3cfg.BucketName)})
 	if err != nil {
-		// var nbf *types.NoSuchBucket
 		if strings.Contains(err.Error(), "NotFound") || strings.Contains(err.Error(), "NoSuchBucket") || strings.Contains(err.Error(), "404") {
 			return nil, fmt.Errorf("bucket %q does not exist", s3cfg.BucketName)
 		}
 		return nil, fmt.Errorf("failed to access bucket %q: %w", s3cfg.BucketName, err)
 	}
 
+	logger.LogDebug(ctx.Context, "Fetching SBOMs from S3 bucket", "bucket", s3cfg.BucketName, "prefix", s3cfg.Prefix, "region", s3cfg.Region)
+
 	// List objects
 	resp, err := client.ListObjectsV2(ctx.Context, &s3.ListObjectsV2Input{
-		Bucket: aws.String(bucketName),
+		Bucket: aws.String(s3cfg.BucketName),
 		Prefix: aws.String(bucketPrefix),
 	})
-
-	logger.LogDebug(ctx.Context, "Bucket Name", "bucket", s3cfg.BucketName)
-	logger.LogDebug(ctx.Context, "Prefix", "prefix", s3cfg.Prefix)
-	logger.LogDebug(ctx.Context, "Region", "region", s3cfg.Region)
-	logger.LogDebug(ctx.Context, "Response", "response", resp)
-	logger.LogDebug(ctx.Context, "Error", "error", err)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list objects: %w", err)
 	}

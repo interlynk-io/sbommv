@@ -38,24 +38,23 @@ func (s3 *S3Adapter) AddCommandParams(cmd *cobra.Command) {
 	cmd.Flags().String("in-s3-bucket-name", "", "S3 bucket name")
 	cmd.Flags().String("in-s3-region", "", "S3 region")
 	cmd.Flags().String("in-s3-prefix", "", "S3 prefix")
+	cmd.Flags().String("in-s3-access-key", "", "AWS access key for S3")
+	cmd.Flags().String("in-s3-secret-key", "", "AWS secret key for S3")
 }
 
 // ParseAndValidateParams validates the S3 adapter params
 func (s *S3Adapter) ParseAndValidateParams(cmd *cobra.Command) error {
 	var (
-		bucketNameFlag, regionFlag, prefixFlag string
-		missingFlags                           []string
-		invalidFlags                           []string
+		bucketNameFlag, regionFlag, prefixFlag, accessKeyFlag, secretKeyFlag string
+		missingFlags                                                         []string
+		invalidFlags                                                         []string
 	)
 
 	bucketNameFlag = "in-s3-bucket-name"
 	regionFlag = "in-s3-region"
 	prefixFlag = "in-s3-prefix"
-
-	// err := utils.FlagValidation(cmd, types.S3AdapterType, types.InputAdapterFlagPrefix)
-	// if err != nil {
-	// 	return fmt.Errorf("S3 flag validation failed: %w", err)
-	// }
+	accessKeyFlag = "in-s3-access-key"
+	secretKeyFlag = "in-s3-secret-key"
 
 	var bucketName, region, prefix string
 	var fetcher SBOMFetcher
@@ -83,7 +82,8 @@ func (s *S3Adapter) ParseAndValidateParams(cmd *cobra.Command) error {
 	// extrack the region name
 	region, _ = cmd.Flags().GetString(regionFlag)
 	if region == "" {
-		// missingFlags = append(missingFlags, regionFlag)
+		// set default as us-east-1
+		region = "us-east-1"
 	}
 
 	// extract the prefix name
@@ -91,6 +91,12 @@ func (s *S3Adapter) ParseAndValidateParams(cmd *cobra.Command) error {
 	if prefix == "" {
 		missingFlags = append(missingFlags, prefixFlag)
 	}
+
+	// extract AWS access Key
+	accessKey, _ := cmd.Flags().GetString(accessKeyFlag)
+
+	// extract AWS secret Key
+	secretKey, _ := cmd.Flags().GetString(secretKeyFlag)
 
 	if len(missingFlags) > 0 {
 		return fmt.Errorf("missing flags: %s", strings.Join(missingFlags, ", "))
@@ -105,6 +111,8 @@ func (s *S3Adapter) ParseAndValidateParams(cmd *cobra.Command) error {
 	cfg.SetBucketName(bucketName)
 	cfg.SetRegion(region)
 	cfg.SetPrefix(prefix)
+	cfg.SetAccessKey(accessKey)
+	cfg.SetSecretKey(secretKey)
 
 	s.Config = cfg
 	s.Fetcher = fetcher
