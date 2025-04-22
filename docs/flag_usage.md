@@ -28,11 +28,11 @@ These flags apply to all transfer commands, regardless of the adapter used:
 
 Fetches SBOMs from GitHub repositories or organizations.
 
-#### Required Flag
+- **Required Flag**
 
 - `--input-adapter=github`  
 
-#### Adapter-Specific Flags
+- **Github Adapter-Specific Flags**
 
 - `--in-github-url=<URL>`  
   GitHub repository or organization URL.
@@ -56,7 +56,7 @@ Fetches SBOMs from GitHub repositories or organizations.
 - `--in-github-exclude-repos=<repos>`  
   *(Org-level only)* Comma-separated list of repos to exclude. Cannot be combined with `--include-repos`.
 
-#### ✅ When to Use These
+- **When to Use These**
 
 - Fetch SBOMs from a specific repo for latest version → `--in-github-url=https://github.com/org/repo`  
 - Fetch SBOMs from a specific repo for it's all version → `--in-github-url=https://github.com/org/repo`  + `--in-github-version="*"`
@@ -69,11 +69,11 @@ Fetches SBOMs from GitHub repositories or organizations.
 
 Fetches SBOMs from local folders.
 
-#### Required Flag
+- **Required Flag**
 
 - `--input-adapter=folder`
 
-#### Adapter-Specific Flags
+- **Folder Adapter-Specific Flags**
 
 - `--in-folder-path=<path>`method  
   Path to the folder to scan.
@@ -83,17 +83,44 @@ Fetches SBOMs from local folders.
 
 ---
 
+### 3. AWS S3 Input Adapter
+
+Fetches SBOMs from Cloud Storage S3 bucket.
+
+- **Required Flag**
+
+- `--input-adapter=s3`
+
+- **S3 Adapter-Specific Flags**
+
+- `--in-s3-bucket-name=<bucket_name>`  
+  Bucket Name.
+
+- `--in-s3-prefix=<prefix_name>`  
+  Prefix Name, similar of sub-folder name.
+
+- `--in-s3-access-key=<AWS ACCESS KEY>`
+  AWS Access Key or aws credentials already present at `~/.aws`
+
+- `--in-s3-secret-key=<AWS SECRET KEY`
+  AWS Secret Key or aws credentials already present at `~/.aws`
+
+- `--in-s3-region=<region>`
+  If not provided or empty, then `us-east-1` is taken as default value.
+
+---
+
 ## 📤 Output Adapters
 
 ### 3. Dependency-Track Output Adapter
 
 Uploads SBOMs to a Dependency-Track instance. If the specified project doesn't exist, sbommv will auto-create one using the SBOM’s metadata (e.g., name and version). Authentication is handled via the DTRACK_API_KEY environment variable.
 
-#### Required Flag
+- **Required Flag**
 
 - `--output-adapter=dtrack`
 
-#### Adapter-Specific Flags
+- **Dtrack Adapter-Specific Flags**
 
 - `--out-dtrack-url=<URL>`
 URL of the Dependency-Track API (e.g., <http://localhost:8081>).
@@ -111,7 +138,6 @@ Version of the project. Defaults to "latest" if not specified.
 
 - Make sure to generate `DTRACK_API_KEY` to access Dependency-Track platform.
 
-
 ✅ When to Use These
 
 - Upload SBOMs to a named project → `--out-dtrack-project-name="my-app"`
@@ -122,11 +148,11 @@ Version of the project. Defaults to "latest" if not specified.
 
 Uploads SBOMs to the **Interlynk SBOM Management Platform**.
 
-#### Required Flag
+- **Required Flag**
 
 - `--output-adapter=interlynk`
 
-#### Adapter-Specific Flags
+- **Interlynl Adapter-Specific Flags**
 
 - `--out-interlynk-url=<URL>`
   Interlynk API URL. Defaults to `https://api.interlynk.io/lynkapi`.
@@ -137,7 +163,7 @@ Uploads SBOMs to the **Interlynk SBOM Management Platform**.
 - `--out-interlynk-project-env=<env>`  
   Environment to associate with the project. Default is `"default"`.
 
-#### ✅ When to Use These
+- **When to Use These**
 
 - Upload to a known project → Provide `--out-interlynk-project-name`  
 - Assign an environment (e.g., staging, production) → Use `--out-interlynk-project-env`  
@@ -153,11 +179,11 @@ Uploads SBOMs to the **Interlynk SBOM Management Platform**.
 
 Saves SBOMs locally to a folder.
 
-#### Required Flag
+- **Required Flag**
 
 - `--output-adapter=folder`
 
-#### Adapter-Specific Flags
+- **Folder Adapter-Specific Flags**
 
 - `--out-folder-path=<path>`  
   Target directory for storing SBOMs.

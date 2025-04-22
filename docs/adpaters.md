@@ -73,9 +73,9 @@ Fetches or generates SBOMs from GitHub repositories:
 
 Scans a local directory and returns valid SBOMs for processing.
 
-#### 3. AWS S3 Adapter (Upcoming)
+#### 3. AWS S3 Adapter
 
-Downloads SBOMs from an S3 bucket and returns them for transfer.
+Downloads valid SBOMs from an S3 bucket and returns them for transfer.
 
 #### 4. Interlynk Adapter (Upcoming)
 
