@@ -63,6 +63,11 @@ func (s *S3SequentialFetcher) Fetch(ctx tcontext.TransferMetadata, s3cfg *S3Conf
 		return nil, fmt.Errorf("bucket prefix is required")
 	}
 
+	// add "/" to prefix if not present in the end
+	if bucketPrefix != "" && !strings.HasSuffix(bucketPrefix, "/") {
+		bucketPrefix = bucketPrefix + "/"
+	}
+
 	client := s3.NewFromConfig(cfg)
 
 	// Validate bucket
@@ -95,10 +100,6 @@ func (s *S3SequentialFetcher) Fetch(ctx tcontext.TransferMetadata, s3cfg *S3Conf
 	// Process objects
 	var sbomList []*iterator.SBOM
 	for _, obj := range resp.Contents {
-		if !source.DetectSBOMsFile(*obj.Key) {
-			logger.LogDebug(ctx.Context, "Skipping non-SBOM", "key", *obj.Key)
-			continue
-		}
 
 		// Download object
 		getResp, err := client.GetObject(ctx.Context, &s3.GetObjectInput{
@@ -120,7 +121,7 @@ func (s *S3SequentialFetcher) Fetch(ctx tcontext.TransferMetadata, s3cfg *S3Conf
 		}
 		getResp.Body.Close()
 
-		// Validate SBOM content
+		// check whether it's a SBOM content or not
 		if !source.IsSBOMFile(content) {
 			logger.LogDebug(ctx.Context, "Skipping invalid SBOM", "key", *obj.Key, "content_sample", string(content[:min(100, len(content))]))
 			continue

@@ -78,8 +78,8 @@ func (s *S3Reporter) DryRun(ctx tcontext.TransferMetadata, iter iterator.SBOMIte
 		}
 
 		sbomCount++
-		fmt.Printf(" - 📁 Folder: %s | Format: %s | SpecVersion: %s | Filename: %s\n",
-			s.bucketName, doc.Format, doc.SpecVersion, doc.Filename)
+		fmt.Printf(" - 📁 Bucket: %s | Prefix: %s | Format: %s | SpecVersion: %s | Filename: %s\n",
+			s.bucketName, s.prefix, doc.Format, doc.SpecVersion, doc.Filename)
 	}
 	fmt.Printf("\n📦 Total SBOMs fetched: %d\n", sbomCount)
 	return nil

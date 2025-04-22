@@ -22,6 +22,7 @@ import (
 	"github.com/interlynk-io/sbommv/pkg/logger"
 	"github.com/interlynk-io/sbommv/pkg/tcontext"
 	"github.com/interlynk-io/sbommv/pkg/types"
+	"github.com/interlynk-io/sbommv/pkg/utils"
 	"github.com/spf13/cobra"
 )
 
@@ -67,6 +68,12 @@ func (s *S3Adapter) ParseAndValidateParams(cmd *cobra.Command) error {
 		return fmt.Errorf("unsupported processing mode: %s", s.ProcessingMode)
 	}
 
+	// validate flags for S3 adapter, all flags should start with "in-s3-"
+	err := utils.FlagValidation(cmd, types.S3AdapterType, types.InputAdapterFlagPrefix)
+	if err != nil {
+		return fmt.Errorf("s3 flag validation failed: %w", err)
+	}
+
 	// extract the bucket name
 	bucketName, _ = cmd.Flags().GetString(bucketNameFlag)
 	if bucketName == "" {
@@ -93,20 +100,13 @@ func (s *S3Adapter) ParseAndValidateParams(cmd *cobra.Command) error {
 		return fmt.Errorf("invalid input adapter flag usage:\n %s\n\nUse 'sbommv transfer --help' for correct usage.", strings.Join(invalidFlags, "\n "))
 	}
 
-	// cfg := S3Config{
-	// 	ProcessingMode: s.ProcessingMode,
-	// 	BucketName:     bucketName,
-	// 	Region:         region,
-	// 	Prefix:         prefix,
-	// }
 	cfg := NewS3Config()
-	cfg.SetProcessingMode(s.ProcessingMode) // Default
+	cfg.SetProcessingMode(s.ProcessingMode)
 	cfg.SetBucketName(bucketName)
 	cfg.SetRegion(region)
 	cfg.SetPrefix(prefix)
-	s.Config = cfg
 
-	fmt.Println("Config:", s.Config)
+	s.Config = cfg
 	s.Fetcher = fetcher
 
 	return nil
