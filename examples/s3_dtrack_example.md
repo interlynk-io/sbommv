@@ -21,7 +21,7 @@ The S3 adapter supports two processing modes:
 
 NOTE
 
-Use the `--in-s3-processing-mode` flag to specify `sequential` or `parallel`. The adapter scans the specified bucket and prefix, fetching files with `.json`, `.xml`, or `.sbom` extensions.
+Use the `--in-s3-processing-mode` flag to specify `sequential` or `parallel`. The adapter scans the specified bucket and prefix, and detect SBOM file by reading its content via spec.
 
 ### 🚀 Uploading SBOMs to Dependency-Track(dtrack)
 
