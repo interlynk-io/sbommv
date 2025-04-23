@@ -20,9 +20,10 @@ import (
 
 	"github.com/interlynk-io/sbommv/pkg/engine"
 	ifolder "github.com/interlynk-io/sbommv/pkg/source/folder"
-	"github.com/interlynk-io/sbommv/pkg/source/s3"
+	is3 "github.com/interlynk-io/sbommv/pkg/source/s3"
 	"github.com/interlynk-io/sbommv/pkg/target/dependencytrack"
 	ofolder "github.com/interlynk-io/sbommv/pkg/target/folder"
+	os3 "github.com/interlynk-io/sbommv/pkg/target/s3"
 
 	"github.com/interlynk-io/sbommv/pkg/source/github"
 	"github.com/interlynk-io/sbommv/pkg/target/interlynk"
@@ -96,7 +97,7 @@ func registerAdapterFlags(cmd *cobra.Command) {
 	folderInputAdapter.AddCommandParams(cmd)
 
 	// Register Input S3 Adapter Flags
-	s3InputAdapter := &s3.S3Adapter{}
+	s3InputAdapter := &is3.S3Adapter{}
 	s3InputAdapter.AddCommandParams(cmd)
 
 	// Register Output Interlynk Adapter Flags
@@ -110,6 +111,9 @@ func registerAdapterFlags(cmd *cobra.Command) {
 	dtrackAdapter := &dependencytrack.DependencyTrackAdapter{}
 	dtrackAdapter.AddCommandParams(cmd)
 	// similarly for all other Adapters
+
+	s3OutputAdapter := &os3.S3Adapter{}
+	s3OutputAdapter.AddCommandParams(cmd)
 }
 
 func transferSBOM(cmd *cobra.Command, args []string) error {
@@ -150,7 +154,7 @@ func parseConfig(cmd *cobra.Command) (types.Config, error) {
 	overwrite, _ := cmd.Flags().GetBool("overwrite")
 
 	validInputAdapter := map[string]bool{"github": true, "folder": true, "s3": true}
-	validOutputAdapter := map[string]bool{"interlynk": true, "folder": true, "dtrack": true}
+	validOutputAdapter := map[string]bool{"interlynk": true, "folder": true, "dtrack": true, "s3": true}
 
 	// Custom validation for required flags
 	missingFlags := []string{}
