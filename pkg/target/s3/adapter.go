@@ -87,10 +87,8 @@ func (s *S3Adapter) ParseAndValidateParams(cmd *cobra.Command) error {
 	}
 
 	// extract the prefix name
+	// if prefix is empty, that means to upload inside bucket itself
 	prefix, _ = cmd.Flags().GetString(prefixFlag)
-	if prefix == "" {
-		missingFlags = append(missingFlags, prefixFlag)
-	}
 
 	// extract AWS access Key
 	accessKey, _ := cmd.Flags().GetString(accessKeyFlag)
@@ -122,7 +120,7 @@ func (s *S3Adapter) ParseAndValidateParams(cmd *cobra.Command) error {
 
 // FetchSBOMs retrieves SBOMs lazily
 func (s *S3Adapter) FetchSBOMs(ctx tcontext.TransferMetadata) (iterator.SBOMIterator, error) {
-	return nil, fmt.Errorf("S3 adapter does not support SBOM Fetching when it is in output role")
+	return nil, fmt.Errorf("S3 adapter does not support SBOM Fetching when it is in output adapter role")
 }
 
 // UploadSBOMs writes SBOMs to the output folder

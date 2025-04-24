@@ -87,10 +87,8 @@ func (s *S3Adapter) ParseAndValidateParams(cmd *cobra.Command) error {
 	}
 
 	// extract the prefix name
+	// if prefix is empty that means all prefix inside a bucket
 	prefix, _ = cmd.Flags().GetString(prefixFlag)
-	if prefix == "" {
-		missingFlags = append(missingFlags, prefixFlag)
-	}
 
 	// extract AWS access Key
 	accessKey, _ := cmd.Flags().GetString(accessKeyFlag)
@@ -126,11 +124,10 @@ func (s3 *S3Adapter) FetchSBOMs(ctx tcontext.TransferMetadata) (iterator.SBOMIte
 }
 
 func (s3 *S3Adapter) UploadSBOMs(ctx tcontext.TransferMetadata, iterator iterator.SBOMIterator) error {
-	return fmt.Errorf("S3 adapter does not support SBOM uploading")
+	return fmt.Errorf("S3 adapter does not support SBOM uploading when it is in input adapter role")
 }
 
 func (s3 *S3Adapter) DryRun(ctx tcontext.TransferMetadata, iterator iterator.SBOMIterator) error {
-	// Implement dry run logic here
 	reporter := NewS3Reporter(false, "", s3.Config.BucketName, s3.Config.Prefix)
 	return reporter.DryRun(ctx, iterator)
 }
