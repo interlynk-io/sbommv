@@ -1,111 +1,155 @@
-# 📖 Writing a New Adapter for sbommv
+# 📖 Writing a New Input Adapter for sbommv
 
 ## Understanding Adapters in sbommv
 
-`sbommv` follows a pluggable architecture where adapters act as interfaces between SBOM sources and destinations.
+`sbommv` uses a modular, pluggable architecture where adapters act as bridges between SBOM (Software Bill of Materials) sources and destinations. This design allows `sbommv` to support various input sources (e.g., S3 buckets, GitHub repositories, local folders) and output destinations (e.g., DependencyTrack, S3 buckets, local folders) without modifying the core logic.
 
-- **Input Adapters** → Fetch SBOMs (e.g., from GitHub, Folder, etc.).
-- **Output Adapters** → Send SBOMs (e.g., to Interlynk, Folder, etc.).
-- **Each Adapter Implements the** `Adapter` **Interface** → This ensures a common API across different sources & destinations.
+- **Input Adapters** → Fetch SBOMs from source(e.g., from GitHub, Folder, etc.).
+- **Output Adapters** → Send SBOMs to a destination(e.g., to Interlynk, Folder, etc.).
+- **Adapter Interface**: All adapters implement the Adapter interface defined in pkg/adapter/factory.go, ensuring a consistent API for fetching, uploading, and dry-running SBOM transfers.
+
+Each adapter is responsible for:
+
+- Defining CLI flags for configuration.
+- Validating user inputs.
+- Fetching or uploading SBOMs.
+- Supporting dry-run mode to simulate operations.
+
+This guide focuses on adding a new input adapter, using the S3 input adapter (pkg/source/s3) as an example, but the process is similar for output adapters.
 
 ## Implementing a New Adapter
 
-To add a new adapter, follow these steps:
+To add a new adapter, follow these steps. We’ll use the S3 input adapter as a reference, located in `pkg/source/s3`.
 
-### Step 1: Define a Struct for Your Adapter
+### Step 1: Create a Directory for the Adapter
 
-Each adapter has its own struct. This struct will hold relevant configuration details.
+- Create a new directory under `pkg/source/` for your adapter (e.g., `pkg/source/myadapter`).
+- Example: The S3 input adapter lives in `pkg/source/s3/`.
+- Typical files:
+  - `adapter.go`: Defines the adapter struct and implements the Adapter interface.
+  - `config.go`: Defines the configuration struct and methods (e.g., client initialization).
+  - `fetcher.go`: Implements fetching logic (sequential and parallel modes).
+  - `iterator.go`: Defines an iterator for lazy SBOM loading.
+  - `reporter.go`: Handles dry-run reporting.
 
-For **FolderAdapter**, we define:
+### Step 2: Define the Adapter Struct
+
+Create a struct to hold the adapter’s configuration, role, processing mode, and fetcher/uploader. The struct must implement the **Adapter** interface.
+
+**Example (S3 Adapter)**: In `pkg/source/s3/adapter.go`:
 
 ```go
-// FolderAdapter struct represents an adapter for local folder storage
-type FolderAdapter struct {
-	Role       types.AdapterRole
-	FolderPath string
-	Recursive  bool
+type S3Adapter struct {
+    Config         *S3Config
+    Role           types.AdapterRole
+    ProcessingMode types.ProcessingMode
+    Fetcher        SBOMFetcher
 }
 ```
 
-💡 **Note**:
+Where:
 
-- **Role**: Defines whether the adapter is for input or output.
-- **FolderPath**: Directory to scan or store SBOMs.
-- **Recursive**: If true, scans subdirectories when acting as an input adapter.
+- **Config**: holds adapter-specific settings (e.g., bucket name, region).
+- **Role**: whether the adapter is for input (types.InputAdapterRole) or output (types.OutputAdapterRole).
+- **ProcessingMode**: Specifies sequential or parallel processing (e.g., types.FetchSequential, types.FetchParallel).
+- **Fetcher**: An interface for fetching SBOMs (e.g., SBOMFetcher for input adapters).
 
-### Step 2: Implement `AddCommandParams`
+### Step 3: Implement the Adapter Interface
 
-This method defines adapter-specific CLI flags.
+The **Adapter** interface in `pkg/adapter/factory.go` requires five methods:
 
 ```go
-func (f *FolderAdapter) AddCommandParams(cmd *cobra.Command) {
-	// Register CLI flags (e.g., folder path, recursive, etc.)
+type Adapter interface {
+    AddCommandParams(cmd *cobra.Command)
+    ParseAndValidateParams(cmd *cobra.Command) error
+    FetchSBOMs(ctx tcontext.TransferMetadata) (iterator.SBOMIterator, error)
+    UploadSBOMs(ctx tcontext.TransferMetadata, iterator iterator.SBOMIterator) error
+    DryRun(ctx tcontext.TransferMetadata, iterator iterator.SBOMIterator) error
 }
 ```
 
-This ensures users can configure the adapter via command-line arguments.
+- For an input adapter, you’ll implement all methods, but `UploadSBOMs` typically returns an error indicating it’s not supported (since input adapters fetch, not upload).
 
-### Step 3: Implement `ParseAndValidateParams`
+Where:
 
-Parses and validates the CLI input passed to the adapter.
+- **AddCommandParams** method: defines CLI flags specific to your adapter
+- **ParseAndValidateParams** method: parses CLI flags and validates their values, populating the adapter’s configuration.
+- **FetchSBOMs** method: fetches SBOMs from the source and returns an `iterator.SBOMIterator` for lazy processing.
+- **UploadSBOMs** method: returns an error indicating that uploading is not supported for input role adapter.
+- **DryRun** method: simulates fetching SBOMs, without performing actual operations.
+
+### Step 5: Implement Fetcher Logic
+
+- Define a fetcher interface and implementations for sequential and parallel fetching.
+- **S3 Example** (`pkg/source/s3/fetcher.go`):
 
 ```go
-func (f *FolderAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
-	// Extract and validate parameters like folder path
+type SBOMFetcher interface {
+    Fetch(ctx tcontext.TransferMetadata, config *S3Config) (iterator.SBOMIterator, error)
+}
+
+type S3SequentialFetcher struct{}
+type S3ParallelFetcher struct{}
+```
+
+- **Sequential**: Fetches SBOMs one-by-one.
+- **Parallel**: Uses goroutines with a semaphore (e.g., maxConcurrency = 3) and mutex.
+
+### Step 6: Implement Iterator
+
+- Create an iterator to lazily yield SBOMs.
+- **S3 Example** (`pkg/source/s3/iterator.go`):
+
+```go
+type S3Iterator struct {
+    sboms []*iterator.SBOM
+    index int
+}
+
+func NewS3Iterator(sboms []*iterator.SBOM) *S3Iterator {
+    return &S3Iterator{
+        sboms: sboms,
+        index: 0,
+    }
+}
+
+func (it *S3Iterator) Next(ctx tcontext.TransferMetadata) (*iterator.SBOM, error) {
+    if it.index >= len(it.sboms) {
+        return nil, io.EOF
+    }
+    sbom := it.sboms[it.index]
+    it.index++
+    return sbom, nil
 }
 ```
 
-This ensures validating folder configuration values before proceeding.
+### Step 7: Register the Adapter
 
-### Step 4: Implement `FetchSBOMs` for Input Adapter
-
-Responsible for retrieving SBOMs from the source.
-
-```go
-func (f *FolderAdapter) FetchSBOMs(ctx *tcontext.TransferMetadata) (iterator.SBOMIterator, error) {
-	// Scan folder and return an iterator over SBOMs
-}
-```
-
-This method:
-
-- Scans the directory recursively, if resursive flag is `true`, otherwise only scans parent directory.
-- Identify valid SBOMs using utilities like  `utils.IsValidSBOM()`.
-- Returns an iterator for processing SBOMs.
-
-### Step 5: Implement UploadSBOMs for Output Adapter
-
-Responsible for uploading or storing SBOMs to the destination.
+- Add your adapter to the factory in `pkg/adapter/factory.go`.
+- **S3 Example**:
 
 ```go
-// UploadSBOMs writes SBOMs to the specified folder
-func (f *FolderAdapter) UploadSBOMs(ctx *tcontext.TransferMetadata, it iterator.SBOMIterator) error {
-	// Write SBOMs to the target folder
-}
+case types.S3AdapterType:
+    adapters[types.InputAdapterRole] = &is3.S3Adapter{Role: types.InputAdapterRole, ProcessingMode: processingMode}
+    inputAdp = "s3"
 ```
 
-This method:
+### Step 8: Let Transfer command know about this newly added adapter
 
-- Create the output folder if it doesn’t exist.
-- Write SBOMs using original or generated filenames via UUID.
-
-### Step 6: Implement DryRun
-
-Simulates the adapter’s behavior without real file transfers.
+- Under `registerAdapterFlags` function, create your adapter instance, and invoke `AddCommandParams` to sync the flags with `transfer` command.
+- **S3 Example**:
 
 ```go
-func (f *FolderAdapter) DryRun(ctx *tcontext.TransferMetadata, it iterator.SBOMIterator) error {
-	// Log what would be fetched (input) or saved (output)
-}
+s3InputAdapter := &is3.S3Adapter{}
+s3InputAdapter.AddCommandParams(cmd)
 ```
 
-This method:
+and lastly, under `parseConfig` function, allow the support for newly adapter. **S3Example**:
 
-- Input adapters list all detected SBOMs
-- Output adapters show where SBOMs would be sent or saved
+```go
+validInputAdapter := map[string]bool{"github": true, "folder": true, "s3": true}
+```
 
 ✅ Summary
 
-By implementing these six methods, you can fully integrate a new adapter into sbommv—whether it’s for fetching from a custom source, uploading to a private platform, or supporting new SBOM delivery mechanisms.
-
-Adapters let sbommv scale across ecosystems without changing core logic. Stick to the shared interface, and the rest of the pipeline just works.
+By implementing the **Adapter** interface’s five methods (`AddCommandParams`, `ParseAndValidateParams`, `FetchSBOMs`, `UploadSBOMs`, `DryRun`) and following the S3 adapter’s structure, you can add a new input adapter to `sbommv`. The modular design ensures your adapter integrates seamlessly, allowing `sbommv` to fetch SBOMs from new sources without changing core logic.
