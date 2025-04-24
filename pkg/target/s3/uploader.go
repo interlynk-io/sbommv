@@ -20,6 +20,7 @@ import (
 	"io"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
@@ -37,7 +38,79 @@ type (
 	S3ParallelUploader   struct{}
 )
 
-func (u *S3ParallelUploader) Upload(ctx tcontext.TransferMetadata, s3cfg *S3Config, iter iterator.SBOMIterator) error {
+// Upload uploads SBOMs to S3 in parallel
+func (u *S3ParallelUploader) Upload(ctx tcontext.TransferMetadata, config *S3Config, iter iterator.SBOMIterator) error {
+	logger.LogDebug(ctx.Context, "Writing SBOMs in concurrently", "bucket", config.BucketName, "prefix", config.Prefix)
+
+	totalSBOMs := 0
+	successfullyUploaded := 0
+	prefix := config.Prefix
+
+	client, err := config.GetAWSClient(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to load AWS config: %w", err)
+	}
+
+	// add "/" to prefix if not present in the end
+	if prefix != "" && !strings.HasSuffix(prefix, "/") {
+		prefix = prefix + "/"
+	}
+
+	// retrieve all SBOMs from iterator
+	var sbomList []*iterator.SBOM
+	for {
+		sbom, err := iter.Next(ctx)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			logger.LogError(ctx.Context, err, "Error retrieving SBOM from iterator")
+			continue
+		}
+		sbomList = append(sbomList, sbom)
+	}
+
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	const maxConcurrency = 3
+	semaphore := make(chan struct{}, maxConcurrency)
+
+	for _, sbom := range sbomList {
+		wg.Add(1)
+		semaphore <- struct{}{}
+		go func(sbom *iterator.SBOM) {
+			defer wg.Done()
+			defer func() { <-semaphore }()
+
+			key := filepath.Join(prefix, sbom.Path)
+
+			// Upload to S3
+			_, err := client.PutObject(ctx.Context, &s3.PutObjectInput{
+				Bucket: aws.String(config.BucketName),
+				Key:    aws.String(key),
+				Body:   bytes.NewReader(sbom.Data),
+			})
+
+			mu.Lock()
+			totalSBOMs++
+			if err != nil {
+				logger.LogError(ctx.Context, err, "Failed to upload SBOM", "bucket", config.BucketName, "key", key)
+				mu.Unlock()
+				return
+			}
+			successfullyUploaded++
+			logger.LogDebug(ctx.Context, "Uploaded SBOM", "bucket", config.BucketName, "key", key, "size", len(sbom.Data))
+			mu.Unlock()
+		}(sbom)
+	}
+
+	wg.Wait()
+
+	logger.LogInfo(ctx.Context, "Upload summary", "total", totalSBOMs, "successful", successfullyUploaded, "failed", totalSBOMs-successfullyUploaded)
+	if totalSBOMs == 0 {
+		return fmt.Errorf("no SBOMs found to upload")
+	}
+
 	return nil
 }
 
