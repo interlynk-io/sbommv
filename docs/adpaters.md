@@ -101,6 +101,10 @@ Pushes SBOMs to Dependency-Track instance.
 
 Uploads SBOMs to Interlynk platform.
 
+#### 4. AWS S3 Adapter
+
+Upload SBOMs to AWS S3 cloud storage.
+
 ## Wrapping Up
 
 Adapters are at the heart of sbommv’s flexibility. By abstracting how SBOMs are retrieved and where they are sent, sbommv provides a clean and scalable way to manage SBOM movement between systems. As the SBOM ecosystem continues to grow, this modular approach ensures sbommv can evolve with it—supporting more sources, formats, and platforms, without sacrificing maintainability.

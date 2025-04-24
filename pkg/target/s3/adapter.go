@@ -68,7 +68,7 @@ func (s *S3Adapter) ParseAndValidateParams(cmd *cobra.Command) error {
 	}
 
 	// validate flags for S3 adapter, all flags should start with "in-s3-"
-	err := utils.FlagValidation(cmd, types.S3AdapterType, types.InputAdapterFlagPrefix)
+	err := utils.FlagValidation(cmd, types.S3AdapterType, types.OutputAdapterFlagPrefix)
 	if err != nil {
 		return fmt.Errorf("s3 flag validation failed: %w", err)
 	}

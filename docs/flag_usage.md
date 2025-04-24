@@ -190,6 +190,27 @@ Saves SBOMs locally to a folder.
 
 ---
 
+### 4. AWS S3 Output Adapter
+
+- **S3 Adapter-Specific Flags**
+
+- `--out-s3-bucket-name=<bucket_name>`  
+  Bucket Name(required)
+
+- `--out-s3-prefix=<prefix_name>`  
+  Prefix Name, similar of sub-folder name(optional)
+
+- `--out-s3-access-key=<AWS ACCESS KEY>`
+  AWS Access Key or aws credentials already present at `~/.aws` (required)
+
+- `--out-s3-secret-key=<AWS SECRET KEY`
+  AWS Secret Key or aws credentials already present at `~/.aws` (required)
+
+- `--out-s3-region=<region>`
+  If not provided or empty, then `us-east-1` is taken as default value.(required)
+
+---
+
 ## 📌 **Tips & References**
 
 ✅ **Use `--dry-run`** to preview the SBOMs that will be fetched and where they’ll be uploaded—without making changes.
