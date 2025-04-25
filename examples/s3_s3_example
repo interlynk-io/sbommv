@@ -1,0 +1,100 @@
+# 🔹 S3 --> S3 Examples 🔹
+
+This guide demonstrates how to use sbommv to transfer SBOMs (Software Bill of Materials) from one S3 bucket to another S3 bucket using input/output adapters.
+
+## 📘 Overview
+
+sbommv is a tool designed to automate SBOM transfers between systems using a modular adapter-based architecture.
+
+In this example:
+
+- **Input (Source) System** → s3 (fetches SBOMs from a source S3 bucket)
+- **Output (Destination) System** → s3 (uploads SBOMs to a destination S3 bucket)
+
+### 🗂️ Fetch SBOMs from Source S3 Bucket
+
+The S3 input adapter scans a specified bucket and optional prefix for SBOM files. It detects valid SBOMs by reading their content and validating against SBOM specifications (e.g., SPDX, CycloneDX). The adapter supports two processing modes:
+
+- **Sequential**: Downloads SBOMs one-by-one (default).
+- **Parallel**: Downloads up to 3 SBOMs concurrently for faster processing.
+
+Use the `--processing-mode` flag to specify sequential or parallel.
+
+### 🚀 Upload SBOMs to Destination S3 Bucket
+
+Once SBOMs are fetched, they are uploaded to a destination S3 bucket. To use S3 as the output adapter, provide:
+
+- **Bucket name** (`--out-s3-bucket-name`)
+- **Optional prefix** (`--out-s3-prefix`)
+- **Region** (`--out-s3-region`, defaults to us-east-1 if not specified)
+- **Credentials** (via `--out-s3-access-key` and `--out-s3-secret-key`, or AWS default config like `~/.aws/credentials`)
+
+The S3 output adapter also supports two processing modes:
+
+- **Sequential**: Uploads SBOMs one-by-one (default).
+- **Parallel**: Uploads up to 3 SBOMs concurrently for faster processing.
+
+Use the `--processing-mode` flag to specify sequential or parallel.
+
+## ✅ Transfer SBOMs
+
+### 1. Basic Transfer: S3 --> S3
+
+```bash
+sbommv transfer --input-adapter=s3 \
+                --in-s3-bucket-name="source-test-sbom" --in-s3-prefix="dropwizard" \
+                --in-s3-region="us-east-1" --in-s3-access-key="AKIA..." --in-s3-secret-key="wJalr..." \
+                --output-adapter=s3 \
+                --out-s3-bucket-name="dest-test-sbom" --out-s3-prefix="sboms" \
+                --out-s3-region="us-east-1" --out-s3-access-key="AKIA..." --out-s3-secret-key="wJalr..." \
+                --dry-run
+```
+
+**What this does**:
+
+- Scans the `source-test-sbom` bucket with prefix `dropwizard` for valid SBOM files.
+- Simulates uploading them to `s3://dest-test-sbom/sboms/` with a dry-run preview.
+
+To perform the actual transfer (remove `--dry-run`):
+
+```bash
+sbommv transfer --input-adapter=s3 \
+                --in-s3-bucket-name="source-test-sbom" --in-s3-prefix="dropwizard" \
+                --in-s3-region="us-east-1" --in-s3-access-key="AKIA..." --in-s3-secret-key="wJalr..." \
+                --output-adapter=s3 \
+                --out-s3-bucket-name="dest-test-sbom" --out-s3-prefix="sboms" \
+                --out-s3-region="us-east-1" --out-s3-access-key="AKIA..." --out-s3-secret-key="wJalr..."
+```
+
+**NOTE**:
+
+- If AWS credentials are configured in `~/.aws/credentials`, omit `--in-s3-access-key`, `--in-s3-secret-key`, `--out-s3-access-key`, `--out-s3-secret-key` and even region if want to stay with default region:
+
+```bash
+sbommv transfer --input-adapter=s3 \
+                --in-s3-bucket-name="source-test-sbom" --in-s3-prefix="dropwizard" \
+                --output-adapter=s3 \
+                --out-s3-bucket-name="dest-test-sbom" --out-s3-prefix="sboms"
+```
+
+## 2. Parallel Fetch and Upload: S3 --> S3
+
+```bash
+sbommv transfer --input-adapter=s3 \
+                --in-s3-bucket-name="source-test-sbom" --in-s3-prefix="dropwizard" \
+                --in-s3-region="us-east-1" --in-s3-access-key="AKIA..." --in-s3-secret-key="wJalr..." \
+                --in-s3-processing-mode="parallel" \
+                --output-adapter=s3 \
+                --out-s3-bucket-name="dest-test-sbom" --out-s3-prefix="sboms" \
+                --out-s3-region="us-east-1" --out-s3-access-key="AKIA..." --out-s3-secret-key="wJalr..." \
+                --processing-mode="parallel"
+```
+
+**What this does**:
+
+- Fetches SBOMs from `s3://source-test-sbom/dropwizard/` in parallel (up to 3 concurrent downloads).
+- Uploads them to `s3://dest-test-sbom/sboms/` in parallel (up to 3 concurrent uploads).
+
+## Conclusion
+
+These examples illustrate how sbommv streamlines SBOM transfers between S3 buckets. With support for sequential/parallel processing, selective prefix filtering, and dry-run previews, sbommv provides a flexible, scriptable solution for automating SBOM workflows in CI/CD pipelines or cloud environments.
