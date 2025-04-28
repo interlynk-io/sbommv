@@ -60,6 +60,7 @@ func init() {
 	transferCmd.Flags().Bool("dry-run", false, "Simulate transfer without executing")
 	transferCmd.Flags().String("processing-mode", "sequential", "Processing strategy (sequential, parallel)")
 	transferCmd.Flags().Bool("overwrite", false, "Overwrite existing SBOMs at destination")
+	transferCmd.Flags().Bool("guide", false, "Show beginner-friendly guide")
 
 	// Input and Output Adapter Flags(both required)
 	transferCmd.Flags().String("input-adapter", "", "Input adapter type (github, folder, s3)")
@@ -226,6 +227,30 @@ func registerAdapterFlags(cmd *cobra.Command) {
 }
 
 func transferSBOM(cmd *cobra.Command, args []string) error {
+	// Check for guide flag
+	guide, _ := cmd.Flags().GetBool("guide")
+	if guide {
+		fmt.Println(`Welcome to sbommv! The ` + "`transfer`" + ` command moves Software Bill of Materials (SBOMs) from one place to another.
+
+Get started in 3 steps:
+1. Choose an input source (where SBOMs come from):
+   - GitHub: Fetch from repositories (e.g., a project’s code).
+   - Folder: Use SBOM files from a local directory.
+   - S3: Pull SBOMs from an AWS S3 bucket.
+2. Choose an output destination (where SBOMs go):
+   - Folder: Save to a local directory.
+   - S3: Upload to an AWS S3 bucket.
+   - Dependency Track: Send to a Dependency Track server.
+   - Interlynk: Upload to the Interlynk platform.
+3. Run a command like:
+   sbommv transfer --input-adapter=folder --in-folder-path="sboms" --output-adapter=s3 --out-s3-bucket-name="my-bucket" --out-s3-prefix="sboms"
+   sbommv transfer --input-adapter=github --in-github-url="https://github.com/interlynk-io/sbomqs" --output-adapter=dtrack --out-dtrack-url="http://localhost:8081"
+
+For more details and options, run ` + "`sbommv transfer --help`" + `.
+Explore examples at https://github.com/interlynk-io/sbommv/tree/main/examples.`)
+		return nil
+	}
+
 	// Suppress automatic usage message for non-flag errors
 	cmd.SilenceUsage = true
 
