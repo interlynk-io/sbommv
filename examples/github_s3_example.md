@@ -39,13 +39,15 @@ Use the --out-s3-processing-mode flag to specify sequential or parallel.
 ### 1.1 Github Default(Dependency Graph API) Method
 
 ```bash
-sbommv transfer --input-adapter=github --in-github-url="https://github.com/interlynk-io/sbomqs" \
---output-adapter=S3 \
---out-s3-bucket-name="demo-test-sbom" \
---out-s3-prefix="sbomqs-api" \
---out-s3-region="us-east-1" \
---out-s3-access-key="AKIA..." \
---out-s3-secret-key="wJalr..."
+sbommv transfer \
+  --input-adapter=github \
+  --in-github-url="https://github.com/interlynk-io/sbomqs"\
+  --output-adapter=S3 \
+  --out-s3-bucket-name="demo-test-sbom" \
+  --out-s3-prefix="sbomqs-api" \
+  --out-s3-region="us-east-1" \
+  --out-s3-access-key="AKIA..." \
+  --out-s3-secret-key="wJalr..."
 ```
 
 OR
@@ -53,8 +55,10 @@ OR
 Using default credentials, if AWS credentials are configured in `~/.aws/credentials`, omit `--out-s3-access-key`, `--out-s3-secret-key`, and even `--out-s3-region`, if you want to use default region as it is:
 
 ```bash
-sbommv transfer --input-adapter=github --in-github-url="https://github.com/interlynk-io/sbomqs" \
---output-adapter=S3 \
+sbommv transfer \
+--input-adapter=github \
+--in-github-url="https://github.com/interlynk-io/sbomqs" \
+--output-adapter=s3 \
 --out-s3-bucket-name="demo-test-sbom" \
 --out-s3-prefix="sbomqs-api"
 ```
@@ -70,9 +74,11 @@ sbommv transfer --input-adapter=github --in-github-url="https://github.com/inter
 ### 1.2 GitHub Release Method
 
 ```bash
-sbommv transfer --input-adapter=github --in-github-url="https://github.com/interlynk-io/sbomqs" \
+sbommv transfer \
+--input-adapter=github \
+--in-github-url="https://github.com/interlynk-io/sbomqs" \
 --in-github-method=release \
---output-adapter=S3 \
+--output-adapter=s3 \
 --out-s3-bucket-name="demo-test-sbom" \
 --out-s3-prefix="sbomqs-release" \
 --out-s3-region="us-east-1" \
@@ -87,9 +93,11 @@ sbommv transfer --input-adapter=github --in-github-url="https://github.com/inter
 ### 1.3 GitHub Tool Method (SBOM Generation Using Syft)
 
 ```bash
-sbommv transfer --input-adapter=github --in-github-url="https://github.com/interlynk-io/sbomqs" \
+sbommv transfer \
+--input-adapter=github \
+--in-github-url="https://github.com/interlynk-io/sbomqs" \
 --in-github-method=tool \
---output-adapter=S3 \
+--output-adapter=s3 \
 --out-s3-bucket-name="demo-test-sbom" \
 --out-s3-prefix="sbomqs-tool" \
 --out-s3-region="us-east-1" \

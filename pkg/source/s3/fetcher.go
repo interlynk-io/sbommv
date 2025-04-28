@@ -41,7 +41,6 @@ type (
 func (s *S3ParallelFetcher) Fetch(ctx tcontext.TransferMetadata, s3cfg *S3Config) (iterator.SBOMIterator, error) {
 	logger.LogDebug(ctx.Context, "Fetching SBOMs Concurrently...")
 
-	fmt.Println("Fetching SBOMs Concurrently...")
 	bucketPrefix := s3cfg.Prefix
 
 	client, err := s3cfg.GetAWSClient(ctx)
