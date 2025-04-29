@@ -4,7 +4,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/interlynk-io/sbommv)](https://goreportcard.com/report/github.com/interlynk-io/sbommv)
 ![GitHub all releases](https://img.shields.io/github/downloads/interlynk-io/sbommv/total)
 
-`sbommv` is the primary tool for transferring SBOMs between systems —— designed to fetch SBOMs from input sources, translate and validates them, enrich metadata, and push them to output destinations. At its core, sbommv uses a **modular**, **adapter-based** architecture that makes it flexible, scalable, and ready for the future to easily plug in and plug out new systems or platforms.
+`sbommv` is the primary tool for transferring SBOMs between systems — designed to fetch SBOMs from input sources, translate and validates them, enrich metadata, and push them to output destinations. At its core, sbommv uses a **modular**, **adapter-based** architecture that makes it flexible, scalable, and ready for the future to easily plug in and plug out new systems or platforms.
 
 ![alt text](image.png)
 
