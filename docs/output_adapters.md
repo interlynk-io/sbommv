@@ -16,13 +16,13 @@ This document outlines the available output adapters, their CLI flags, and usage
 
 The **Dependency-Track output adapter** uploads SBOMs to a Dependency-Track project. If a project does not exist, it can be automatically created. You must provide a valid `DTRACK_API_KEY` to authenticate with the platform.
 
-### Supported Flags
+- **Supported Flags**
 
 - `--out-dtrack-url` (required) – URL of the Dependency-Track instance. Defaults to `http://localhost:8081`.  
 - `--out-dtrack-project-name` *(Optional)* – Name of the project to upload SBOMs to. If not provided, one is auto-created based on the SBOM’s primary component.
 - `--out-dtrack-project-version` *(Optional)* – Version of the project. Defaults to `"latest"` if not specified.
 
-### Authentication
+- **Authentication**
 
 Before running the command, export your Dependency-Track API key:
 
@@ -40,7 +40,7 @@ Ensure your team in Dependency-Track has these permissions:
 
 (Teams with the `Administrators` role have these by default.)
 
-### Usage Examples
+- **Usage Examples**
 
 ```bash
 # Upload SBOMs to a project named "xyz" with default version
@@ -57,13 +57,13 @@ Ensure your team in Dependency-Track has these permissions:
 
 The **Interlynk output adapter** uploads SBOMs to the Interlynk Platform. If the specified project does not exist, it will be automatically created. Projects can be assigned to environments such as `"production"` or `"staging"`. By default environment is `"default"`. Authentication is handled via a security token `INTERLYNK_SECURITY_TOKEN`.
 
-### Supported Flags
+- **Supported Flags**
 
 - `--out-interlynk-url` *(Required)* – URL of the Interlynk API. Defaults to `https://api.interlynk.io/lynkapi`.  
 - `--out-interlynk-project-name` *(Optional)* – Name of the target project. If not specified, it will be auto-created.  
 - `--out-interlynk-project-env` *(Optional)* – Project environment. Defaults to `"default"`.
 
-### Authentication
+- **Authentication**
 
 Before using this adapter, export your security token:
 
@@ -73,7 +73,7 @@ export INTERLYNK_SECURITY_TOKEN="your_token_here"
 
 Follow this [guide](https://github.com/interlynk-io/sbommv/blob/v0.0.3/docs/getting_started.md#2-configuring-interlynk-authentication) to generate a token.
 
-### Usage Examples
+- **Usage Examples**
 
 ```bash
 # Upload to a project named "abc"
@@ -90,11 +90,11 @@ Follow this [guide](https://github.com/interlynk-io/sbommv/blob/v0.0.3/docs/gett
 
 The **Folder output adapter** writes SBOMs to a specified directory on the local filesystem. This adapter is useful for debugging, local archiving, or integrating with tools that watch a folder for new SBOMs.
 
-### Supported Flags
+- **Supported Flags**
 
 - `--out-folder-path` – Path to the folder where SBOMs should be saved.  
 
-### Usage Examples
+- **Usage Examples**
 
 ```bash
 # Save SBOMs to folder "temp" in sequential mode
@@ -104,6 +104,46 @@ The **Folder output adapter** writes SBOMs to a specified directory on the local
 # Save SBOMs to folder "temp" in parallel mode
 --out-folder-path=temp
 -processing-mode="parallel" # global flag
+```
+
+---
+
+## 4. AWS S3 Adapter
+
+Upload SBOMs to S3 buckets.
+
+- **S3 Supported Flags**
+
+- `--out-s3-bucket-name=<bucket_name>`  – Bucket Name.(required)
+
+- `--out-s3-prefix=<prefix_name>`  – Prefix Name, similar of sub-folder name.(optional)
+
+- `--out-s3-access-key=<AWS ACCESS KEY>` – AWS Access Key or aws credentials already present at `~/.aws` (required)
+
+- `--out-s3-secret-key=<AWS SECRET KEY` – AWS Secret Key or aws credentials already present at `~/.aws` (required)
+
+- `--out-s3-region=<region>` – If not provided or empty, then `us-east-1` is taken as default value. (required)
+
+- **Usage Examples**
+
+```bash
+# output adapter S3
+--output-adapter=s3 
+
+# with a bucket name "demo-test-sbom"
+--out-s3-bucket-name="demo-test-sbom" 
+
+# with a prefix name "dropwizard"
+--out-s3-prefix="dropwizard" 
+
+# with a region "us-east-1" as by-default
+--out-s3-region="" 
+
+# prvided AWS access key
+--out-s3-access-key=$AWS_ACCESS_KEY 
+
+# prvided AWS secret key
+--out-s3-secret-key=$AWS_SECRET_KEY
 ```
 
 ---

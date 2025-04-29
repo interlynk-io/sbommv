@@ -25,6 +25,9 @@ import (
 
 	ifolder "github.com/interlynk-io/sbommv/pkg/source/folder"
 	"github.com/interlynk-io/sbommv/pkg/source/github"
+	is3 "github.com/interlynk-io/sbommv/pkg/source/s3"
+	os3 "github.com/interlynk-io/sbommv/pkg/target/s3"
+
 	"github.com/interlynk-io/sbommv/pkg/target/interlynk"
 	"github.com/interlynk-io/sbommv/pkg/tcontext"
 	"github.com/interlynk-io/sbommv/pkg/types"
@@ -70,9 +73,9 @@ func NewAdapter(ctx tcontext.TransferMetadata, config types.Config) (map[types.A
 			adapters[types.InputAdapterRole] = &ifolder.FolderAdapter{Role: types.InputAdapterRole, Config: &ifolder.FolderConfig{ProcessingMode: processingMode, Daemon: config.Daemon}}
 			inputAdp = "folder"
 
-		// case types.InterlynkAdapterType:
-		// 	adapters[types.InputAdapterRole] = &interlynk.InterlynkAdapter{Role: types.InputAdapterRole}
-		// 	inputAdp = "interlynk"
+		case types.S3AdapterType:
+			adapters[types.InputAdapterRole] = &is3.S3Adapter{Role: types.InputAdapterRole, ProcessingMode: processingMode}
+			inputAdp = "s3"
 
 		default:
 			return nil, "", "", fmt.Errorf("unsupported input adapter type: %s", config.SourceAdapter)
@@ -99,6 +102,11 @@ func NewAdapter(ctx tcontext.TransferMetadata, config types.Config) (map[types.A
 			adapters[types.OutputAdapterRole] = &dependencytrack.DependencyTrackAdapter{Role: types.OutputAdapterRole, ProcessingMode: processingMode, Overwrite: config.Overwrite}
 
 			outputAdp = "dtrack"
+
+		case types.S3AdapterType:
+			adapters[types.OutputAdapterRole] = &os3.S3Adapter{Role: types.OutputAdapterRole, ProcessingMode: processingMode}
+			outputAdp = "s3"
+
 		default:
 			return nil, "", "", fmt.Errorf("unsupported output adapter type: %s", config.DestinationAdapter)
 		}

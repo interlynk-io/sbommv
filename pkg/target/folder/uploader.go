@@ -42,6 +42,7 @@ func (u *SequentialUploader) Upload(ctx tcontext.TransferMetadata, config *Folde
 	logger.LogDebug(ctx.Context, "Writing SBOMs sequentially", "folder", config.FolderPath)
 	totalSBOMs := 0
 	successfullyUploaded := 0
+	failed := 0
 
 	for {
 		sbom, err := iter.Next(ctx)
@@ -81,13 +82,13 @@ func (u *SequentialUploader) Upload(ctx tcontext.TransferMetadata, config *Folde
 				continue
 			}
 
-			// file doesn’t exist, proceed with writing
-			logger.LogDebug(ctx.Context, "File does not exist, proceeding with write", "path", outputFile)
+			logger.LogDebug(ctx.Context, "Written to file", "path", outputFile)
 		}
 
 		// write the SBOM file (either overwrite is true or file doesn’t exist)
 		if err := os.WriteFile(outputFile, sbom.Data, 0o644); err != nil {
 			logger.LogError(ctx.Context, err, "Failed to write SBOM file", "path", outputFile)
+			failed++
 			continue // Continue to next SBOM instead of returning error
 		}
 
@@ -95,7 +96,7 @@ func (u *SequentialUploader) Upload(ctx tcontext.TransferMetadata, config *Folde
 		logger.LogInfo(ctx.Context, "wrote", "path", outputFile)
 	}
 
-	logger.LogInfo(ctx.Context, "wrote", "sboms", totalSBOMs, "success", successfullyUploaded, "failed", 0)
+	logger.LogInfo(ctx.Context, "wrote", "sboms", totalSBOMs, "success", successfullyUploaded, "failed", failed)
 
 	return nil
 }

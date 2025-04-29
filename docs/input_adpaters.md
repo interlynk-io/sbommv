@@ -4,7 +4,7 @@ In sbommv, **input adapters** are responsible for fetching SBOMs from supported 
 
 - GitHub (via API, releases, or external SBOM tools),
 - Local folders,
-- AWS S3 buckets *(upcoming)*,
+- AWS S3 bucket,
 - Interlynk platform *(upcoming)*,
 - Dependency-Track *(upcoming)*.
 
@@ -18,7 +18,7 @@ Fetches SBOMs from GitHub repositories. Supports three methods:
 - **Release** – Downloads SBOM artifacts from the repository’s Releases section.  
 - **Tool** – Clones the repo and generates SBOMs using tools like `syft`.
 
-### **Supported Flags**
+- **Supported Flags**
 
 - `--in-github-url` – Repository or organization URL.  
 - `--in-github-method` – Extraction method: `api`, `release`, or `tool`.  
@@ -26,7 +26,7 @@ Fetches SBOMs from GitHub repositories. Supports three methods:
 - `--in-github-include-repos` – Comma-separated list of repos to include.  
 - `--in-github-exclude-repos` – Comma-separated list of repos to exclude.
 
-### **Usage Examples**
+- **Usage Examples**
 
 ```bash
 # Fetch from latest release
@@ -50,12 +50,12 @@ Fetches SBOMs from GitHub repositories. Supports three methods:
 
 Scans a local folder for valid SBOM files.
 
-### Supported Flags
+- **Supported Flags**
 
 - `--in-folder-path` – Path to the root folder.  
 - `--in-folder-recursive` – `true` or `false`. Defaults to `false`.  
 
-### Usage Examples
+- **Usage Examples**
 
 ```bash
 # non-recursive
@@ -63,6 +63,47 @@ Scans a local folder for valid SBOM files.
 --in-folder-recursive=false
 
 --in-folder-recursive=true
+```
+
+---
+
+## 3. AWS S3 Adapter
+
+Fetch SBOMs from S3 buckets using object paths or filters.
+
+- **S3 Supported Flags**
+
+
+- `--in-s3-bucket-name=<bucket_name>`  – Bucket Name.
+
+- `--in-s3-prefix=<prefix_name>`  – Prefix Name, similar of sub-folder name.
+
+- `--in-s3-access-key=<AWS ACCESS KEY>` – AWS Access Key or aws credentials already present at `~/.aws`
+
+- `--in-s3-secret-key=<AWS SECRET KEY` – AWS Secret Key or aws credentials already present at `~/.aws`
+
+- `--in-s3-region=<region>` – If not provided or empty, then `us-east-1` is taken as default value.
+
+- **Usage Examples**
+
+```bash
+# input adapter S3
+--input-adapter=s3 
+
+# with a bucket name "demo-test-sbom"
+--in-s3-bucket-name="demo-test-sbom" 
+
+# with a prefix name "dropwizard"
+--in-s3-prefix="dropwizard" 
+
+# with a region "us-east-1" as by-default
+--in-s3-region="" 
+
+# prvided AWS access key
+--in-s3-access-key=$AWS_ACCESS_KEY 
+
+# prvided AWS secret key
+--in-s3-secret-key=$AWS_SECRET_KEY
 ```
 
 ---

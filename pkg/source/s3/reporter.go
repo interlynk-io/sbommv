@@ -13,7 +13,7 @@
 // limitations under the License.
 // -------------------------------------------------------------------------
 
-package folder
+package s3
 
 import (
 	"fmt"
@@ -25,26 +25,27 @@ import (
 	"github.com/interlynk-io/sbommv/pkg/tcontext"
 )
 
-type FolderReporter struct {
+type S3Reporter struct {
 	verbose    bool
 	inputDir   string
-	folderPath string
+	bucketName string
+	prefix     string
 }
 
-func NewFolderReporter(verbose bool, inputDir, folderPath string) *FolderReporter {
-	return &FolderReporter{
+func NewS3Reporter(verbose bool, inputDir, bucketName, prefix string) *S3Reporter {
+	return &S3Reporter{
 		verbose:    verbose,
 		inputDir:   inputDir,
-		folderPath: folderPath,
+		bucketName: bucketName,
+		prefix:     prefix,
 	}
 }
 
-func (r *FolderReporter) DryRun(ctx tcontext.TransferMetadata, iter iterator.SBOMIterator) error {
-	logger.LogDebug(ctx.Context, "Dry-run mode: Displaying SBOMs fetched from folder")
-	processor := sbom.NewSBOMProcessor(r.inputDir, r.verbose)
+func (s *S3Reporter) DryRun(ctx tcontext.TransferMetadata, iter iterator.SBOMIterator) error {
+	logger.LogDebug(ctx.Context, "Dry-run mode: Displaying SBOMs fetched from S3")
+	processor := sbom.NewSBOMProcessor(s.inputDir, s.verbose)
 	sbomCount := 0
-	fmt.Println("\n📦 Details of all Fetched SBOMs by Folder Input Adapter")
-
+	fmt.Println("\n📦 Details of all Fetched SBOMs by S3 Input Adapter")
 	for {
 		sbom, err := iter.Next(ctx)
 		if err == io.EOF {
@@ -60,23 +61,26 @@ func (r *FolderReporter) DryRun(ctx tcontext.TransferMetadata, iter iterator.SBO
 			logger.LogError(ctx.Context, err, "Failed to process SBOM")
 			return err
 		}
-		if r.inputDir != "" {
+
+		if s.inputDir != "" {
 			if err := processor.WriteSBOM(doc, ""); err != nil {
 				logger.LogError(ctx.Context, err, "Failed to write SBOM")
 				return err
 			}
 		}
-		if r.verbose {
+
+		if s.verbose {
 			fmt.Printf("\n-------------------- 📜 SBOM Content --------------------\n")
 			fmt.Printf("📂 Filename: %s\n", doc.Filename)
-			fmt.Printf("📦 Format: %s | SpecVersion: %s\n\n", doc.Format, doc.SpecVersion)
+			fmt.Printf("📦 Format %s | SpecVersion: %s\n\n", doc.Format, doc.SpecVersion)
 			fmt.Println(string(doc.Content))
 			fmt.Println("------------------------------------------------------")
 		}
+
 		sbomCount++
-		fmt.Printf(" - 📁 Folder: %s | Format: %s | SpecVersion: %s | Filename: %s\n",
-			r.folderPath, doc.Format, doc.SpecVersion, doc.Filename)
+		fmt.Printf(" - 📁 Bucket: %s | Prefix: %s | Format: %s | SpecVersion: %s | Filename: %s\n",
+			s.bucketName, s.prefix, doc.Format, doc.SpecVersion, doc.Filename)
 	}
-	fmt.Printf("📊 Total SBOMs: %d\n", sbomCount)
+	fmt.Printf("\n📦 Total SBOMs fetched: %d\n", sbomCount)
 	return nil
 }

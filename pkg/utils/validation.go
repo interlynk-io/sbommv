@@ -24,6 +24,9 @@ import (
 )
 
 // FlagValidation validates that each adapter should contain flag of respective adapters only
+// if a adapter "X" of type Input(in)/Output(out),
+// then the flag name should be of the form "out-X-<flag-name>" or "in-X-<flag-name>"
+// where X is the adapter name
 func FlagValidation(cmd *cobra.Command, adapter types.AdapterType, adapterPrefix types.FlagPrefix) error {
 	var err error
 	cmd.Flags().Visit(func(f *pflag.Flag) {
