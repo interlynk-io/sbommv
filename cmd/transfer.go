@@ -818,7 +818,8 @@ func runInteractiveMode(cmd *cobra.Command) error {
 	if err != nil {
 		return fmt.Errorf("debug mode selection failed: %w", err)
 	}
-	if debugIndex == 0 {
+	fmt.Println("debugIndex: ", debugIndex)
+	if debugIndex != 0 {
 		globalFlags = append(globalFlags, "--debug")
 	}
 
@@ -829,7 +830,7 @@ func runInteractiveMode(cmd *cobra.Command) error {
 	if err != nil {
 		return fmt.Errorf("dry-run selection failed: %w", err)
 	}
-	if dryRunIndex == 0 {
+	if dryRunIndex != 0 {
 		globalFlags = append(globalFlags, "--dry-run")
 	}
 
@@ -852,7 +853,7 @@ func runInteractiveMode(cmd *cobra.Command) error {
 	if err != nil {
 		return fmt.Errorf("overwrite selection failed: %w", err)
 	}
-	if overwriteIndex == 0 {
+	if overwriteIndex != 0 {
 		globalFlags = append(globalFlags, "--overwrite")
 	}
 
