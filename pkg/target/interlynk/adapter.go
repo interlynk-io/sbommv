@@ -56,11 +56,12 @@ func (i *InterlynkAdapter) AddCommandParams(cmd *cobra.Command) {
 	cmd.Flags().String("out-interlynk-url", "https://api.interlynk.io/lynkapi", "Interlynk API URL")
 	cmd.Flags().String("out-interlynk-project-name", "", "Interlynk Project Name")
 	cmd.Flags().String("out-interlynk-project-env", "default", "Interlynk Project Environment")
+	cmd.Flags().String("out-interlynk-security-key", "", "Interlynk API Key")
 }
 
 // ParseAndValidateParams validates the Interlynk adapter params
 func (i *InterlynkAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
-	var urlFlag, projectNameFlag, projectEnvFlag string
+	var urlFlag, projectNameFlag, projectEnvFlag, securityKey string
 	var missingFlags []string
 	var invalidFlags []string
 
@@ -73,6 +74,7 @@ func (i *InterlynkAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 		urlFlag = "out-interlynk-url"
 		projectNameFlag = "out-interlynk-project-name"
 		projectEnvFlag = "out-interlynk-project-env"
+		securityKey = "out-interlynk-security-key"
 
 	default:
 		return fmt.Errorf("The adapter is neither an input type nor an output type")
@@ -89,10 +91,12 @@ func (i *InterlynkAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 	projectName, _ := cmd.Flags().GetString(projectNameFlag)
 	projectEnv, _ := cmd.Flags().GetString(projectEnvFlag)
 
-	// Check if INTERLYNK_SECURITY_TOKEN is set
 	token := viper.GetString("INTERLYNK_SECURITY_TOKEN")
 	if token == "" {
-		return fmt.Errorf("missing INTERLYNK_SECURITY_TOKEN: authentication required")
+		token, _ = cmd.Flags().GetString(securityKey)
+	}
+	if token == "" {
+		return fmt.Errorf("missing INTERLYNK SECURITY TOKEN: authentication required")
 	}
 
 	// Validate Interlynk URL

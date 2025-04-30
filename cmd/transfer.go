@@ -267,7 +267,8 @@ Explore examples at https://github.com/interlynk-io/sbommv/tree/main/examples.`)
 	// Check for interactive flag
 	interactive, _ := cmd.Flags().GetBool("interactive")
 	if interactive {
-		return runInteractiveMode(cmd)
+		// return runInteractiveMode(cmd)
+		runInteractiveMode(cmd)
 	}
 
 	// Suppress automatic usage message for non-flag errors
@@ -355,11 +356,210 @@ func parseConfig(cmd *cobra.Command) (types.Config, error) {
 	return config, nil
 }
 
-func runInteractiveMode(cmd *cobra.Command) error {
-	fmt.Println("Welcome to the sbommv transfer interactive setup!")
+func getGithubURL() promptui.Prompt {
+	return promptui.Prompt{
+		Label:    "Step 2: Enter GitHub repository or organization URL (e.g., https://github.com/interlynk-io/sbomqs)",
+		Validate: validateGithubURLPrompt,
+		Default:  "https://github.com/interlynk-io/sbomqs",
+	}
+}
 
-	// Step 1: Choose input adapter
-	inputPrompt := promptui.Select{
+func selectGithubMethod() promptui.Select {
+	return promptui.Select{
+		Label: "Select GitHub method",
+		Items: []string{
+			"API (Dependency Graph)",
+			"Release (from release page)",
+			"Tool (generate with Syft)",
+		},
+	}
+}
+
+func getFolderPath() promptui.Prompt {
+	return promptui.Prompt{
+		Label: "Step 2: Enter folder path containing SBOMs (e.g., ./sboms)",
+		Validate: func(input string) error {
+			if info, err := os.Stat(input); err != nil || !info.IsDir() {
+				return fmt.Errorf("path must be a valid directory")
+			}
+			return nil
+		},
+	}
+}
+
+func selectFolderRecurssiveScan() promptui.Select {
+	return promptui.Select{
+		Label: "Scan sub-folders recursively?",
+		Items: []string{"Yes", "No"},
+	}
+}
+
+func getBucketName() promptui.Prompt {
+	return promptui.Prompt{
+		Label: "Step 2: Enter S3 bucket name",
+		Validate: func(input string) error {
+			if input == "" {
+				return fmt.Errorf("bucket name cannot be empty")
+			}
+			return nil
+		},
+	}
+}
+
+func getS3Prefix() promptui.Prompt {
+	return promptui.Prompt{
+		Label: "Enter S3 prefix (optional, press Enter to skip)",
+	}
+}
+
+func getS3Region() promptui.Prompt {
+	return promptui.Prompt{
+		Label:   "Enter S3 region (e.g., us-east-1)",
+		Default: "us-east-1",
+		Validate: func(input string) error {
+			if input == "" {
+				return fmt.Errorf("region cannot be empty")
+			}
+			return nil
+		},
+	}
+}
+
+func getS3AccessKey() promptui.Prompt {
+	return promptui.Prompt{
+		Label: "Enter S3 access key",
+		Validate: func(input string) error {
+			if input == "" {
+				return fmt.Errorf("access key cannot be empty")
+			}
+			return nil
+		},
+	}
+}
+
+func getS3SecretKey() promptui.Prompt {
+	return promptui.Prompt{
+		Label: "Enter S3 secret key",
+		Mask:  '*',
+		Validate: func(input string) error {
+			if input == "" {
+				return fmt.Errorf("secret key cannot be empty")
+			}
+			return nil
+		},
+	}
+}
+
+func selectOutputAdapter() promptui.Select {
+	return promptui.Select{
+		Label: "Step 3: Choose an output destination (where SBOMs go)",
+		Items: []string{
+			"Folder (save to a local directory)",
+			"S3 (upload to an AWS S3 bucket)",
+			"Dependency Track (send to a server)",
+			"Interlynk (upload to Interlynk platform)",
+		},
+	}
+}
+
+func getTargetFolderPath() promptui.Prompt {
+	return promptui.Prompt{
+		Label:   "Step 4: Enter folder path to save SBOMs (e.g., ./temp)",
+		Default: "temp",
+	}
+}
+
+func getTargetBucketName() promptui.Prompt {
+	return promptui.Prompt{
+		Label: "Step 4: Enter S3 bucket name",
+		Validate: func(input string) error {
+			if input == "" {
+				return fmt.Errorf("bucket name cannot be empty")
+			}
+			return nil
+		},
+	}
+}
+
+func getTargetPrefix() promptui.Prompt {
+	return promptui.Prompt{
+		Label: "Enter S3 prefix (optional, press Enter to skip)",
+	}
+}
+
+func getTargetRegion() promptui.Prompt {
+	return promptui.Prompt{
+		Label:   "Enter S3 region (e.g., us-east-1)",
+		Default: "us-east-1",
+		Validate: func(input string) error {
+			if input == "" {
+				return fmt.Errorf("region cannot be empty")
+			}
+			return nil
+		},
+	}
+}
+
+func getDtrackURL() promptui.Prompt {
+	return promptui.Prompt{
+		Label: "Step 4: Enter Dependency Track API URL (e.g., http://localhost:8081)",
+		Validate: func(input string) error {
+			if !strings.HasPrefix(input, "http://") && !strings.HasPrefix(input, "https://") {
+				return fmt.Errorf("URL must start with http:// or https://")
+			}
+			return nil
+		},
+		Default: "http://localhost:8081",
+	}
+}
+
+func getDTrackAPIKey() promptui.Prompt {
+	return promptui.Prompt{
+		Label: "Enter Dependency Track API key",
+		Mask:  '*',
+		Validate: func(input string) error {
+			if input == "" {
+				return fmt.Errorf("API key cannot be empty")
+			}
+			return nil
+		},
+	}
+}
+
+func getInterlynkURL() promptui.Prompt {
+	return promptui.Prompt{
+		Label:   "Step 4: Enter Interlynk API URL (e.g., https://api.interlynk.io/lynkapi)",
+		Default: "https://api.interlynk.io/lynkapi",
+		Validate: func(input string) error {
+			if !strings.HasPrefix(input, "http://") && !strings.HasPrefix(input, "https://") {
+				return fmt.Errorf("URL must start with http:// or https://")
+			}
+			return nil
+		},
+	}
+}
+
+func getInterlynkProjectName() promptui.Prompt {
+	return promptui.Prompt{
+		Label: "Enter project name(optional)",
+	}
+}
+
+func getInterlynkSecurityToken() promptui.Prompt {
+	return promptui.Prompt{
+		Label: "Enter Interlynk security token",
+		Mask:  '*',
+		Validate: func(input string) error {
+			if input == "" {
+				return fmt.Errorf("security token cannot be empty")
+			}
+			return nil
+		},
+	}
+}
+
+func selectInputAdapter() promptui.Select {
+	return promptui.Select{
 		Label: "Step 1: Choose an input source/adapter (where SBOMs come from)",
 		Items: []string{
 			"GitHub (fetch from  API, Release, Tool)",
@@ -367,11 +567,19 @@ func runInteractiveMode(cmd *cobra.Command) error {
 			"S3 (pull from an AWS S3 bucket)",
 		},
 	}
+}
 
+func runInteractiveMode(cmd *cobra.Command) error {
+	fmt.Println("Welcome to the sbommv transfer interactive setup!")
+
+	// Step 1: Choose input adapter
+	inputPrompt := selectInputAdapter()
 	inputIndex, _, err := inputPrompt.Run()
 	if err != nil {
 		return fmt.Errorf("input source selection failed: %w", err)
 	}
+
+	// fmt.Println("Step 1: Input source/adapter (where SBOMs come from): ", inputResult)
 
 	inputAdapters := []string{"github", "folder", "s3"}
 	inputAdapter := inputAdapters[inputIndex]
@@ -381,30 +589,17 @@ func runInteractiveMode(cmd *cobra.Command) error {
 
 	switch inputAdapter {
 	case "github":
-		urlPrompt := promptui.Prompt{
-			Label: "Step 2: Enter GitHub repository or organization URL (e.g., https://github.com/interlynk-io/sbomqs)",
-			Validate: func(input string) error {
-				if !strings.HasPrefix(input, "https://github.com/") {
-					return fmt.Errorf("URL must start with https://github.com/")
-				}
-				return nil
-			},
-			Default: "https://github.com/interlynk-io/sbomqs",
-		}
+
+		// github URL prompt
+		urlPrompt := getGithubURL()
 		url, err := urlPrompt.Run()
 		if err != nil {
 			return fmt.Errorf("GitHub URL input failed: %w", err)
 		}
 		inputFlags = append(inputFlags, fmt.Sprintf("--in-github-url=%s", url))
 
-		methodPrompt := promptui.Select{
-			Label: "Select GitHub method",
-			Items: []string{
-				"API (Dependency Graph)",
-				"Release (from release page)",
-				"Tool (generate with Syft)",
-			},
-		}
+		// method selection
+		methodPrompt := selectGithubMethod()
 		methodIndex, _, err := methodPrompt.Run()
 		if err != nil {
 			return fmt.Errorf("GitHub method selection failed: %w", err)
@@ -413,25 +608,17 @@ func runInteractiveMode(cmd *cobra.Command) error {
 		inputFlags = append(inputFlags, fmt.Sprintf("--in-github-method=%s", methods[methodIndex]))
 
 	case "folder":
-		pathPrompt := promptui.Prompt{
-			Label: "Step 2: Enter folder path containing SBOMs (e.g., ./sboms)",
-			Validate: func(input string) error {
-				if info, err := os.Stat(input); err != nil || !info.IsDir() {
-					return fmt.Errorf("path must be a valid directory")
-				}
-				return nil
-			},
-		}
+
+		// folder path prompt
+		pathPrompt := getFolderPath()
 		path, err := pathPrompt.Run()
 		if err != nil {
 			return fmt.Errorf("folder path input failed: %w", err)
 		}
 		inputFlags = append(inputFlags, fmt.Sprintf("--in-folder-path=%s", path))
 
-		recursivePrompt := promptui.Select{
-			Label: "Scan subfolders recursively?",
-			Items: []string{"Yes", "No"},
-		}
+		// recursive scan selection
+		recursivePrompt := selectFolderRecurssiveScan()
 		recursiveIndex, _, err := recursivePrompt.Run()
 		if err != nil {
 			return fmt.Errorf("recursive selection failed: %w", err)
@@ -441,24 +628,16 @@ func runInteractiveMode(cmd *cobra.Command) error {
 		}
 
 	case "s3":
-		bucketPrompt := promptui.Prompt{
-			Label: "Step 2: Enter S3 bucket name",
-			Validate: func(input string) error {
-				if input == "" {
-					return fmt.Errorf("bucket name cannot be empty")
-				}
-				return nil
-			},
-		}
+		// S3 bucket name prompt
+		bucketPrompt := getBucketName()
 		bucket, err := bucketPrompt.Run()
 		if err != nil {
 			return fmt.Errorf("S3 bucket input failed: %w", err)
 		}
 		inputFlags = append(inputFlags, fmt.Sprintf("--in-s3-bucket-name=%s", bucket))
 
-		prefixPrompt := promptui.Prompt{
-			Label: "Enter S3 prefix (optional, press Enter to skip)",
-		}
+		// S3 prefix and region prompts
+		prefixPrompt := getS3Prefix()
 		prefix, err := prefixPrompt.Run()
 		if err != nil {
 			return fmt.Errorf("S3 prefix input failed: %w", err)
@@ -467,68 +646,41 @@ func runInteractiveMode(cmd *cobra.Command) error {
 			inputFlags = append(inputFlags, fmt.Sprintf("--in-s3-prefix=%s", prefix))
 		}
 
-		regionPrompt := promptui.Prompt{
-			Label:   "Enter S3 region (e.g., us-east-1)",
-			Default: "us-east-1",
-			Validate: func(input string) error {
-				if input == "" {
-					return fmt.Errorf("region cannot be empty")
-				}
-				return nil
-			},
-		}
+		// S3 region prompt
+		regionPrompt := getS3Region()
 		region, err := regionPrompt.Run()
 		if err != nil {
 			return fmt.Errorf("S3 region input failed: %w", err)
 		}
 		inputFlags = append(inputFlags, fmt.Sprintf("--in-s3-region=%s", region))
 
-		// Check for default AWS credentials
+		// check for default AWS credentials
 		if !hasDefaultAWSCredentials() {
-			accessKeyPrompt := promptui.Prompt{
-				Label: "Enter S3 access key",
-				Validate: func(input string) error {
-					if input == "" {
-						return fmt.Errorf("access key cannot be empty")
-					}
-					return nil
-				},
-			}
+
+			// prompt for AWS Access Key
+			accessKeyPrompt := getS3AccessKey()
 			accessKey, err := accessKeyPrompt.Run()
 			if err != nil {
 				return fmt.Errorf("S3 access key input failed: %w", err)
 			}
 			inputFlags = append(inputFlags, fmt.Sprintf("--in-s3-access-key=%s", accessKey))
 
-			secretKeyPrompt := promptui.Prompt{
-				Label: "Enter S3 secret key",
-				Mask:  '*', // Hide input for security
-				Validate: func(input string) error {
-					if input == "" {
-						return fmt.Errorf("secret key cannot be empty")
-					}
-					return nil
-				},
-			}
+			// prompt for AWS Secret Key
+			secretKeyPrompt := getS3SecretKey()
 			secretKey, err := secretKeyPrompt.Run()
 			if err != nil {
 				return fmt.Errorf("S3 secret key input failed: %w", err)
 			}
 			inputFlags = append(inputFlags, fmt.Sprintf("--in-s3-secret-key=%s", secretKey))
 		}
+
+	default:
+		return fmt.Errorf("unsupported input adapter: %s", inputAdapter)
+
 	}
 
 	// Step 3: Choose output adapter
-	outputPrompt := promptui.Select{
-		Label: "Step 3: Choose an output destination (where SBOMs go)",
-		Items: []string{
-			"Folder (save to a local directory)",
-			"S3 (upload to an AWS S3 bucket)",
-			"Dependency Track (send to a server)",
-			"Interlynk (upload to Interlynk platform)",
-		},
-	}
-
+	outputPrompt := selectOutputAdapter()
 	outputIndex, _, err := outputPrompt.Run()
 	if err != nil {
 		return fmt.Errorf("output destination selection failed: %w", err)
@@ -541,16 +693,8 @@ func runInteractiveMode(cmd *cobra.Command) error {
 
 	switch outputAdapter {
 	case "folder":
-		pathPrompt := promptui.Prompt{
-			Label: "Step 4: Enter folder path to save SBOMs (e.g., ./temp)",
-			Validate: func(input string) error {
-				dir := filepath.Dir(input)
-				if info, err := os.Stat(dir); err != nil || !info.IsDir() {
-					return fmt.Errorf("parent directory must exist")
-				}
-				return nil
-			},
-		}
+		// folder path prompt
+		pathPrompt := getTargetFolderPath()
 		path, err := pathPrompt.Run()
 		if err != nil {
 			return fmt.Errorf("folder path input failed: %w", err)
@@ -558,24 +702,16 @@ func runInteractiveMode(cmd *cobra.Command) error {
 		outputFlags = append(outputFlags, fmt.Sprintf("--out-folder-path=%s", path))
 
 	case "s3":
-		bucketPrompt := promptui.Prompt{
-			Label: "Step 4: Enter S3 bucket name",
-			Validate: func(input string) error {
-				if input == "" {
-					return fmt.Errorf("bucket name cannot be empty")
-				}
-				return nil
-			},
-		}
+		// S3 bucket name prompt
+		bucketPrompt := getTargetBucketName()
 		bucket, err := bucketPrompt.Run()
 		if err != nil {
 			return fmt.Errorf("S3 bucket input failed: %w", err)
 		}
 		outputFlags = append(outputFlags, fmt.Sprintf("--out-s3-bucket-name=%s", bucket))
 
-		prefixPrompt := promptui.Prompt{
-			Label: "Enter S3 prefix (optional, press Enter to skip)",
-		}
+		// S3 prefix prompts
+		prefixPrompt := getTargetPrefix()
 		prefix, err := prefixPrompt.Run()
 		if err != nil {
 			return fmt.Errorf("S3 prefix input failed: %w", err)
@@ -584,48 +720,24 @@ func runInteractiveMode(cmd *cobra.Command) error {
 			outputFlags = append(outputFlags, fmt.Sprintf("--out-s3-prefix=%s", prefix))
 		}
 
-		regionPrompt := promptui.Prompt{
-			Label:   "Enter S3 region (e.g., us-east-1)",
-			Default: "us-east-1",
-			Validate: func(input string) error {
-				if input == "" {
-					return fmt.Errorf("region cannot be empty")
-				}
-				return nil
-			},
-		}
+		// S3 region prompt
+		regionPrompt := getTargetRegion()
 		region, err := regionPrompt.Run()
 		if err != nil {
 			return fmt.Errorf("S3 region input failed: %w", err)
 		}
 		outputFlags = append(outputFlags, fmt.Sprintf("--out-s3-region=%s", region))
 
-		// Check for default AWS credentials
+		// check for default AWS credentials
 		if !hasDefaultAWSCredentials() {
-			accessKeyPrompt := promptui.Prompt{
-				Label: "Enter S3 access key",
-				Validate: func(input string) error {
-					if input == "" {
-						return fmt.Errorf("access key cannot be empty")
-					}
-					return nil
-				},
-			}
+			accessKeyPrompt := getS3AccessKey()
 			accessKey, err := accessKeyPrompt.Run()
 			if err != nil {
 				return fmt.Errorf("S3 access key input failed: %w", err)
 			}
 			outputFlags = append(outputFlags, fmt.Sprintf("--out-s3-access-key=%s", accessKey))
-			secretKeyPrompt := promptui.Prompt{
-				Label: "Enter S3 secret key",
-				Mask:  '*', // Hide input for security
-				Validate: func(input string) error {
-					if input == "" {
-						return fmt.Errorf("secret key cannot be empty")
-					}
-					return nil
-				},
-			}
+
+			secretKeyPrompt := getS3SecretKey()
 			secretKey, err := secretKeyPrompt.Run()
 			if err != nil {
 				return fmt.Errorf("S3 secret key input failed: %w", err)
@@ -634,29 +746,17 @@ func runInteractiveMode(cmd *cobra.Command) error {
 		}
 
 	case "dtrack":
-		urlPrompt := promptui.Prompt{
-			Label: "Step 4: Enter Dependency Track API URL (e.g., http://localhost:8081)",
-			Validate: func(input string) error {
-				if !strings.HasPrefix(input, "http://") && !strings.HasPrefix(input, "https://") {
-					return fmt.Errorf("URL must start with http:// or https://")
-				}
-				return nil
-			},
-		}
+		// Dependency Track URL prompt
+		urlPrompt := getDtrackURL()
 		url, err := urlPrompt.Run()
 		if err != nil {
 			return fmt.Errorf("Dependency Track URL input failed: %w", err)
 		}
 		outputFlags = append(outputFlags, fmt.Sprintf("--out-dtrack-url=%s", url))
 
+		// project name prompt
 		projectPrompt := promptui.Prompt{
-			Label: "Enter project name",
-			Validate: func(input string) error {
-				if input == "" {
-					return fmt.Errorf("project name cannot be empty")
-				}
-				return nil
-			},
+			Label: "Enter project name(optional)",
 		}
 		project, err := projectPrompt.Run()
 		if err != nil {
@@ -664,97 +764,126 @@ func runInteractiveMode(cmd *cobra.Command) error {
 		}
 		outputFlags = append(outputFlags, fmt.Sprintf("--out-dtrack-project-name=%s", project))
 
-		apiKeyPrompt := promptui.Prompt{
-			Label: "Enter Dependency Track API key",
-			Mask:  '*', // Hide input for security
-			Validate: func(input string) error {
-				if input == "" {
-					return fmt.Errorf("API key cannot be empty")
-				}
-				return nil
-			},
+		// dtrack API key
+		if !isDTrackAPIKeyExported() {
+			apiKeyPrompt := getDTrackAPIKey()
+			apiKey, err := apiKeyPrompt.Run()
+			if err != nil {
+				return fmt.Errorf("Dependency Track API key input failed: %w", err)
+			}
+			outputFlags = append(outputFlags, fmt.Sprintf("--out-dtrack-api-key=%s", apiKey))
 		}
-		apiKey, err := apiKeyPrompt.Run()
-		if err != nil {
-			return fmt.Errorf("Dependency Track API key input failed: %w", err)
-		}
-		outputFlags = append(outputFlags, fmt.Sprintf("--out-dtrack-api-key=%s", apiKey))
 
 	case "interlynk":
-		urlPrompt := promptui.Prompt{
-			Label:   "Step 4: Enter Interlynk API URL (e.g., https://api.interlynk.io/lynkapi)",
-			Default: "https://api.interlynk.io/lynkapi",
-			Validate: func(input string) error {
-				if !strings.HasPrefix(input, "http://") && !strings.HasPrefix(input, "https://") {
-					return fmt.Errorf("URL must start with http:// or https://")
-				}
-				return nil
-			},
-		}
+
+		// Interlynk URL prompt
+		urlPrompt := getInterlynkURL()
 		url, err := urlPrompt.Run()
 		if err != nil {
 			return fmt.Errorf("Interlynk URL input failed: %w", err)
 		}
 		outputFlags = append(outputFlags, fmt.Sprintf("--out-interlynk-url=%s", url))
-		projectPrompt := promptui.Prompt{
-			Label: "Enter project name",
-			Validate: func(input string) error {
-				if input == "" {
-					return fmt.Errorf("project name cannot be empty")
-				}
-				return nil
-			},
-		}
+
+		// Interlynk project name prompt
+		projectPrompt := getInterlynkProjectName()
 		project, err := projectPrompt.Run()
 		if err != nil {
 			return fmt.Errorf("project name input failed: %w", err)
 		}
 		outputFlags = append(outputFlags, fmt.Sprintf("--out-interlynk-project-name=%s", project))
 
-		tokenPrompt := promptui.Prompt{
-			Label: "Enter Interlynk security token",
-			Mask:  '*', // Hide input for security
-			Validate: func(input string) error {
-				if input == "" {
-					return fmt.Errorf("security token cannot be empty")
-				}
-				return nil
-			},
+		// Interlynk security token prompt
+		if !isInterlynkSecurityKeyKeyExported() {
+			tokenPrompt := getInterlynkSecurityToken()
+			token, err := tokenPrompt.Run()
+			if err != nil {
+				return fmt.Errorf("Interlynk security token input failed: %w", err)
+			}
+			outputFlags = append(outputFlags, fmt.Sprintf("--out-interlynk-security-token=%s", token))
 		}
-		token, err := tokenPrompt.Run()
-		if err != nil {
-			return fmt.Errorf("Interlynk security token input failed: %w", err)
-		}
-		outputFlags = append(outputFlags, fmt.Sprintf("--out-interlynk-security-token=%s", token))
+
+	default:
+		return fmt.Errorf("unsupported output adapter: %s", outputAdapter)
 	}
 
-	// Construct the command
-	commandFlags := append([]string{
+	// Step 5: Collect global flags
+	var globalFlags []string
+
+	fmt.Println("Step 5: Global flags")
+	fmt.Println("  Enable debug logging for detailed output")
+
+	// debug mode prompt
+	debugPrompt := selectDebugMode()
+	debugIndex, _, err := debugPrompt.Run()
+	if err != nil {
+		return fmt.Errorf("debug mode selection failed: %w", err)
+	}
+	if debugIndex == 0 {
+		globalFlags = append(globalFlags, "--debug")
+	}
+
+	// dry-run prompt
+	fmt.Println("  Run in dry-run mode (simulate without executing)?")
+	dryRunPrompt := selectDryRun()
+	dryRunIndex, _, err := dryRunPrompt.Run()
+	if err != nil {
+		return fmt.Errorf("dry-run selection failed: %w", err)
+	}
+	if dryRunIndex == 0 {
+		globalFlags = append(globalFlags, "--dry-run")
+	}
+
+	fmt.Println("  Choose processing mode")
+
+	// processing mode prompt
+	processingModePrompt := selectProcessingMode()
+	processingModeIndex, _, err := processingModePrompt.Run()
+	if err != nil {
+		return fmt.Errorf("processing mode selection failed: %w", err)
+	}
+	processingModes := []string{"sequential", "parallel"}
+	globalFlags = append(globalFlags, fmt.Sprintf("--processing-mode=%s", processingModes[processingModeIndex]))
+
+	fmt.Println("  Overwrite existing SBOMs at destination?")
+
+	// overwrite prompt
+	overwritePrompt := selectOverwrite()
+	overwriteIndex, _, err := overwritePrompt.Run()
+	if err != nil {
+		return fmt.Errorf("overwrite selection failed: %w", err)
+	}
+	if overwriteIndex == 0 {
+		globalFlags = append(globalFlags, "--overwrite")
+	}
+
+	// construct the command
+	commandFlags := append(append([]string{
 		fmt.Sprintf("--input-adapter=%s", inputAdapter),
 		fmt.Sprintf("--output-adapter=%s", outputAdapter),
-	}, append(inputFlags, outputFlags...)...)
+	}, globalFlags...), append(inputFlags, outputFlags...)...)
 
 	commandStr := fmt.Sprintf("sbommv transfer %s", strings.Join(commandFlags, " "))
 
-	// Confirm execution
+	// confirm execution
 	fmt.Printf("\nReady to run this command:\n%s\n", commandStr)
 	confirmPrompt := promptui.Select{
 		Label: "Run now?",
 		Items: []string{"Yes", "No"},
 	}
+
 	confirmIndex, _, err := confirmPrompt.Run()
 	if err != nil {
 		return fmt.Errorf("confirmation failed: %w", err)
 	}
 	if confirmIndex != 0 {
 		fmt.Println("Transfer cancelled.")
-		return nil
+		os.Exit(0)
 	}
 
 	// Set flags on cmd for engine.TransferRun
 	cmd.Flags().Set("input-adapter", inputAdapter)
 	cmd.Flags().Set("output-adapter", outputAdapter)
-	for _, flag := range append(inputFlags, outputFlags...) {
+	for _, flag := range append(append(globalFlags, inputFlags...), outputFlags...) {
 		parts := strings.SplitN(flag, "=", 2)
 		if len(parts) == 2 {
 			cmd.Flags().Set(strings.TrimPrefix(parts[0], "--"), parts[1])
@@ -763,35 +892,56 @@ func runInteractiveMode(cmd *cobra.Command) error {
 		}
 	}
 
-	// Initialize logger
-	debug, _ := cmd.Flags().GetBool("debug")
-	logger.InitLogger(debug, false)
-	defer logger.DeinitLogger()
-	defer logger.Sync()
-
-	ctx := logger.WithLogger(context.Background())
-	viper.AutomaticEnv()
-	logger.LogDebug(ctx, "Starting interactive transfer")
-
-	// Parse config and run transfer
-	config, err := parseConfig(cmd)
-	if err != nil {
-		return err
-	}
-
-	logger.LogDebug(ctx, "configuration", "value", config)
-
-	if err := engine.TransferRun(ctx, cmd, config); err != nil {
-		return fmt.Errorf("transfer failed: %w", err)
-	}
-
-	fmt.Println("Transfer completed successfully!")
 	return nil
+}
+
+func selectDryRun() promptui.Select {
+	return promptui.Select{
+		Label: "Step 5: Run in dry-run mode (simulate without executing)?",
+		Items: []string{"No", "Yes"},
+	}
+}
+
+func selectDebugMode() promptui.Select {
+	return promptui.Select{
+		Label: "Step 5: Enable debug logging for detailed output?",
+		Items: []string{"No", "Yes"},
+	}
+}
+
+func selectProcessingMode() promptui.Select {
+	return promptui.Select{
+		Label: "Step 5: Choose processing mode",
+		Items: []string{
+			"Sequential (process one SBOM at a time)",
+			"Parallel (process multiple SBOMs simultaneously)",
+		},
+	}
+}
+
+func selectOverwrite() promptui.Select {
+	return promptui.Select{
+		Label: "Step 5: Overwrite existing SBOMs at destination?",
+		Items: []string{"No", "Yes"},
+	}
+}
+
+func isDTrackAPIKeyExported() bool {
+	if os.Getenv("DTRACK_API_KEY") != "" {
+		return true
+	}
+	return false
+}
+
+func isInterlynkSecurityKeyKeyExported() bool {
+	if os.Getenv("DTRACK_API_KEY") != "" {
+		return true
+	}
+	return false
 }
 
 // hasDefaultAWSCredentials checks if default AWS credentials are available
 func hasDefaultAWSCredentials() bool {
-	// Check environment variables
 	if os.Getenv("AWS_ACCESS_KEY_ID") != "" && os.Getenv("AWS_SECRET_ACCESS_KEY") != "" {
 		return true
 	}
@@ -807,4 +957,11 @@ func hasDefaultAWSCredentials() bool {
 	}
 
 	return false
+}
+
+func validateGithubURLPrompt(input string) error {
+	if !strings.HasPrefix(input, "https://github.com/") {
+		return fmt.Errorf("URL must start with https://github.com/")
+	}
+	return nil
 }
