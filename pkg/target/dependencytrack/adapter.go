@@ -49,14 +49,15 @@ func (d *DependencyTrackAdapter) AddCommandParams(cmd *cobra.Command) {
 	cmd.Flags().String("out-dtrack-url", "", "Dependency Track API URL")
 	cmd.Flags().String("out-dtrack-project-name", "", "Project name to upload SBOMs to")
 	cmd.Flags().String("out-dtrack-project-version", "", "Project version (default: latest)")
+	cmd.Flags().String(("out-dtrack-api-key"), "", "Dependency Track API key")
 }
 
 // ParseAndValidateParams validates the Dependency-Track adapter params
 func (d *DependencyTrackAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 	var (
-		urlFlag, projectNameFlag, projectVersionFlag string
-		missingFlags                                 []string
-		invalidFlags                                 []string
+		urlFlag, projectNameFlag, projectVersionFlag, dtrackAPIKeyFlag string
+		missingFlags                                                   []string
+		invalidFlags                                                   []string
 	)
 
 	switch d.Role {
@@ -67,6 +68,7 @@ func (d *DependencyTrackAdapter) ParseAndValidateParams(cmd *cobra.Command) erro
 		urlFlag = "out-dtrack-url"
 		projectNameFlag = "out-dtrack-project-name"
 		projectVersionFlag = "out-dtrack-project-version"
+		dtrackAPIKeyFlag = "out-dtrack-api-key"
 
 	default:
 		return fmt.Errorf("The adapter is neither an input type nor an output type")
@@ -91,11 +93,17 @@ func (d *DependencyTrackAdapter) ParseAndValidateParams(cmd *cobra.Command) erro
 	// Check if DTRACK_API_KEY is set
 	token := viper.GetString("DTRACK_API_KEY")
 	if token == "" {
-		return fmt.Errorf("missing DTRACK_API_KEY: authentication required")
+		token, _ = cmd.Flags().GetString(dtrackAPIKeyFlag)
 	}
+
+	if token == "" {
+		return fmt.Errorf("missing DTRACk API KEY: authentication required")
+	}
+
 	projectName, _ := cmd.Flags().GetString(projectNameFlag)
 	projectVersion, _ := cmd.Flags().GetString(projectVersionFlag)
 	projectOverwrite := d.Overwrite
+
 	// Validate DTrack connectivity before proceeding
 	if err := ValidateDTrackConnection(apiURL, token); err != nil {
 		return fmt.Errorf("DTrack API %s validation failed: %w", apiURL, err)
