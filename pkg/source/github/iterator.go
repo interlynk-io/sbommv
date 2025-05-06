@@ -34,7 +34,7 @@ type GitHubIterator struct {
 }
 
 // NewGitHubIterator initializes and returns a new GitHubIterator instance
-func NewGitHubIterator(ctx tcontext.TransferMetadata, g *GitHubAdapter, repo string) *GitHubIterator {
+func NewGitHubIterator(ctx tcontext.TransferMetadata, g *GithubConfig, repo string) *GitHubIterator {
 	logger.LogDebug(ctx.Context, "Initializing GitHub Iterator", "repo", g.URL, "method", g.Method, "repo", repo)
 
 	g.client.updateRepo(repo)
