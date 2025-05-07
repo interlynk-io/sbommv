@@ -93,7 +93,7 @@ func NewClient(g *GithubConfig) *Client {
 		Owner:      g.Owner,
 		Repo:       g.Repo,
 		Branch:     g.Branch,
-		Token:      g.GithubToken,
+		Token:      g.Token,
 	}
 }
 
