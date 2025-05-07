@@ -67,7 +67,7 @@ func (p *SBOMProcessor) Update(content []byte, repoName, filePath string) {
 	p.path = filePath
 }
 
-// ProcessSBOMFromBytes processes an SBOM directly from memory
+// ProcessSBOMs processes an SBOM directly from memory
 func (p *SBOMProcessor) ProcessSBOMs() (SBOMDocument, error) {
 	if len(p.data) == 0 {
 		return SBOMDocument{}, errors.New("empty SBOM content")

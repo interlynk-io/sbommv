@@ -16,6 +16,7 @@ package github
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/interlynk-io/sbommv/pkg/iterator"
@@ -53,6 +54,8 @@ func (g *GitHubAdapter) AddCommandParams(cmd *cobra.Command) {
 	cmd.Flags().String("in-github-method", "api", "GitHub method: release, api, or tool")
 	cmd.Flags().String("in-github-branch", "", "Github repository branch")
 	cmd.Flags().String("in-github-version", "", "github repo version")
+	cmd.Flags().String("in-github-token", "", "GitHub token (required for more than 5000/hour rate limit)")
+	cmd.Flags().String("in-github-poll-interval", "60", "Polling interval to check GitHub Releases (default: 60s)")
 
 	// Updated to StringSlice to support multiple values (comma-separated)
 	cmd.Flags().StringSlice("in-github-include-repos", nil, "Include only these repositories e.g sbomqs,sbomasm")
@@ -65,9 +68,11 @@ func (g *GitHubAdapter) AddCommandParams(cmd *cobra.Command) {
 // ParseAndValidateParams validates the GitHub adapter params
 func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 	var (
-		urlFlag, methodFlag, includeFlag, excludeFlag, githubBranchFlag, githubVersionFlag string
-		missingFlags                                                                       []string
-		invalidFlags                                                                       []string
+		urlFlag, methodFlag, includeFlag, excludeFlag,
+		githubBranchFlag, githubVersionFlag,
+		githubToken, githubPoll string
+		missingFlags []string
+		invalidFlags []string
 	)
 
 	switch g.Role {
@@ -78,6 +83,8 @@ func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 		excludeFlag = "in-github-exclude-repos"
 		githubBranchFlag = "in-github-branch"
 		githubVersionFlag = "in-github-version"
+		githubToken = "in-github-token"
+		githubPoll = "in-github-poll-interval"
 
 	case types.OutputAdapterRole:
 		return fmt.Errorf("The GitHub adapter doesn't support output adapter functionalities.")
@@ -134,6 +141,8 @@ func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 		invalidFlags = append(invalidFlags, fmt.Sprintf("--%s is only supported for --in-github-method=tool, whereas it's not supported for --in-github-method=api and --in-github-method=release", githubBranchFlag))
 	}
 
+	poll, _ := cmd.Flags().GetString(githubPoll)
+
 	// Validate include & exclude repos cannot be used together
 	if len(includeRepos) > 0 && len(excludeRepos) > 0 {
 		invalidFlags = append(invalidFlags, fmt.Sprintf("Cannot use both %s and %s together", includeFlag, excludeFlag))
@@ -162,8 +171,8 @@ func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 	}
 
 	cfg := NewGithubConfig()
-	cfg.IncludeRepos = includeRepos
-	cfg.ExcludeRepos = excludeRepos
+	cfg.SetIncludeRepos(includeRepos)
+	cfg.SetExcludeRepos(excludeRepos)
 
 	// Validate that both include & exclude are not used together
 	if len(cfg.IncludeRepos) > 0 && len(cfg.ExcludeRepos) > 0 {
@@ -181,6 +190,7 @@ func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 
 	token := viper.GetString("GITHUB_TOKEN")
 	if token == "" {
+		token, _ = cmd.Flags().GetString(githubToken)
 		logger.LogDebug(cmd.Context(), "GitHub Token not found in environment")
 	}
 
@@ -197,11 +207,25 @@ func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 	}
 
 	cfg.Owner = owner
+	// cfg.SetOwner(owner)
+	// cfg.SetRepo(repo)
 	cfg.Repo = repo
 	cfg.Branch = branch
+
 	cfg.Version = version
+	// cfg.SetBranch(branch)
+	// cfg.SetVersion(version)
 	cfg.Method = method
-	cfg.GithubToken = token
+	// cfg.SetMethod(method)
+	cfg.Token = token
+	// cfg.SetToken(token)
+	pollInterval, err := strconv.Atoi(poll)
+	if err != nil {
+		return fmt.Errorf("invalid poll interval format: %w", err)
+	}
+	cfg.Poll = int64(pollInterval)
+
+	// cfg.SetPollInterval(int64(pollInterval))
 
 	// Initialize GitHub client
 	cfg.client = NewClient(cfg)

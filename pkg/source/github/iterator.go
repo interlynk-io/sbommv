@@ -58,6 +58,22 @@ func (it *GitHubIterator) Next(ctx tcontext.TransferMetadata) (*iterator.SBOM, e
 	return sbom, nil
 }
 
+type GithubWatcherIterator struct {
+	sbomChan chan *iterator.SBOM
+}
+
+func (it *GithubWatcherIterator) Next(ctx tcontext.TransferMetadata) (*iterator.SBOM, error) {
+	select {
+	case sbom, ok := <-it.sbomChan:
+		if !ok {
+			return nil, fmt.Errorf("watcher channel closed")
+		}
+		return sbom, nil
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+}
+
 // Fetch SBOM via GitHub API
 func (it *GitHubIterator) fetchSBOMFromAPI(ctx tcontext.TransferMetadata) ([]*iterator.SBOM, error) {
 	sbomData, err := it.client.FetchSBOMFromAPI(ctx)

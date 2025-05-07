@@ -16,9 +16,14 @@
 package github
 
 import (
+	"fmt"
 	"strings"
 
+	githublib "github.com/google/go-github/v62/github"
+	"github.com/interlynk-io/sbommv/pkg/logger"
+	"github.com/interlynk-io/sbommv/pkg/tcontext"
 	"github.com/interlynk-io/sbommv/pkg/types"
+	"golang.org/x/oauth2"
 )
 
 type GithubConfig struct {
@@ -30,11 +35,12 @@ type GithubConfig struct {
 	Method         string
 	BinaryPath     string
 	client         *Client
-	GithubToken    string
+	Token          string
 	IncludeRepos   []string
 	ExcludeRepos   []string
 	ProcessingMode types.ProcessingMode
 	Daemon         bool
+	Poll           int64
 }
 
 func NewGithubConfig() *GithubConfig {
@@ -42,12 +48,85 @@ func NewGithubConfig() *GithubConfig {
 		Method:         "",
 		BinaryPath:     "",
 		client:         nil,
-		GithubToken:    "",
+		Token:          "",
 		IncludeRepos:   []string{},
 		ExcludeRepos:   []string{},
 		ProcessingMode: types.FetchSequential,
 		Daemon:         false,
 	}
+}
+
+func (c *GithubConfig) GetRepo() string {
+	return c.Repo
+}
+
+// SetRepos sets the list of repositories.
+func (c *GithubConfig) SetRepo(repo string) {
+	c.Repo = repo
+}
+
+// SetOrg sets the organization name.
+func (c *GithubConfig) SetOwner(org string) {
+	c.Owner = org
+}
+
+func (c *GithubConfig) SetBranch(branch string) {
+	c.Branch = branch
+}
+
+func (c *GithubConfig) SetVersion(version string) {
+	c.Version = version
+}
+
+func (c *GithubConfig) SetMethod(method string) {
+	c.Method = method
+}
+
+// SetToken sets the GitHub token.
+func (c *GithubConfig) SetToken(token string) {
+	c.Token = token
+}
+
+// SetPollInterval sets the polling interval in seconds.
+func (c *GithubConfig) SetPollInterval(interval int64) {
+	c.Poll = interval
+}
+
+// SetIncludePattern sets the include pattern for repository filtering.
+func (c *GithubConfig) SetIncludeRepos(repos []string) {
+	c.IncludeRepos = repos
+}
+
+// SetExcludePattern sets the exclude pattern for repository filtering.
+func (c *GithubConfig) SetExcludeRepos(repos []string) {
+	c.ExcludeRepos = repos
+}
+
+// SetProcessingMode sets the processing mode (Sequential, Parallel, Watcher).
+func (c *GithubConfig) SetProcessingMode(mode types.ProcessingMode) {
+	c.ProcessingMode = mode
+}
+
+// GetGitHubClient initializes and returns a GitHub API client.
+func (c *GithubConfig) GetGitHubClient(ctx tcontext.TransferMetadata) (*githublib.Client, error) {
+	logger.LogDebug(ctx.Context, "Initializing GitHub client")
+
+	if c.Token == "" {
+		return nil, fmt.Errorf("GitHub token is required")
+	}
+
+	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: c.Token})
+	tc := oauth2.NewClient(ctx.Context, ts)
+	client := githublib.NewClient(tc)
+
+	// Verify token by making a simple API call
+	_, _, err := client.Users.Get(ctx.Context, "")
+	if err != nil {
+		logger.LogError(ctx.Context, err, "Failed to validate GitHub token")
+		return nil, fmt.Errorf("invalid GitHub token: %w", err)
+	}
+
+	return client, nil
 }
 
 // applyRepoFilters filters repositories based on inclusion/exclusion flags
