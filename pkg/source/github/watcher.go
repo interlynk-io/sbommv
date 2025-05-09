@@ -21,7 +21,9 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -103,9 +105,9 @@ func (f *GithubWatcherFetcher) Fetch(ctx tcontext.TransferMetadata, config *Gith
 		return nil, fmt.Errorf("failed to get repositories: %w", err)
 	}
 
-	repos = config.applyRepoFilters(repos)
+	filterdRepos := config.applyRepoFilters(ctx, repos)
 
-	logger.LogDebug(ctx.Context, "Filtered repositories to watch out", "repos", repos)
+	logger.LogDebug(ctx.Context, "Filtered repositories to watch out", "repos", filterdRepos)
 
 	if len(repos) == 0 {
 		return nil, fmt.Errorf("no repositories left after applying filters")
@@ -137,8 +139,8 @@ func (f *GithubWatcherFetcher) Fetch(ctx tcontext.TransferMetadata, config *Gith
 				logger.LogInfo(ctx.Context, "Polling stopped")
 				return
 			case <-ticker.C:
-				for _, repo := range repos {
-					if err := pollRepository(ctx, client, repo, config.Owner, cache, sbomChan); err != nil {
+				for _, repo := range filterdRepos {
+					if err := pollRepository(ctx, client, repo, config.Owner, config.Method, config.BinaryPath, cache, sbomChan); err != nil {
 						logger.LogError(ctx.Context, err, "Failed to poll repository", "repo", repo)
 					}
 				}
@@ -152,16 +154,16 @@ func (f *GithubWatcherFetcher) Fetch(ctx tcontext.TransferMetadata, config *Gith
 	return &GithubWatcherIterator{sbomChan: sbomChan}, nil
 }
 
-// poll repository for new releases and processes assets.
-func pollRepository(ctx tcontext.TransferMetadata, client *githublib.Client, repo, owner string, cache *Cache, sbomChan chan *iterator.SBOM) error {
-	logger.LogDebug(ctx.Context, "Polling repository", repo, "time", time.Now().Format(time.RFC3339))
+// pollRepository checks a single repository for new releases and fetches SBOMs based on the configured method.
+func pollRepository(ctx tcontext.TransferMetadata, client *githublib.Client, repo, owner, method, binaryPath string, cache *Cache, sbomChan chan *iterator.SBOM) error {
+	logger.LogDebug(ctx.Context, "Polling repository", "repo", repo, "time", time.Now().Format(time.RFC3339))
 
 	var releases []*githublib.RepositoryRelease
 	var resp *githublib.Response
 	var err error
 
 	// list all releases
-	releases, resp, err = client.Repositories.ListReleases(ctx.Context, owner, repo, &githublib.ListOptions{PerPage: 100})
+	releases, resp, err = client.Repositories.ListReleases(ctx.Context, owner, repo, &githublib.ListOptions{PerPage: 1})
 	if err != nil {
 		if resp != nil && resp.StatusCode == 429 {
 			logger.LogDebug(ctx.Context, "Rate limit hit, retrying", "repo", repo)
@@ -193,16 +195,21 @@ func pollRepository(ctx tcontext.TransferMetadata, client *githublib.Client, rep
 
 	logger.LogInfo(ctx.Context, "New release detected", "repo", repo, "release_id", releaseID, "published_at", publishedAt)
 
-	// fetch the all new assets
-	assets, _, err := client.Repositories.ListReleaseAssets(ctx.Context, owner, repo, latestRelease.GetID(), nil)
-	if err != nil {
-		return fmt.Errorf("failed to list assets: %w", err)
-	}
-
-	for _, asset := range assets {
-		if err := processAsset(ctx, client, owner, repo, releaseID, asset, cache, sbomChan); err != nil {
-			logger.LogError(ctx.Context, err, "Failed to process asset", "repo", repo, "asset", asset.GetName())
+	switch method {
+	case string(MethodAPI):
+		if err := fetchSBOMFromDependencyGraph(ctx, client, owner, repo, releaseID, publishedAt, cache, sbomChan); err != nil {
+			logger.LogError(ctx.Context, err, "Failed to fetch SBOM from Dependency Graph API", "repo", repo)
 		}
+	case string(MethodReleases):
+		if err := fetchSBOMFromReleaseAssets(ctx, client, owner, repo, latestRelease, releaseID, publishedAt, cache, sbomChan); err != nil {
+			logger.LogError(ctx.Context, err, "Failed to fetch SBOM from release assets", "repo", repo)
+		}
+	case string(MethodTool):
+		if err := fetchSBOMFromTool(ctx, client, owner, repo, latestRelease, releaseID, publishedAt, binaryPath, cache, sbomChan); err != nil {
+			logger.LogError(ctx.Context, err, "Failed to generate SBOM with tool", "repo", repo)
+		}
+	default:
+		return fmt.Errorf("unsupported GitHub method: %s", method)
 	}
 
 	// update repository cache with latest release info
@@ -275,5 +282,149 @@ func processAsset(ctx tcontext.TransferMetadata, client *githublib.Client, owner
 	logger.LogDebug(ctx.Context, "Updated SBOM cache", "repo", repo, "asset", name, "cache_key", cacheKey)
 	cache.Unlock()
 
+	return nil
+}
+
+// fetchSBOMFromReleaseAssets fetches SBOMs from the release assets.
+func fetchSBOMFromReleaseAssets(ctx tcontext.TransferMetadata, client *githublib.Client, owner, repo string, release *githublib.RepositoryRelease, releaseID, publishedAt string, cache *Cache, sbomChan chan *iterator.SBOM) error {
+	logger.LogDebug(ctx.Context, "Fetching SBOMs from release assets", "repo", repo)
+
+	// fetch assets
+	assets, _, err := client.Repositories.ListReleaseAssets(ctx.Context, owner, repo, release.GetID(), nil)
+	if err != nil {
+		return fmt.Errorf("failed to list assets: %w", err)
+	}
+
+	// process assets
+	for _, asset := range assets {
+		if err := processAsset(ctx, client, owner, repo, releaseID, asset, cache, sbomChan); err != nil {
+			logger.LogError(ctx.Context, err, "Failed to process asset", "repo", repo, "asset", asset.GetName())
+		}
+	}
+
+	return nil
+}
+
+// fetchSBOMFromDependencyGraph fetches an SBOM from the GitHub Dependency Graph API.
+func fetchSBOMFromDependencyGraph(ctx tcontext.TransferMetadata, client *githublib.Client, owner, repo, releaseID, publishedAt string, cache *Cache, sbomChan chan *iterator.SBOM) error {
+	logger.LogDebug(ctx.Context, "Fetching SBOM from Dependency Graph API", "repo", repo)
+
+	// get SBOM from Dependency Graph API
+	dependencyGraph, _, err := client.DependencyGraph.GetSBOM(ctx.Context, owner, repo)
+	if err != nil {
+		return fmt.Errorf("failed to fetch SBOM from Dependency Graph API: %w", err)
+	}
+
+	sbomData, err := json.Marshal(dependencyGraph.SBOM)
+	if err != nil {
+		return fmt.Errorf("failed to marshal SBOM: %w", err)
+	}
+
+	cacheKey := fmt.Sprintf("%s:%s:api", repo, releaseID)
+
+	cache.RLock()
+	if cache.SBOMs[cacheKey] {
+		logger.LogDebug(ctx.Context, "SBOM already processed", "repo", repo, "cache_key", cacheKey)
+		cache.RUnlock()
+		return nil
+	}
+	cache.RUnlock()
+
+	filepath := fmt.Sprintf("%s-%s-dependency-graph-sbom.json", owner, repo)
+	logger.LogInfo(ctx.Context, "Found new SBOM from Dependency Graph API", "repo", repo)
+	sbomChan <- &iterator.SBOM{
+		Data:      sbomData,
+		Path:      filepath,
+		Namespace: repo,
+	}
+
+	cache.Lock()
+	cache.SBOMs[cacheKey] = true
+	logger.LogDebug(ctx.Context, "Updated SBOM cache", "repo", repo, "cache_key", cacheKey)
+	cache.Unlock()
+
+	return nil
+}
+
+// fetchSBOMFromTool generates an SBOM using the Syft tool for the repository at the release's commit.
+func fetchSBOMFromTool(ctx tcontext.TransferMetadata, client *githublib.Client, owner, repo string, release *githublib.RepositoryRelease, releaseID, publishedAt, binaryPath string, cache *Cache, sbomChan chan *iterator.SBOM) error {
+	logger.LogDebug(ctx.Context, "Generating SBOM with Syft tool", "repo", repo)
+
+	// get release commit SHA
+	releaseCommit, _, err := client.Repositories.GetCommit(ctx.Context, owner, repo, release.GetTargetCommitish(), nil)
+	if err != nil {
+		return fmt.Errorf("failed to get release commit: %w", err)
+	}
+	commitSHA := releaseCommit.GetSHA()
+
+	cacheKey := fmt.Sprintf("%s:%s:tool", repo, releaseID)
+
+	cache.RLock()
+	if cache.SBOMs[cacheKey] {
+		logger.LogDebug(ctx.Context, "SBOM already generated", "repo", repo, "cache_key", cacheKey)
+		cache.RUnlock()
+		return nil
+	}
+	cache.RUnlock()
+
+	// clone repository at the release commit
+	repoDir := filepath.Join(os.TempDir(), fmt.Sprintf("%s-%s-%s", owner, repo, releaseID))
+	defer os.RemoveAll(repoDir)
+
+	if err := cloneRepoWithGit(ctx, repo, owner, commitSHA, repoDir); err != nil {
+		return fmt.Errorf("failed to clone repository: %w", err)
+	}
+
+	// generate SBOM
+	sbomData, err := GenerateSBOM(ctx, repoDir, binaryPath)
+	if err != nil {
+		return fmt.Errorf("failed to generate SBOM: %w", err)
+	}
+
+	filepath := fmt.Sprintf("%s-%s-syft-generated-sbom.json", owner, repo)
+	logger.LogInfo(ctx.Context, "Generated new SBOM with Syft", "repo", repo)
+	sbomChan <- &iterator.SBOM{
+		Data:      sbomData,
+		Path:      filepath,
+		Namespace: repo,
+	}
+
+	cache.Lock()
+	cache.SBOMs[cacheKey] = true
+	logger.LogDebug(ctx.Context, "Updated SBOM cache", "repo", repo, "cache_key", cacheKey)
+	cache.Unlock()
+
+	return nil
+}
+
+// cloneRepoWithGit clones a GitHub repository at the specified commit using git.
+func cloneRepoWithGit(ctx tcontext.TransferMetadata, repo, owner, commitSHA, targetDir string) error {
+	logger.LogDebug(ctx.Context, "Cloning repository", "repo", repo, "commit", commitSHA, "directory", targetDir)
+
+	// ensure git is installed
+	if _, err := exec.LookPath("git"); err != nil {
+		return fmt.Errorf("git is not installed")
+	}
+
+	// Clone repository
+	repoURL := fmt.Sprintf("https://github.com/%s/%s.git", owner, repo)
+	cmd := exec.CommandContext(ctx.Context, "git", "clone", "--depth=1", repoURL, targetDir)
+	var stderr strings.Builder
+	cmd.Stdout = io.Discard
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to clone repository: %w, stderr: %s", err, stderr.String())
+	}
+
+	// Checkout specific commit
+	cmd = exec.CommandContext(ctx.Context, "git", "checkout", commitSHA)
+	cmd.Dir = targetDir
+	cmd.Stdout = io.Discard
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to checkout commit %s: %w, stderr: %s", commitSHA, err, stderr.String())
+	}
+
+	logger.LogDebug(ctx.Context, "Repository cloned successfully", "repo", repo, "commit", commitSHA)
 	return nil
 }
