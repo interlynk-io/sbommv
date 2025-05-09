@@ -163,7 +163,7 @@ func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 
 	if daemon {
 		// daemon fetcher initialized
-		// fetcher = NewWatcherFetcher()
+		fetcher = NewWatcherFetcher()
 	} else if g.Config.ProcessingMode == types.FetchSequential {
 		fetcher = &SequentialFetcher{}
 	} else if g.Config.ProcessingMode == types.FetchParallel {

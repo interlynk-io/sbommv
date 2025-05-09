@@ -30,7 +30,10 @@ import (
 	"github.com/interlynk-io/sbommv/pkg/logger"
 	"github.com/interlynk-io/sbommv/pkg/source"
 	"github.com/interlynk-io/sbommv/pkg/tcontext"
-	"github.com/interlynk-io/sbommv/pkg/utils"
+)
+
+const (
+	CACHE_PATH = ".sbommv/cache.json"
 )
 
 type GithubWatcherFetcher struct{}
@@ -75,7 +78,8 @@ func (c *Cache) LoadCache(path string) error {
 }
 
 // SaveCache writes the cache to file.
-func (c *Cache) SaveCache(path string) error {
+func (c *Cache) SaveCache(ctx tcontext.TransferMetadata, path string) error {
+	logger.LogDebug(ctx.Context, "Saving cache to file", "path", path)
 	c.RLock()
 	defer c.RUnlock()
 
@@ -92,40 +96,39 @@ func (c *Cache) SaveCache(path string) error {
 }
 
 func (f *GithubWatcherFetcher) Fetch(ctx tcontext.TransferMetadata, config *GithubConfig) (iterator.SBOMIterator, error) {
-	logger.LogDebug(ctx.Context, "Starting GitHub watcher", "repo", config.Repo, "branch", config.Branch)
+	logger.LogDebug(ctx.Context, "Starting GitHub watcher", "repo", config.Repo, "version", config.Version)
 
 	repos, err := config.client.GetAllRepositories(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get repositories: %w", err)
 	}
 
-	// filtering to include/exclude repos
 	repos = config.applyRepoFilters(repos)
+
+	logger.LogDebug(ctx.Context, "Filtered repositories to watch out", "repos", repos)
 
 	if len(repos) == 0 {
 		return nil, fmt.Errorf("no repositories left after applying filters")
 	}
 
-	// Initialize GitHub client
 	client, err := config.GetGitHubClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize GitHub client: %w", err)
 	}
 
-	// Initiate cache
+	// initiate cache
 	cache := NewCache()
-	cachePath := ".sbommv/cache.json"
-	if err := cache.LoadCache(cachePath); err != nil {
+	if err := cache.LoadCache(CACHE_PATH); err != nil {
 		return nil, fmt.Errorf("failed to load cache: %w", err)
 	}
 
-	// Create SBOM channel for iterator
 	sbomChan := make(chan *iterator.SBOM, 10)
 
-	// Start polling loop in a goroutine
+	// start polling loop in a goroutine
 	go func() {
 		defer close(sbomChan)
 		ticker := time.NewTicker(time.Duration(config.Poll) * time.Second)
+		logger.LogDebug(ctx.Context, "Starting polling loop", "interval", config.Poll)
 		defer ticker.Stop()
 
 		for {
@@ -134,13 +137,12 @@ func (f *GithubWatcherFetcher) Fetch(ctx tcontext.TransferMetadata, config *Gith
 				logger.LogInfo(ctx.Context, "Polling stopped")
 				return
 			case <-ticker.C:
-				logger.LogDebug(ctx.Context, "Polling repositories", "time", time.Now().Format(time.RFC3339))
 				for _, repo := range repos {
 					if err := pollRepository(ctx, client, repo, config.Owner, cache, sbomChan); err != nil {
 						logger.LogError(ctx.Context, err, "Failed to poll repository", "repo", repo)
 					}
 				}
-				if err := cache.SaveCache(cachePath); err != nil {
+				if err := cache.SaveCache(ctx, CACHE_PATH); err != nil {
 					logger.LogError(ctx.Context, err, "Failed to save cache")
 				}
 			}
@@ -150,12 +152,15 @@ func (f *GithubWatcherFetcher) Fetch(ctx tcontext.TransferMetadata, config *Gith
 	return &GithubWatcherIterator{sbomChan: sbomChan}, nil
 }
 
+// poll repository for new releases and processes assets.
 func pollRepository(ctx tcontext.TransferMetadata, client *githublib.Client, repo, owner string, cache *Cache, sbomChan chan *iterator.SBOM) error {
-	logger.LogDebug(ctx.Context, "Polling repository", "repo", repo)
-	var releases []*githublib.RepositoryRelease
+	logger.LogDebug(ctx.Context, "Polling repository", repo, "time", time.Now().Format(time.RFC3339))
 
+	var releases []*githublib.RepositoryRelease
 	var resp *githublib.Response
 	var err error
+
+	// list all releases
 	releases, resp, err = client.Repositories.ListReleases(ctx.Context, owner, repo, &githublib.ListOptions{PerPage: 100})
 	if err != nil {
 		if resp != nil && resp.StatusCode == 429 {
@@ -169,12 +174,17 @@ func pollRepository(ctx tcontext.TransferMetadata, client *githublib.Client, rep
 		return nil
 	}
 
-	// collect latest release and related information
+	// extract latest release
 	latestRelease := releases[0]
+
+	// get the release ID and published date
 	releaseID := fmt.Sprintf("%d", latestRelease.GetID())
 	publishedAt := latestRelease.GetPublishedAt().Format(time.RFC3339)
 
+	// compare with cache
+	cache.RLock()
 	cached, exists := cache.Repos[repo]
+	cache.RUnlock()
 
 	if exists && cached.PublishedAt == publishedAt && cached.ReleaseID == releaseID {
 		logger.LogDebug(ctx.Context, "No new release found", "repo", repo)
@@ -183,27 +193,38 @@ func pollRepository(ctx tcontext.TransferMetadata, client *githublib.Client, rep
 
 	logger.LogInfo(ctx.Context, "New release detected", "repo", repo, "release_id", releaseID, "published_at", publishedAt)
 
-	// Now fetch the new assets
+	// fetch the all new assets
 	assets, _, err := client.Repositories.ListReleaseAssets(ctx.Context, owner, repo, latestRelease.GetID(), nil)
 	if err != nil {
 		return fmt.Errorf("failed to list assets: %w", err)
 	}
 
 	for _, asset := range assets {
-		if err := processAsset(ctx, client, owner, repo, asset, cache, sbomChan); err != nil {
+		if err := processAsset(ctx, client, owner, repo, releaseID, asset, cache, sbomChan); err != nil {
 			logger.LogError(ctx.Context, err, "Failed to process asset", "repo", repo, "asset", asset.GetName())
 		}
 	}
-	// Process assets
-	// processor := sbom.NewSBOMProcessor("", false)
+
+	// update repository cache with latest release info
+	cache.Lock()
+	cache.Repos[repo] = RepoState{
+		PublishedAt: publishedAt,
+		ReleaseID:   releaseID,
+	}
+	cache.Unlock()
+
+	logger.LogDebug(ctx.Context, "Updated cache for repository", "repo", repo, "published_at", publishedAt, "release_id", releaseID)
 
 	return nil
 }
 
-func processAsset(ctx tcontext.TransferMetadata, client *githublib.Client, owner, repo string, asset *githublib.ReleaseAsset, cache *Cache, sbomChan chan *iterator.SBOM) error {
+func processAsset(ctx tcontext.TransferMetadata, client *githublib.Client, owner, repo, releaseID string, asset *githublib.ReleaseAsset, cache *Cache, sbomChan chan *iterator.SBOM) error {
+	logger.LogDebug(ctx.Context, "Processing asset", "repo", repo, "asset", asset.GetName())
 	name := asset.GetName()
+
 	if !source.DetectSBOMsFile(name) {
-		return nil // Skip non-SBOM extensions
+		// skip non-SBOM extensions
+		return nil
 	}
 
 	// download SBOMs
@@ -212,6 +233,7 @@ func processAsset(ctx tcontext.TransferMetadata, client *githublib.Client, owner
 		return fmt.Errorf("failed to download asset %s: %w", name, err)
 	}
 	defer reader.Close()
+	logger.LogDebug(ctx.Context, "Downloaded asset", "repo", repo, "asset", name)
 
 	content, err := io.ReadAll(reader)
 	if err != nil {
@@ -224,30 +246,33 @@ func processAsset(ctx tcontext.TransferMetadata, client *githublib.Client, owner
 		return nil
 	}
 
-	sourceAdapter := ctx.Value("source")
-	// Check uniqueness
-	primaryCompName, primaryCompVersion := utils.ConstructProjectName(ctx, "", "", "", "", content, sourceAdapter.(string))
-	componentVersion := fmt.Sprintf("%s:%s", primaryCompName, primaryCompVersion)
+	logger.LogDebug(ctx.Context, "Valid SBOM found", "repo", repo, "asset", name)
+
+	// create unique cache key for the SBOM (repo:release_id:filename)
+	cacheKey := fmt.Sprintf("%s:%s:%s", repo, releaseID, name)
 
 	cache.RLock()
-	if cache.SBOMs[componentVersion] {
-		logger.LogDebug(ctx.Context, "SBOM already processed", "repo", repo, "asset", name, "component", componentVersion)
+	if cache.SBOMs[cacheKey] {
+		logger.LogDebug(ctx.Context, "SBOM already processed", "repo", repo, "asset", name, "cache_key", cacheKey)
 		cache.RUnlock()
 		return nil
 	}
 	cache.RUnlock()
 
-	// Log and yield SBOM
-	logger.LogInfo(ctx.Context, "Found new SBOM", "repo", repo, "asset", name, "component", primaryCompName, "version", primaryCompVersion)
+	logger.LogDebug(ctx.Context, "Valid SBOM found", "repo", repo, "asset", name)
+
+	// pass SBOM to the channel
+	logger.LogInfo(ctx.Context, "Found new SBOM", "repo", repo, "asset", name)
 	sbomChan <- &iterator.SBOM{
 		Data:      content,
 		Path:      name,
 		Namespace: repo,
 	}
 
-	// Update SBOM cache
+	// update SBOM cache
 	cache.Lock()
-	cache.SBOMs[componentVersion] = true
+	cache.SBOMs[cacheKey] = true
+	logger.LogDebug(ctx.Context, "Updated SBOM cache", "repo", repo, "asset", name, "cache_key", cacheKey)
 	cache.Unlock()
 
 	return nil
