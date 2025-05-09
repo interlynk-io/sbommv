@@ -83,7 +83,7 @@ type Client struct {
 }
 
 // NewClient initializes a GitHub client
-func NewClient(g *GitHubAdapter) *Client {
+func NewClient(g *GithubConfig) *Client {
 	return &Client{
 		httpClient: &http.Client{},
 		BaseURL:    "https://api.github.com",
@@ -93,7 +93,7 @@ func NewClient(g *GitHubAdapter) *Client {
 		Owner:      g.Owner,
 		Repo:       g.Repo,
 		Branch:     g.Branch,
-		Token:      g.GithubToken,
+		Token:      g.Token,
 	}
 }
 
