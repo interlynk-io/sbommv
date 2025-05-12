@@ -69,6 +69,7 @@ func NewCache() *Cache {
 func (c *Cache) LoadCache(path string) error {
 	c.Lock()
 	defer c.Unlock()
+
 	data, err := os.ReadFile(path)
 	if os.IsNotExist(err) {
 		return nil
@@ -195,6 +196,7 @@ func pollRepository(ctx tcontext.TransferMetadata, client *githublib.Client, rep
 
 	logger.LogInfo(ctx.Context, "New release detected", "repo", repo, "release_id", releaseID, "published_at", publishedAt)
 
+	// once the new released is out, fetch SBOMs based on the configured method
 	switch method {
 	case string(MethodAPI):
 		if err := fetchSBOMFromDependencyGraph(ctx, client, owner, repo, releaseID, publishedAt, cache, sbomChan); err != nil {
@@ -205,7 +207,7 @@ func pollRepository(ctx tcontext.TransferMetadata, client *githublib.Client, rep
 			logger.LogError(ctx.Context, err, "Failed to fetch SBOM from release assets", "repo", repo)
 		}
 	case string(MethodTool):
-		if err := fetchSBOMFromTool(ctx, client, owner, repo, latestRelease, releaseID, publishedAt, binaryPath, cache, sbomChan); err != nil {
+		if err := fetchSBOMUsingTool(ctx, client, owner, repo, latestRelease, releaseID, publishedAt, binaryPath, cache, sbomChan); err != nil {
 			logger.LogError(ctx.Context, err, "Failed to generate SBOM with tool", "repo", repo)
 		}
 	default:
@@ -230,6 +232,7 @@ func processAsset(ctx tcontext.TransferMetadata, client *githublib.Client, owner
 	name := asset.GetName()
 
 	if !source.DetectSBOMsFile(name) {
+		logger.LogDebug(ctx.Context, "Asset is not a SBOM file via it's extention", "repo", repo, "asset", name)
 		// skip non-SBOM extensions
 		return nil
 	}
@@ -249,7 +252,7 @@ func processAsset(ctx tcontext.TransferMetadata, client *githublib.Client, owner
 
 	// Validate SBOM
 	if !source.IsSBOMFile(content) {
-		logger.LogDebug(ctx.Context, "Asset is not a valid SBOM", "repo", repo, "asset", name)
+		logger.LogDebug(ctx.Context, "Asset is not a valid SBOM from it's content", "repo", repo, "asset", name)
 		return nil
 	}
 
@@ -265,8 +268,6 @@ func processAsset(ctx tcontext.TransferMetadata, client *githublib.Client, owner
 		return nil
 	}
 	cache.RUnlock()
-
-	logger.LogDebug(ctx.Context, "Valid SBOM found", "repo", repo, "asset", name)
 
 	// pass SBOM to the channel
 	logger.LogInfo(ctx.Context, "Found new SBOM", "repo", repo, "asset", name)
@@ -289,14 +290,31 @@ func processAsset(ctx tcontext.TransferMetadata, client *githublib.Client, owner
 func fetchSBOMFromReleaseAssets(ctx tcontext.TransferMetadata, client *githublib.Client, owner, repo string, release *githublib.RepositoryRelease, releaseID, publishedAt string, cache *Cache, sbomChan chan *iterator.SBOM) error {
 	logger.LogDebug(ctx.Context, "Fetching SBOMs from release assets", "repo", repo)
 
-	// fetch assets
-	assets, _, err := client.Repositories.ListReleaseAssets(ctx.Context, owner, repo, release.GetID(), nil)
-	if err != nil {
-		return fmt.Errorf("failed to list assets: %w", err)
+	opt := &githublib.ListOptions{PerPage: 100}
+	var allAssets []*githublib.ReleaseAsset
+	page := 1
+
+	for {
+		assets, resp, err := client.Repositories.ListReleaseAssets(ctx.Context, owner, repo, release.GetID(), opt)
+		if err != nil {
+			logger.LogError(ctx.Context, err, "Failed to fetch release assets", "repo", repo, "page", page)
+			return fmt.Errorf("failed to list release assets: %w", err)
+		}
+		allAssets = append(allAssets, assets...)
+		logger.LogDebug(ctx.Context, "Fetched release assets", "repo", repo, "page", page, "assets_fetched", len(assets), "total_so_far", len(allAssets))
+
+		if resp.NextPage == 0 {
+			logger.LogInfo(ctx.Context, "Completed fetching all release assets", "repo", repo, "total_assets", len(allAssets))
+			break
+		}
+		opt.Page = resp.NextPage
+		page++
 	}
 
+	logger.LogDebug(ctx.Context, "Fetched assets", "repo", repo, "count", len(allAssets))
+
 	// process assets
-	for _, asset := range assets {
+	for _, asset := range allAssets {
 		if err := processAsset(ctx, client, owner, repo, releaseID, asset, cache, sbomChan); err != nil {
 			logger.LogError(ctx.Context, err, "Failed to process asset", "repo", repo, "asset", asset.GetName())
 		}
@@ -346,8 +364,8 @@ func fetchSBOMFromDependencyGraph(ctx tcontext.TransferMetadata, client *githubl
 	return nil
 }
 
-// fetchSBOMFromTool generates an SBOM using the Syft tool for the repository at the release's commit.
-func fetchSBOMFromTool(ctx tcontext.TransferMetadata, client *githublib.Client, owner, repo string, release *githublib.RepositoryRelease, releaseID, publishedAt, binaryPath string, cache *Cache, sbomChan chan *iterator.SBOM) error {
+// fetchSBOMUsingTool generates an SBOM using the Syft tool for the repository at the release's commit.
+func fetchSBOMUsingTool(ctx tcontext.TransferMetadata, client *githublib.Client, owner, repo string, release *githublib.RepositoryRelease, releaseID, publishedAt, binaryPath string, cache *Cache, sbomChan chan *iterator.SBOM) error {
 	logger.LogDebug(ctx.Context, "Generating SBOM with Syft tool", "repo", repo)
 
 	// get release commit SHA

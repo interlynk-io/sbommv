@@ -17,6 +17,7 @@ package github
 
 import (
 	"fmt"
+	"net/http"
 	"strings"
 
 	githublib "github.com/google/go-github/v62/github"
@@ -109,22 +110,28 @@ func (c *GithubConfig) SetProcessingMode(mode types.ProcessingMode) {
 
 // GetGitHubClient initializes and returns a GitHub API client.
 func (c *GithubConfig) GetGitHubClient(ctx tcontext.TransferMetadata) (*githublib.Client, error) {
-	logger.LogDebug(ctx.Context, "Initializing GitHub client")
+	logger.LogDebug(ctx.Context, "Initializing GitHub client", "has_token", c.Token != "")
 
-	if c.Token == "" {
-		return nil, fmt.Errorf("GitHub token is required")
+	// create HTTP client
+	var tc *http.Client
+	if c.Token != "" {
+		ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: c.Token})
+		tc := oauth2.NewClient(ctx.Context, ts)
+		client := githublib.NewClient(tc)
+
+		// Verify token by making a simple API call
+		_, _, err := client.Users.Get(ctx.Context, "")
+		if err != nil {
+			logger.LogError(ctx.Context, err, "Failed to validate GitHub token")
+			return nil, fmt.Errorf("invalid GitHub token: %w", err)
+		}
+		return client, nil
 	}
 
-	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: c.Token})
-	tc := oauth2.NewClient(ctx.Context, ts)
+	// unauthenticated client
+	tc = &http.Client{}
 	client := githublib.NewClient(tc)
-
-	// Verify token by making a simple API call
-	_, _, err := client.Users.Get(ctx.Context, "")
-	if err != nil {
-		logger.LogError(ctx.Context, err, "Failed to validate GitHub token")
-		return nil, fmt.Errorf("invalid GitHub token: %w", err)
-	}
+	logger.LogDebug(ctx.Context, "Using unauthenticated GitHub client; rate limit is 60 requests/hour. Provide a token for 5000 requests/hour.")
 
 	return client, nil
 }
