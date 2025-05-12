@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"sync"
 
+	githublib "github.com/google/go-github/v62/github"
 	"github.com/interlynk-io/sbommv/pkg/logger"
 	"github.com/interlynk-io/sbommv/pkg/source"
 	"github.com/interlynk-io/sbommv/pkg/tcontext"
@@ -475,5 +476,42 @@ func (c *Client) GetAllRepositories(ctx tcontext.TransferMetadata) ([]string, er
 
 	logger.LogDebug(ctx.Context, "Total available repos in an organization", "count", len(repos), "in organization", c.Owner)
 
+	return repoNames, nil
+}
+
+func GetAllOrgRepositories(ctx tcontext.TransferMetadata, client *githublib.Client, org string) ([]string, error) {
+	logger.LogDebug(ctx.Context, "Fetching all repositories for organization", "org", org)
+
+	var repoNames []string
+
+	opt := &githublib.RepositoryListByOrgOptions{
+		ListOptions: githublib.ListOptions{PerPage: 100},
+	}
+
+	for {
+		repos, resp, err := client.Repositories.ListByOrg(ctx.Context, org, opt)
+		if err != nil {
+			logger.LogError(ctx.Context, err, "Failed to fetch repositories for organization", "org", org, "page", opt.Page+1)
+			return nil, fmt.Errorf("failed to list repositories: %w", err)
+		}
+
+		for _, repo := range repos {
+			repoNames = append(repoNames, fmt.Sprintf("%s/%s", org, repo.GetName()))
+		}
+
+		logger.LogDebug(ctx.Context, "Fetched repository page", "org", org, "page", opt.Page+1, "repos_fetched", len(repos), "total_so_far", len(repoNames))
+
+		if resp.NextPage == 0 {
+			break // No more pages
+		}
+
+		opt.Page = resp.NextPage
+
+	}
+
+	if len(repoNames) == 0 {
+		return nil, fmt.Errorf("no repositories found for organization %s", org)
+	}
+	logger.LogInfo(ctx.Context, "Completed fetching repositories", "org", org, "total_repos", len(repoNames))
 	return repoNames, nil
 }

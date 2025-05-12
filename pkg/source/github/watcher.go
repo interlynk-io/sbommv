@@ -101,10 +101,17 @@ func (c *Cache) SaveCache(ctx tcontext.TransferMetadata, path string) error {
 func (f *GithubWatcherFetcher) Fetch(ctx tcontext.TransferMetadata, config *GithubConfig) (iterator.SBOMIterator, error) {
 	logger.LogDebug(ctx.Context, "Starting GitHub watcher", "repo", config.Repo, "version", config.Version)
 
-	repos, err := config.client.GetAllRepositories(ctx)
+	client, err := config.GetGitHubClient(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize GitHub client: %w", err)
+	}
+
+	repos, err := GetAllOrgRepositories(ctx, client, config.Owner)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get repositories: %w", err)
 	}
+
+	logger.LogDebug(ctx.Context, "Fetched repositories", "repos", repos)
 
 	filterdRepos := config.applyRepoFilters(ctx, repos)
 
@@ -112,11 +119,6 @@ func (f *GithubWatcherFetcher) Fetch(ctx tcontext.TransferMetadata, config *Gith
 
 	if len(repos) == 0 {
 		return nil, fmt.Errorf("no repositories left after applying filters")
-	}
-
-	client, err := config.GetGitHubClient(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to initialize GitHub client: %w", err)
 	}
 
 	// initiate cache

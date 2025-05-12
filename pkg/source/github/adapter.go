@@ -198,7 +198,6 @@ func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 		fmt.Println("Github API method calculates SBOM for a complete repo not for any particular version: ", version)
 	}
 
-	// Assign extracted values to struct
 	if version == "" {
 		version = "latest"
 		cfg.URL = githubURL
@@ -207,25 +206,17 @@ func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 	}
 
 	cfg.Owner = owner
-	// cfg.SetOwner(owner)
-	// cfg.SetRepo(repo)
 	cfg.Repo = repo
 	cfg.Branch = branch
 
 	cfg.Version = version
-	// cfg.SetBranch(branch)
-	// cfg.SetVersion(version)
 	cfg.Method = method
-	// cfg.SetMethod(method)
 	cfg.Token = token
-	// cfg.SetToken(token)
 	pollInterval, err := strconv.Atoi(poll)
 	if err != nil {
 		return fmt.Errorf("invalid poll interval format: %w", err)
 	}
 	cfg.Poll = int64(pollInterval)
-
-	// cfg.SetPollInterval(int64(pollInterval))
 
 	// Initialize GitHub client
 	cfg.client = NewClient(cfg)

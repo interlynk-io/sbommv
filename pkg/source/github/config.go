@@ -138,10 +138,11 @@ func (c *GithubConfig) GetGitHubClient(ctx tcontext.TransferMetadata) (*githubli
 
 // applyRepoFilters filters repositories based on inclusion/exclusion flags
 func (g *GithubConfig) applyRepoFilters(ctx tcontext.TransferMetadata, repos []string) []string {
+	logger.LogDebug(ctx.Context, "Applying repository filters", "include", g.IncludeRepos, "exclude", g.ExcludeRepos)
+
 	includedRepos := make(map[string]bool)
 	excludedRepos := make(map[string]bool)
 
-	logger.LogDebug(ctx.Context, "Applying repository filters", "include", g.IncludeRepos, "exclude", g.ExcludeRepos)
 	for _, repo := range g.IncludeRepos {
 		if repo != "" {
 			includedRepos[strings.TrimSpace(repo)] = true
@@ -156,17 +157,25 @@ func (g *GithubConfig) applyRepoFilters(ctx tcontext.TransferMetadata, repos []s
 
 	var filteredRepos []string
 
-	for _, repo := range repos {
+	for _, repoName := range repos {
+
+		// remove owner name from the repo name
+		// e.g. "owner/repo" -> "repo"
+		_, repo, _ := strings.Cut(repoName, "/")
+
 		if _, isExcluded := excludedRepos[repo]; isExcluded {
-			continue // Skip excluded repositories
+			// skip excluded repositories
+			continue
 		}
 
 		// Include only if in the inclusion list (if provided)
 		if len(includedRepos) > 0 {
 			if _, isIncluded := includedRepos[repo]; !isIncluded {
-				continue // Skip repos that are not in the include list
+				// skip repos that are not in the include list
+				continue
 			}
 		}
+
 		// filtered repo are added to the final list
 		filteredRepos = append(filteredRepos, repo)
 	}
