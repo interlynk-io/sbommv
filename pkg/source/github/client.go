@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"sync"
 
 	githublib "github.com/google/go-github/v62/github"
@@ -477,6 +478,51 @@ func (c *Client) GetAllRepositories(ctx tcontext.TransferMetadata) ([]string, er
 	logger.LogDebug(ctx.Context, "Total available repos in an organization", "count", len(repos), "in organization", c.Owner)
 
 	return repoNames, nil
+}
+
+// applyRepoFilters filters repositories based on inclusion/exclusion flags
+func (c *Client) applyRepoFilters(ctx tcontext.TransferMetadata, repos, includeRepos, excludeRepos []string) []string {
+	logger.LogDebug(ctx.Context, "Applying repository filters", "include", includeRepos, "exclude", excludeRepos)
+
+	includedRepos := make(map[string]bool)
+	excludedRepos := make(map[string]bool)
+
+	for _, repo := range includeRepos {
+		if repo != "" {
+			includedRepos[strings.TrimSpace(repo)] = true
+		}
+	}
+
+	for _, repo := range excludeRepos {
+		if repo != "" {
+			excludedRepos[strings.TrimSpace(repo)] = true
+		}
+	}
+
+	var filteredRepos []string
+
+	for _, repoName := range repos {
+		repo := repoName
+
+		if _, isExcluded := excludedRepos[repo]; isExcluded {
+			// skip excluded repositories
+			continue
+		}
+
+		// Include only if in the inclusion list (if provided)
+		if len(includedRepos) > 0 {
+			if _, isIncluded := includedRepos[repo]; !isIncluded {
+				// skip repos that are not in the include list
+				continue
+			}
+		}
+
+		// filtered repo are added to the final list
+		filteredRepos = append(filteredRepos, repo)
+	}
+
+	logger.LogDebug(ctx.Context, "Filtered repositories", "filtered", filteredRepos)
+	return filteredRepos
 }
 
 func GetAllOrgRepositories(ctx tcontext.TransferMetadata, client *githublib.Client, org string) ([]string, error) {

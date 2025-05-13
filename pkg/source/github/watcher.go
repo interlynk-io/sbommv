@@ -276,7 +276,8 @@ func processAsset(ctx tcontext.TransferMetadata, client *githublib.Client, owner
 	sbomChan <- &iterator.SBOM{
 		Data:      content,
 		Path:      name,
-		Namespace: repo,
+		Version:   releaseID,
+		Namespace: fmt.Sprintf("%s-%s", owner, repo),
 	}
 
 	// update SBOM cache
@@ -355,7 +356,8 @@ func fetchSBOMFromDependencyGraph(ctx tcontext.TransferMetadata, client *githubl
 	sbomChan <- &iterator.SBOM{
 		Data:      sbomData,
 		Path:      filepath,
-		Namespace: repo,
+		Version:   releaseID,
+		Namespace: fmt.Sprintf("%s-%s", owner, repo),
 	}
 
 	cache.Lock()
@@ -406,7 +408,8 @@ func fetchSBOMUsingTool(ctx tcontext.TransferMetadata, client *githublib.Client,
 	sbomChan <- &iterator.SBOM{
 		Data:      sbomData,
 		Path:      filepath,
-		Namespace: repo,
+		Version:   releaseID,
+		Namespace: fmt.Sprintf("%s-%s", owner, repo),
 	}
 
 	cache.Lock()

@@ -42,7 +42,7 @@ func (f *SequentialFetcher) Fetch(ctx tcontext.TransferMetadata, config *GithubC
 	}
 
 	// filtering to include/exclude repos
-	repos = config.applyRepoFilters(ctx, repos)
+	repos = config.client.applyRepoFilters(ctx, repos, config.IncludeRepos, config.ExcludeRepos)
 
 	if len(repos) == 0 {
 		return nil, fmt.Errorf("no repositories left after applying filters")
@@ -123,7 +123,7 @@ func (f *ParallelFetcher) Fetch(ctx tcontext.TransferMetadata, config *GithubCon
 	}
 
 	// filtering to include/exclude repos
-	repos = config.applyRepoFilters(ctx, repos)
+	repos = config.client.applyRepoFilters(ctx, repos, config.IncludeRepos, config.ExcludeRepos)
 
 	if len(repos) == 0 {
 		return nil, fmt.Errorf("no repositories left after applying filters")
