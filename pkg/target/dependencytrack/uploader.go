@@ -69,7 +69,7 @@ func (u *SequentialUploader) Upload(ctx tcontext.TransferMetadata, config *Depen
 			projectVersion = "latest"
 		}
 
-		finalProjectName := fmt.Sprintf("%s-%s", projectName, projectVersion)
+		finalProjectName := fmt.Sprintf("%s-%s-%s", projectName, projectVersion, sbom.Path)
 		logger.LogDebug(ctx.Context, "Project Details", "name", finalProjectName, "version", projectVersion)
 
 		// Find or create project and get UUID
