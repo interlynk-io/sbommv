@@ -36,26 +36,35 @@ func (f *SequentialFetcher) Fetch(ctx tcontext.TransferMetadata, config *GithubC
 	// Implement the logic to fetch SBOMs sequentially
 	logger.LogDebug(ctx.Context, "Fetching SBOMs Sequentially")
 
-	repos, err := config.client.GetAllRepositories(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get repositories: %w", err)
+	var filterdRepos []string
+
+	if config.Repo == "" {
+		repos, err := config.client.GetAllRepositories(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get repositories: %w", err)
+		}
+
+		if len(repos) == 0 {
+			return nil, fmt.Errorf("no repositories left after applying filters")
+		}
+
+		// filtering to include/exclude repos
+		filterdRepos = config.client.applyRepoFilters(ctx, repos, config.IncludeRepos, config.ExcludeRepos)
 	}
 
-	// filtering to include/exclude repos
-	repos = config.client.applyRepoFilters(ctx, repos, config.IncludeRepos, config.ExcludeRepos)
-
-	if len(repos) == 0 {
-		return nil, fmt.Errorf("no repositories left after applying filters")
+	filterdRepos = append(filterdRepos, config.Repo)
+	if len(filterdRepos) == 0 {
+		return nil, fmt.Errorf("no repositories found")
 	}
 
-	logger.LogDebug(ctx.Context, "Total repos from which SBOMs will be fetched", "count", len(repos), "repos", repos)
+	logger.LogDebug(ctx.Context, "Total repos from which SBOMs will be fetched", "count", len(filterdRepos), "repos", filterdRepos)
 	logger.LogDebug(ctx.Context, "Processing Mode", "strategy", config.ProcessingMode)
 
 	var sbomList []*iterator.SBOM
 	giter := &GitHubIterator{client: config.client, binaryPath: config.BinaryPath}
 
 	// Iterate over repositories one by one (sequential processing)
-	for _, repo := range repos {
+	for _, repo := range filterdRepos {
 		giter.client.updateRepo(repo)
 
 		logger.LogDebug(ctx.Context, "Repository", "value", repo)

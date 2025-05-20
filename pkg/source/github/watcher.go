@@ -150,20 +150,27 @@ func (f *GithubWatcherFetcher) Fetch(ctx tcontext.TransferMetadata, config *Gith
 		return nil, fmt.Errorf("failed to initialize GitHub client: %w", err)
 	}
 
-	repos, err := GetAllOrgRepositories(ctx, client, config.Owner)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get repositories: %w", err)
+	var filterdRepos []string
+	if config.Repo == "" {
+
+		repos, err := GetAllOrgRepositories(ctx, client, config.Owner)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get repositories: %w", err)
+		}
+
+		if len(repos) == 0 {
+			return nil, fmt.Errorf("no repositories left after applying filters")
+		}
+
+		filterdRepos = config.applyRepoFilters(ctx, repos)
+
 	}
-
-	logger.LogDebug(ctx.Context, "Fetched repositories", "repos", repos)
-
-	filterdRepos := config.applyRepoFilters(ctx, repos)
+	filterdRepos = append(filterdRepos, config.Repo)
+	if len(filterdRepos) == 0 {
+		return nil, fmt.Errorf("no repositories found")
+	}
 
 	logger.LogDebug(ctx.Context, "Filtered repositories to watch out", "repos", filterdRepos)
-
-	if len(repos) == 0 {
-		return nil, fmt.Errorf("no repositories left after applying filters")
-	}
 
 	// initiate cache
 	cache := NewCache()
