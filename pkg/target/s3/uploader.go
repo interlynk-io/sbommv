@@ -115,7 +115,7 @@ func (u *S3ParallelUploader) Upload(ctx tcontext.TransferMetadata, config *S3Con
 }
 
 func (u *S3SequentialUploader) Upload(ctx tcontext.TransferMetadata, s3cfg *S3Config, iter iterator.SBOMIterator) error {
-	logger.LogDebug(ctx.Context, "Writing SBOMs sequentially", "bucketName", s3cfg.BucketName+"prefix", s3cfg.Prefix)
+	logger.LogDebug(ctx.Context, "Writing SBOMs sequentially", "bucketName", s3cfg.BucketName, "prefix", s3cfg.Prefix)
 	totalSBOMs := 0
 	successfullyUploaded := 0
 	bucketPrefix := s3cfg.Prefix

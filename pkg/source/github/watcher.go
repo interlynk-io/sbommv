@@ -44,13 +44,6 @@ func NewWatcherFetcher() *GithubWatcherFetcher {
 	return &GithubWatcherFetcher{}
 }
 
-// Cache holds polling state for repositories and SBOMs.
-// type Cache struct {
-// 	Repos map[string]RepoState `json:"repos"`
-// 	SBOMs map[string]bool      `json:"sboms"`
-// 	sync.RWMutex
-// }
-
 type Cache struct {
 	Data map[string]AdapterCache `json:"data"`
 	sync.RWMutex
@@ -78,21 +71,6 @@ func NewCache() *Cache {
 	}
 }
 
-// // LoadCache reads the cache from file.
-// func (c *Cache) LoadCache(path string) error {
-// 	c.Lock()
-// 	defer c.Unlock()
-
-// 	data, err := os.ReadFile(path)
-// 	if os.IsNotExist(err) {
-// 		return nil
-// 	}
-// 	if err != nil {
-// 		return fmt.Errorf("failed to read cache: %w", err)
-// 	}
-// 	return json.Unmarshal(data, c)
-// }
-
 func (c *Cache) LoadCache(ctx tcontext.TransferMetadata, path string) error {
 	c.Lock()
 	defer c.Unlock()
@@ -100,7 +78,7 @@ func (c *Cache) LoadCache(ctx tcontext.TransferMetadata, path string) error {
 	data, err := os.ReadFile(path)
 	if os.IsNotExist(err) {
 		logger.LogDebug(ctx.Context, "Cache file does not exist, starting with empty cache", "path", path)
-		return nil // Cache doesn't exist, start fresh
+		return nil // Cache doesn't exist
 	}
 
 	if err != nil {
