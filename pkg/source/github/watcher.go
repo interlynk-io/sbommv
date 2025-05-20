@@ -45,10 +45,24 @@ func NewWatcherFetcher() *GithubWatcherFetcher {
 }
 
 // Cache holds polling state for repositories and SBOMs.
+// type Cache struct {
+// 	Repos map[string]RepoState `json:"repos"`
+// 	SBOMs map[string]bool      `json:"sboms"`
+// 	sync.RWMutex
+// }
+
 type Cache struct {
+	Data map[string]AdapterCache `json:"data"`
+	sync.RWMutex
+}
+
+type AdapterCache map[string]GitHubDaemonCache
+
+type GitHubDaemonCache map[string]MethodCache
+
+type MethodCache struct {
 	Repos map[string]RepoState `json:"repos"`
 	SBOMs map[string]bool      `json:"sboms"`
-	sync.RWMutex
 }
 
 // RepoState stores release information.
@@ -60,24 +74,46 @@ type RepoState struct {
 // NewCache initializes a cache.
 func NewCache() *Cache {
 	return &Cache{
-		Repos: make(map[string]RepoState),
-		SBOMs: make(map[string]bool),
+		Data: make(map[string]AdapterCache),
 	}
 }
 
-// LoadCache reads the cache from file.
-func (c *Cache) LoadCache(path string) error {
+// // LoadCache reads the cache from file.
+// func (c *Cache) LoadCache(path string) error {
+// 	c.Lock()
+// 	defer c.Unlock()
+
+// 	data, err := os.ReadFile(path)
+// 	if os.IsNotExist(err) {
+// 		return nil
+// 	}
+// 	if err != nil {
+// 		return fmt.Errorf("failed to read cache: %w", err)
+// 	}
+// 	return json.Unmarshal(data, c)
+// }
+
+func (c *Cache) LoadCache(ctx tcontext.TransferMetadata, path string) error {
 	c.Lock()
 	defer c.Unlock()
 
 	data, err := os.ReadFile(path)
 	if os.IsNotExist(err) {
-		return nil
+		logger.LogDebug(ctx.Context, "Cache file does not exist, starting with empty cache", "path", path)
+		return nil // Cache doesn't exist, start fresh
 	}
+
 	if err != nil {
-		return fmt.Errorf("failed to read cache: %w", err)
+		return fmt.Errorf("failed to read cache file: %w", err)
 	}
-	return json.Unmarshal(data, c)
+
+	if err := json.Unmarshal(data, c); err != nil {
+		logger.LogDebug(ctx.Context, "Failed to parse cache file, starting with empty cache", "path", path, "error", err)
+		return nil // Invalid cache
+	}
+
+	logger.LogDebug(ctx.Context, "Successfully loaded cache", "path", path)
+	return nil
 }
 
 // SaveCache writes the cache to file.
@@ -95,7 +131,37 @@ func (c *Cache) SaveCache(ctx tcontext.TransferMetadata, path string) error {
 		return fmt.Errorf("failed to create cache directory: %w", err)
 	}
 
-	return os.WriteFile(path, data, 0o644)
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		return fmt.Errorf("failed to write cache file: %w", err)
+	}
+
+	logger.LogDebug(ctx.Context, "Successfully saved cache", "path", path)
+
+	return nil
+}
+
+func (c *Cache) EnsureCachePath(ctx tcontext.TransferMetadata, outputAdapter, inputAdapter string) {
+	c.Lock()
+	defer c.Unlock()
+
+	if _, exists := c.Data[outputAdapter]; !exists {
+		c.Data[outputAdapter] = make(AdapterCache)
+	}
+
+	if _, exists := c.Data[outputAdapter][inputAdapter]; !exists {
+		c.Data[outputAdapter][inputAdapter] = make(GitHubDaemonCache)
+	}
+
+	// intialize all methods
+	for _, method := range []string{string(MethodAPI), string(MethodReleases), string(MethodTool)} {
+		if _, exists := c.Data[outputAdapter][inputAdapter][method]; !exists {
+			c.Data[outputAdapter][inputAdapter][method] = MethodCache{
+				Repos: make(map[string]RepoState),
+				SBOMs: make(map[string]bool),
+			}
+		}
+	}
+	logger.LogDebug(ctx.Context, "Initialized cache paths", "output", outputAdapter, "input", inputAdapter, "methods", []string{"release", "api", "tool"})
 }
 
 func (f *GithubWatcherFetcher) Fetch(ctx tcontext.TransferMetadata, config *GithubConfig) (iterator.SBOMIterator, error) {
@@ -123,7 +189,7 @@ func (f *GithubWatcherFetcher) Fetch(ctx tcontext.TransferMetadata, config *Gith
 
 	// initiate cache
 	cache := NewCache()
-	if err := cache.LoadCache(CACHE_PATH); err != nil {
+	if err := cache.LoadCache(ctx, CACHE_PATH); err != nil {
 		return nil, fmt.Errorf("failed to load cache: %w", err)
 	}
 
@@ -161,6 +227,17 @@ func (f *GithubWatcherFetcher) Fetch(ctx tcontext.TransferMetadata, config *Gith
 func pollRepository(ctx tcontext.TransferMetadata, client *githublib.Client, repo, owner, method, binaryPath string, cache *Cache, sbomChan chan *iterator.SBOM) error {
 	logger.LogDebug(ctx.Context, "Polling repository", "repo", repo, "time", time.Now().Format(time.RFC3339))
 
+	outputAdapter := ctx.Value("destination").(string)
+	fmt.Println("adapter", outputAdapter)
+
+	// Ensure cache paths for all methods
+	cache.EnsureCachePath(ctx, outputAdapter, "github")
+
+	// Compare with cache
+	cache.RLock()
+	cached, exists := cache.Data[outputAdapter]["github"][method].Repos[repo]
+	cache.RUnlock()
+
 	var releases []*githublib.RepositoryRelease
 	var resp *githublib.Response
 	var err error
@@ -185,11 +262,6 @@ func pollRepository(ctx tcontext.TransferMetadata, client *githublib.Client, rep
 	// get the release ID and published date
 	releaseID := fmt.Sprintf("%d", latestRelease.GetID())
 	publishedAt := latestRelease.GetPublishedAt().Format(time.RFC3339)
-
-	// compare with cache
-	cache.RLock()
-	cached, exists := cache.Repos[repo]
-	cache.RUnlock()
 
 	if exists && cached.PublishedAt == publishedAt && cached.ReleaseID == releaseID {
 		logger.LogDebug(ctx.Context, "No new release found", "repo", repo)
@@ -218,7 +290,7 @@ func pollRepository(ctx tcontext.TransferMetadata, client *githublib.Client, rep
 
 	// update repository cache with latest release info
 	cache.Lock()
-	cache.Repos[repo] = RepoState{
+	cache.Data[outputAdapter]["github"][method].Repos[repo] = RepoState{
 		PublishedAt: publishedAt,
 		ReleaseID:   releaseID,
 	}
@@ -261,11 +333,12 @@ func processAsset(ctx tcontext.TransferMetadata, client *githublib.Client, owner
 	logger.LogDebug(ctx.Context, "Valid SBOM found", "repo", repo, "asset", name)
 
 	// create unique cache key for the SBOM (repo:release_id:filename)
-	cacheKey := fmt.Sprintf("%s:%s:%s", repo, releaseID, name)
+	sbomCacheKey := fmt.Sprintf("%s:%s:%s", repo, releaseID, name)
+	outputAdapter := ctx.Value("destination").(string)
 
 	cache.RLock()
-	if cache.SBOMs[cacheKey] {
-		logger.LogDebug(ctx.Context, "SBOM already processed", "repo", repo, "asset", name, "cache_key", cacheKey)
+	if cache.Data[outputAdapter]["github"][string(MethodReleases)].SBOMs[sbomCacheKey] {
+		logger.LogDebug(ctx.Context, "SBOM already processed", "repo", repo, "asset", name, "cache_key", sbomCacheKey)
 		cache.RUnlock()
 		return nil
 	}
@@ -282,8 +355,8 @@ func processAsset(ctx tcontext.TransferMetadata, client *githublib.Client, owner
 
 	// update SBOM cache
 	cache.Lock()
-	cache.SBOMs[cacheKey] = true
-	logger.LogDebug(ctx.Context, "Updated SBOM cache", "repo", repo, "asset", name, "cache_key", cacheKey)
+	cache.Data[outputAdapter]["github"][string(MethodReleases)].SBOMs[sbomCacheKey] = true
+	logger.LogDebug(ctx.Context, "Updated SBOM cache", "repo", repo, "asset", name, "cache_key", sbomCacheKey)
 	cache.Unlock()
 
 	return nil
@@ -330,6 +403,17 @@ func fetchSBOMFromReleaseAssets(ctx tcontext.TransferMetadata, client *githublib
 func fetchSBOMFromDependencyGraph(ctx tcontext.TransferMetadata, client *githublib.Client, owner, repo, releaseID, publishedAt string, cache *Cache, sbomChan chan *iterator.SBOM) error {
 	logger.LogDebug(ctx.Context, "Fetching SBOM from Dependency Graph API", "repo", repo)
 
+	sbomCacheKey := fmt.Sprintf("%s:%s:dependency-graph-sbom.json", repo, releaseID)
+	outputAdapter := ctx.Value("destination").(string)
+
+	cache.RLock()
+	if cache.Data[outputAdapter]["github"][string(MethodAPI)].SBOMs[sbomCacheKey] {
+		logger.LogDebug(ctx.Context, "SBOM already processed", "repo", repo, "cache_key", sbomCacheKey)
+		cache.RUnlock()
+		return nil
+	}
+	cache.RUnlock()
+
 	// get SBOM from Dependency Graph API
 	dependencyGraph, _, err := client.DependencyGraph.GetSBOM(ctx.Context, owner, repo)
 	if err != nil {
@@ -341,16 +425,6 @@ func fetchSBOMFromDependencyGraph(ctx tcontext.TransferMetadata, client *githubl
 		return fmt.Errorf("failed to marshal SBOM: %w", err)
 	}
 
-	cacheKey := fmt.Sprintf("%s:%s:api", repo, releaseID)
-
-	cache.RLock()
-	if cache.SBOMs[cacheKey] {
-		logger.LogDebug(ctx.Context, "SBOM already processed", "repo", repo, "cache_key", cacheKey)
-		cache.RUnlock()
-		return nil
-	}
-	cache.RUnlock()
-
 	filepath := fmt.Sprintf("%s-%s-dependency-graph-sbom.json", owner, repo)
 	logger.LogInfo(ctx.Context, "Found new SBOM from Dependency Graph API", "repo", repo)
 	sbomChan <- &iterator.SBOM{
@@ -361,8 +435,8 @@ func fetchSBOMFromDependencyGraph(ctx tcontext.TransferMetadata, client *githubl
 	}
 
 	cache.Lock()
-	cache.SBOMs[cacheKey] = true
-	logger.LogDebug(ctx.Context, "Updated SBOM cache", "repo", repo, "cache_key", cacheKey)
+	cache.Data[outputAdapter]["github"][string(MethodAPI)].SBOMs[sbomCacheKey] = true
+	logger.LogDebug(ctx.Context, "Updated SBOM cache", "repo", repo, "cache_key", sbomCacheKey)
 	cache.Unlock()
 
 	return nil
@@ -372,22 +446,22 @@ func fetchSBOMFromDependencyGraph(ctx tcontext.TransferMetadata, client *githubl
 func fetchSBOMUsingTool(ctx tcontext.TransferMetadata, client *githublib.Client, owner, repo string, release *githublib.RepositoryRelease, releaseID, publishedAt, binaryPath string, cache *Cache, sbomChan chan *iterator.SBOM) error {
 	logger.LogDebug(ctx.Context, "Generating SBOM with Syft tool", "repo", repo)
 
+	sbomCacheKey := fmt.Sprintf("%s:%s:syft-generated-sbom.json", repo, releaseID)
+	outputAdapter := ctx.Value("destination").(string)
+	cache.RLock()
+	if cache.Data[outputAdapter]["github"][string(MethodTool)].SBOMs[sbomCacheKey] {
+		logger.LogDebug(ctx.Context, "SBOM already generated", "repo", repo, "cache_key", sbomCacheKey)
+		cache.RUnlock()
+		return nil
+	}
+	cache.RUnlock()
+
 	// get release commit SHA
 	releaseCommit, _, err := client.Repositories.GetCommit(ctx.Context, owner, repo, release.GetTargetCommitish(), nil)
 	if err != nil {
 		return fmt.Errorf("failed to get release commit: %w", err)
 	}
 	commitSHA := releaseCommit.GetSHA()
-
-	cacheKey := fmt.Sprintf("%s:%s:tool", repo, releaseID)
-
-	cache.RLock()
-	if cache.SBOMs[cacheKey] {
-		logger.LogDebug(ctx.Context, "SBOM already generated", "repo", repo, "cache_key", cacheKey)
-		cache.RUnlock()
-		return nil
-	}
-	cache.RUnlock()
 
 	// clone repository at the release commit
 	repoDir := filepath.Join(os.TempDir(), fmt.Sprintf("%s-%s-%s", owner, repo, releaseID))
@@ -413,8 +487,8 @@ func fetchSBOMUsingTool(ctx tcontext.TransferMetadata, client *githublib.Client,
 	}
 
 	cache.Lock()
-	cache.SBOMs[cacheKey] = true
-	logger.LogDebug(ctx.Context, "Updated SBOM cache", "repo", repo, "cache_key", cacheKey)
+	cache.Data[outputAdapter]["github"][string(MethodTool)].SBOMs[sbomCacheKey] = true
+	logger.LogDebug(ctx.Context, "Updated SBOM cache", "repo", repo, "cache_key", sbomCacheKey)
 	cache.Unlock()
 
 	return nil
