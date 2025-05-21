@@ -29,12 +29,6 @@ const (
 	CACHE_PATH = ".sbommv/cache.json"
 )
 
-type GithubWatcherFetcher struct{}
-
-func NewWatcherFetcher() *GithubWatcherFetcher {
-	return &GithubWatcherFetcher{}
-}
-
 type Cache struct {
 	Data map[string]AdapterCache `json:"data"`
 	sync.RWMutex
@@ -130,5 +124,28 @@ func (c *Cache) EnsureCachePath(ctx tcontext.TransferMetadata, outputAdapter, in
 			}
 		}
 	}
-	logger.LogDebug(ctx.Context, "Initialized cache paths", "output", outputAdapter, "input", inputAdapter, "methods", []string{"release", "api", "tool"})
+	logger.LogDebug(ctx.Context, "Initialized cache paths", "output_adapter", outputAdapter, "input_adapter", inputAdapter, "methods", []string{"release", "api", "tool"})
+}
+
+// IsSBOMProcessed checks if an SBOM is processed in the cache or not
+func (c *Cache) IsSBOMProcessed(ctx tcontext.TransferMetadata, adapter, inputAdapter, method, sbomCacheKey, repo string) (bool, error) {
+	c.RLock()
+	defer c.RUnlock()
+	if _, exists := c.Data[adapter][inputAdapter][method]; !exists {
+		return false, nil // Cache path not initialized
+	}
+	if c.Data[adapter][inputAdapter][method].SBOMs[sbomCacheKey] {
+		logger.LogDebug(ctx.Context, "SBOM already processed", "repo", repo, "cache_key", sbomCacheKey, "adapter", adapter, "method", method)
+		return true, nil
+	}
+	return false, nil
+}
+
+// MarkSBOMProcessed marks an SBOM as processed in the cache.
+func (c *Cache) MarkSBOMProcessed(ctx tcontext.TransferMetadata, adapter, inputAdapter, method, sbomCacheKey, repo string) error {
+	c.Lock()
+	defer c.Unlock()
+	c.Data[adapter][inputAdapter][method].SBOMs[sbomCacheKey] = true
+	logger.LogDebug(ctx.Context, "Updated SBOM cache", "repo", repo, "cache_key", sbomCacheKey, "adapter", adapter, "method", method)
+	return nil
 }
