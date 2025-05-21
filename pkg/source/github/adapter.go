@@ -228,7 +228,7 @@ func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 
 // FetchSBOMs initializes the GitHub SBOM iterator using the unified method
 func (g *GitHubAdapter) FetchSBOMs(ctx tcontext.TransferMetadata) (iterator.SBOMIterator, error) {
-	logger.LogDebug(ctx.Context, "Intializing SBOM fetching process", g.Config.ProcessingMode)
+	logger.LogDebug(ctx.Context, "Intializing SBOM fetching process", "fetching strategy", g.Config.ProcessingMode)
 	return g.Fetcher.Fetch(ctx, g.Config)
 }
 
