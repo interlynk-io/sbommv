@@ -41,6 +41,11 @@ func TransferRun(ctx context.Context, cmd *cobra.Command, config types.Config) e
 	var inputAdapterInstance, outputAdapterInstance adapter.Adapter
 	var err error
 
+	if config.SourceAdapter == "github" && config.Daemon {
+		config.Overwrite = true
+		logger.LogDebug(transferCtx.Context, "overwrite flag set to true for github adapter", "overwrite_value", config.Overwrite)
+	}
+
 	adapters, iAdp, oAdp, err := adapter.NewAdapter(*transferCtx, config)
 	if err != nil {
 		return fmt.Errorf("failed to initialize adapters: %v", err)
