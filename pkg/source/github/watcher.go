@@ -167,6 +167,18 @@ func pollRepository(ctx tcontext.TransferMetadata, client *githublib.Client, rep
 		}
 	}
 
+	// update cache to clear old SBOMs for the new release
+	cache.Lock()
+	if _, exists := cache.Data[outputAdapter]["github"][method]; exists {
+		newMethodCache := MethodCache{
+			Repos: cache.Data[outputAdapter]["github"][method].Repos,
+			SBOMs: make(map[string]bool),
+		}
+		cache.Data[outputAdapter]["github"][method] = newMethodCache
+		logger.LogDebug(ctx.Context, "Cleared old SBOMs for new release", "repo", repo, "adapter", outputAdapter, "method", method)
+	}
+	cache.Unlock()
+
 	// once the new released is out, fetch SBOMs based on the configured method
 	switch method {
 	case string(MethodAPI):
