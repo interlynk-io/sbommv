@@ -56,6 +56,7 @@ func (g *GitHubAdapter) AddCommandParams(cmd *cobra.Command) {
 	cmd.Flags().String("in-github-version", "", "github repo version")
 	cmd.Flags().String("in-github-token", "", "GitHub token (required for more than 5000/hour rate limit)")
 	cmd.Flags().String("in-github-poll-interval", "60", "Polling interval to check GitHub Releases (default: 60s)")
+	cmd.Flags().Int("in-github-asset-wait-delay", 180, "Delay in seconds before fetching assets for a new release")
 
 	// Updated to StringSlice to support multiple values (comma-separated)
 	cmd.Flags().StringSlice("in-github-include-repos", nil, "Include only these repositories e.g sbomqs,sbomasm")
@@ -70,7 +71,7 @@ func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 	var (
 		urlFlag, methodFlag, includeFlag, excludeFlag,
 		githubBranchFlag, githubVersionFlag,
-		githubToken, githubPoll string
+		githubToken, githubPoll, assetWaitDelay string
 		missingFlags []string
 		invalidFlags []string
 	)
@@ -85,6 +86,7 @@ func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 		githubVersionFlag = "in-github-version"
 		githubToken = "in-github-token"
 		githubPoll = "in-github-poll-interval"
+		assetWaitDelay = "in-github-asset-wait-delay"
 
 	case types.OutputAdapterRole:
 		return fmt.Errorf("The GitHub adapter doesn't support output adapter functionalities.")
@@ -142,6 +144,8 @@ func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 	}
 
 	poll, _ := cmd.Flags().GetString(githubPoll)
+
+	assetDelay, _ := cmd.Flags().GetInt(assetWaitDelay)
 
 	// Validate include & exclude repos cannot be used together
 	if len(includeRepos) > 0 && len(excludeRepos) > 0 {
@@ -217,6 +221,7 @@ func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 		return fmt.Errorf("invalid poll interval format: %w", err)
 	}
 	cfg.Poll = int64(pollInterval)
+	cfg.AssetWaitDelay = int64(assetDelay)
 
 	// Initialize GitHub client
 	cfg.client = NewClient(cfg)

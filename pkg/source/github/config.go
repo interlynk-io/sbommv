@@ -42,6 +42,7 @@ type GithubConfig struct {
 	ProcessingMode types.ProcessingMode
 	Daemon         bool
 	Poll           int64
+	AssetWaitDelay int64
 }
 
 func NewGithubConfig() *GithubConfig {
@@ -54,6 +55,8 @@ func NewGithubConfig() *GithubConfig {
 		ExcludeRepos:   []string{},
 		ProcessingMode: types.FetchSequential,
 		Daemon:         false,
+		Poll:           60,
+		AssetWaitDelay: 180,
 	}
 }
 

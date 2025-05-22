@@ -96,7 +96,7 @@ func (f *GithubWatcherFetcher) Fetch(ctx tcontext.TransferMetadata, config *Gith
 				return
 			case <-ticker.C:
 				for _, repo := range filterdRepos {
-					if err := pollRepository(ctx, client, repo, config.Owner, config.Method, config.BinaryPath, cache, sbomChan); err != nil {
+					if err := pollRepository(ctx, client, repo, config.Owner, config.Method, config.BinaryPath, config.AssetWaitDelay, cache, sbomChan); err != nil {
 						logger.LogError(ctx.Context, err, "Failed to poll repository", "repo", repo)
 					}
 				}
@@ -111,7 +111,7 @@ func (f *GithubWatcherFetcher) Fetch(ctx tcontext.TransferMetadata, config *Gith
 }
 
 // pollRepository checks a single repository for new releases and fetches SBOMs based on the configured method.
-func pollRepository(ctx tcontext.TransferMetadata, client *githublib.Client, repo, owner, method, binaryPath string, cache *Cache, sbomChan chan *iterator.SBOM) error {
+func pollRepository(ctx tcontext.TransferMetadata, client *githublib.Client, repo, owner, method, binaryPath string, assetWaitDelay int64, cache *Cache, sbomChan chan *iterator.SBOM) error {
 	logger.LogDebug(ctx.Context, "Polling repository", "repo", repo, "time", time.Now().Format(time.RFC3339))
 
 	outputAdapter := ctx.Value("destination").(string)
@@ -154,6 +154,18 @@ func pollRepository(ctx tcontext.TransferMetadata, client *githublib.Client, rep
 	}
 
 	logger.LogInfo(ctx.Context, "New release detected", "repo", repo, "release_id", releaseID, "published_at", publishedAt)
+
+	// wait before fetching assets to allow GitHub Actions/workflows to upload them
+	if assetWaitDelay > 0 {
+		logger.LogDebug(ctx.Context, "Waiting before fetching assets", "repo", repo, "delay_seconds", assetWaitDelay)
+		select {
+		case <-time.After(time.Duration(assetWaitDelay) * time.Second):
+			// Continue after delay
+		case <-ctx.Context.Done():
+			logger.LogInfo(ctx.Context, "Context cancelled during asset wait", "repo", repo)
+			return ctx.Context.Err()
+		}
+	}
 
 	// once the new released is out, fetch SBOMs based on the configured method
 	switch method {
