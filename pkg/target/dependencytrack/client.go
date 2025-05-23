@@ -97,27 +97,27 @@ func (c *DependencyTrackClient) UploadSBOM(ctx tcontext.TransferMetadata, projec
 }
 
 // FindOrCreateProject ensures a project exists, returning its UUID after finding or creating project
-func (c *DependencyTrackClient) FindOrCreateProject(ctx tcontext.TransferMetadata, projectName, projectVersion string) (string, error) {
-	logger.LogDebug(ctx.Context, "Processing finding or Creating Project", "project", projectName, "version", projectVersion)
+func (c *DependencyTrackClient) FindOrCreateProject(ctx tcontext.TransferMetadata, finalProjectName, projectVersion string) (string, error) {
+	logger.LogDebug(ctx.Context, "Processing finding or Creating Project", "project", finalProjectName, "version", projectVersion)
 
 	// find project using project name and project version
-	projectUUID, err := c.FindProject(ctx, projectName, projectVersion)
+	projectUUID, err := c.FindProject(ctx, finalProjectName, projectVersion)
 	if err != nil {
 		return "", fmt.Errorf("finding project: %w", err)
 	}
 	if projectUUID != "" {
-		logger.LogDebug(ctx.Context, "Project already exists, therefor it wouldn't create a new", "project", projectName, "uuid", projectUUID)
+		logger.LogDebug(ctx.Context, "Project already exists, therefor it wouldn't create a new", "project", finalProjectName, "uuid", projectUUID)
 		return projectUUID, nil
 	}
-	logger.LogDebug(ctx.Context, "New project will be created", "name", projectName, "version", projectVersion)
+	logger.LogDebug(ctx.Context, "New project will be created", "name", finalProjectName, "version", projectVersion)
 
 	// create project using project name and project version
-	return c.CreateProject(ctx, projectName, projectVersion)
+	return c.CreateProject(ctx, finalProjectName, projectVersion)
 }
 
 // CreateProject creates a new project if it doesn’t exist
-func (c *DependencyTrackClient) CreateProject(ctx tcontext.TransferMetadata, projectName, projectVersion string) (string, error) {
-	logger.LogDebug(ctx.Context, "Initializing Project Creation", "project", projectName, "version", projectVersion)
+func (c *DependencyTrackClient) CreateProject(ctx tcontext.TransferMetadata, finalProjectName, projectVersion string) (string, error) {
+	logger.LogDebug(ctx.Context, "Initializing Project Creation", "project", finalProjectName, "version", projectVersion)
 
 	sourceAdapter := ctx.Value("source")
 
@@ -127,7 +127,7 @@ func (c *DependencyTrackClient) CreateProject(ctx tcontext.TransferMetadata, pro
 	sourceTag := sourceAdapter.(string)
 
 	project := dtrack.Project{
-		Name:        projectName,
+		Name:        finalProjectName,
 		Version:     projectVersion,
 		Active:      active,
 		Description: description,
@@ -136,7 +136,7 @@ func (c *DependencyTrackClient) CreateProject(ctx tcontext.TransferMetadata, pro
 			{Name: sourceTag},
 		},
 	}
-	logger.LogDebug(ctx.Context, "Project is created with following parameters", "name", projectName, "version", projectVersion, "active", active, "description", description, "tag1", sbommvTag, "tag2", sourceTag)
+	logger.LogDebug(ctx.Context, "Project is created with following parameters", "name", finalProjectName, "version", projectVersion, "active", active, "description", description, "tag1", sbommvTag, "tag2", sourceTag)
 
 	// dtrack client will create a new project
 	created, err := c.Client.Project.Create(ctx.Context, project)

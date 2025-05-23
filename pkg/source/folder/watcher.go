@@ -26,7 +26,6 @@ import (
 	"github.com/interlynk-io/sbommv/pkg/sbom"
 	"github.com/interlynk-io/sbommv/pkg/source"
 	"github.com/interlynk-io/sbommv/pkg/tcontext"
-	"github.com/interlynk-io/sbommv/pkg/utils"
 )
 
 type WatcherFetcher struct{}
@@ -150,17 +149,6 @@ func (f *WatcherFetcher) Fetch(ctx tcontext.TransferMetadata, config *FolderConf
 
 							fileName := getFilePath(config.FolderPath, filePath)
 							processor.Update(content, "", fileName)
-
-							doc, err := processor.ProcessSBOMs()
-							if err != nil {
-								logger.LogDebug(ctx.Context, "err", "Failed to process SBOM")
-								continue
-							}
-
-							sourceAdapter := ctx.Value("source")
-							primaryCompName, primaryCompVersion := utils.ConstructProjectName(ctx, "", "", "", "", content, sourceAdapter.(string))
-
-							logger.LogInfo(ctx.Context, "found", "file", filePath, "format", doc.Format, "spec_version", doc.SpecVersion, "component", primaryCompName, "version", primaryCompVersion)
 
 							sbomChan <- &iterator.SBOM{
 								Data:      content,

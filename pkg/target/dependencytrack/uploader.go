@@ -14,9 +14,7 @@
 package dependencytrack
 
 import (
-	"fmt"
 	"io"
-	"path/filepath"
 	"sync"
 
 	"github.com/google/uuid"
@@ -62,22 +60,21 @@ func (u *SequentialUploader) Upload(ctx tcontext.TransferMetadata, config *Depen
 		sourceAdapter := ctx.Value("source")
 
 		// Construct project name and version
-		projectName, projectVersion := utils.ConstructProjectName(ctx, config.ProjectName, config.ProjectVersion, sbom.Namespace, sbom.Version, sbom.Data, sourceAdapter.(string))
-		if projectName == "" {
-			projectName = filepath.Base(sbom.Path)
-			projectName = projectName[:len(projectName)-len(filepath.Ext(projectName))]
-			projectVersion = "latest"
-		}
+		finalProjectName, _ := utils.ConstructProjectName(ctx, config.ProjectName, config.ProjectVersion, sbom.Namespace, sbom.Version, sbom.Path, sbom.Data, sourceAdapter.(string))
 
-		finalProjectName := fmt.Sprintf("%s-%s", projectName, projectVersion)
-		logger.LogDebug(ctx.Context, "Project Details", "name", finalProjectName, "version", projectVersion)
+		projectVersion := "latest"
+		if config.ProjectVersion != "" {
+			projectVersion = config.ProjectVersion
+		}
+		// finalProjectName := fmt.Sprintf("%s-%s", projectName, projectVersion)
+		logger.LogDebug(ctx.Context, "Project Details", "project_name", finalProjectName)
 
 		// Find or create project and get UUID
 		var projectUUID string
 		if !u.createdProjects[finalProjectName] {
 			projectUUID, err = client.FindOrCreateProject(ctx, finalProjectName, projectVersion)
 			if err != nil {
-				logger.LogInfo(ctx.Context, "error", "project", projectName, "error", err)
+				logger.LogInfo(ctx.Context, "error", "project", finalProjectName, "error", err)
 				continue
 			}
 			u.createdProjects[finalProjectName] = true
@@ -194,21 +191,14 @@ func (u *ParallelUploader) Upload(ctx tcontext.TransferMetadata, config *Depende
 			defer wg.Done()
 			for sbom := range sbomChan {
 
-				// if project name is provided that's well and good, else we need to construct project name from:
-				// SBOM primary component name
-				// and lasly from file name
 				sourceAdapter := ctx.Value("source")
-				projectName, projectVersion := utils.ConstructProjectName(ctx, config.ProjectName, config.ProjectVersion, sbom.Namespace, sbom.Version, sbom.Data, sourceAdapter.(string))
-				if projectName == "" {
-					// THIS CASE OCCURS WHEN SBOM IS NOT IN JSON FORMAT
-					// when a JSON SBOM has empty primary comp and version, use the file name as project name
+				finalProjectName, _ := utils.ConstructProjectName(ctx, config.ProjectName, config.ProjectVersion, sbom.Namespace, sbom.Version, sbom.Path, sbom.Data, sourceAdapter.(string))
 
-					projectName = filepath.Base(sbom.Path)
-					projectName = projectName[:len(projectName)-len(filepath.Ext(projectName))]
-					projectVersion = "latest"
+				projectVersion := "latest"
+				if config.ProjectVersion != "" {
+					projectVersion = config.ProjectVersion
 				}
 
-				finalProjectName := fmt.Sprintf("%s-%s", projectName, projectVersion)
 				logger.LogDebug(ctx.Context, "Project Details", "name", finalProjectName, "version", projectVersion)
 
 				// Ensure the project exists (using a shared cache to avoid duplicate creation).

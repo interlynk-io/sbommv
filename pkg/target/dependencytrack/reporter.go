@@ -17,7 +17,6 @@ package dependencytrack
 import (
 	"fmt"
 	"io"
-	"path/filepath"
 
 	"github.com/interlynk-io/sbommv/pkg/iterator"
 	"github.com/interlynk-io/sbommv/pkg/logger"
@@ -66,14 +65,7 @@ func (r *DependencyTrackReporter) DryRun(ctx tcontext.TransferMetadata, iter ite
 
 		sourceAdapter := ctx.Value("source")
 
-		projectName, projectVersion := utils.ConstructProjectName(ctx, r.projectName, r.projectVersion, sbom.Namespace, sbom.Version, sbom.Data, sourceAdapter.(string))
-		if projectName == "" {
-			projectName = filepath.Base(sbom.Path)
-			projectName = projectName[:len(projectName)-len(filepath.Ext(projectName))]
-			projectVersion = "latest"
-		}
-
-		finalProjectName := fmt.Sprintf("%s-%s", projectName, projectVersion)
+		finalProjectName, _ := utils.ConstructProjectName(ctx, r.projectName, r.projectVersion, sbom.Namespace, sbom.Version, sbom.Path, sbom.Data, sourceAdapter.(string))
 
 		fmt.Printf("- 📁 Would upload to project '%s' | Format: %s | SpecVersion: %s | Filename: %s\n",
 			finalProjectName, doc.Format, doc.SpecVersion, sbom.Path)
