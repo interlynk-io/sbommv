@@ -141,7 +141,7 @@ func (c *GithubConfig) GetGitHubClient(ctx tcontext.TransferMetadata) (*githubli
 
 // applyRepoFilters filters repositories based on inclusion/exclusion flags
 func (g *GithubConfig) applyRepoFilters(ctx tcontext.TransferMetadata, repos []string) []string {
-	logger.LogDebug(ctx.Context, "Applying repository filters", "include", g.IncludeRepos, "exclude", g.ExcludeRepos)
+	logger.LogDebug(ctx.Context, "applying repository filters by", "including", g.IncludeRepos, "excluding", g.ExcludeRepos)
 
 	includedRepos := make(map[string]bool)
 	excludedRepos := make(map[string]bool)
@@ -183,6 +183,6 @@ func (g *GithubConfig) applyRepoFilters(ctx tcontext.TransferMetadata, repos []s
 		filteredRepos = append(filteredRepos, repo)
 	}
 
-	logger.LogDebug(ctx.Context, "Filtered repositories", "filtered", filteredRepos)
+	logger.LogDebug(ctx.Context, "filtered repositories", "filtered", filteredRepos)
 	return filteredRepos
 }
