@@ -151,15 +151,15 @@ func pollRepository(ctx tcontext.TransferMetadata, client *githublib.Client, rep
 	// now compare these release infor with the cached one
 	// check cache whether this repo has been processed for this release
 	cache.RLock()
-	cached, exists := cache.Data[outputAdapter]["github"][method].Repos[repo]
+	repoInfo, exists := cache.Data[outputAdapter]["github"][method].Repos[repo]
 	cache.RUnlock()
 
-	if exists && cached.PublishedAt == publishedAt && cached.ReleaseID == releaseID {
+	if exists && repoInfo.PublishedAt == publishedAt && repoInfo.ReleaseID == releaseID {
 		logger.LogDebug(ctx.Context, "No new release found", "repo", repo)
 		return nil
 	}
 
-	logger.LogInfo(ctx.Context, "New release detected", "repo", repo, "release_id", releaseID, "published_at", publishedAt)
+	logger.LogInfo(ctx.Context, "New release detected", "repo", repo, "tag", tagName, "release_id", releaseID, "published_at", publishedAt)
 
 	// wait before fetching assets to allow GitHub Actions/workflows to upload them
 	if assetWaitDelay > 0 {
@@ -173,17 +173,17 @@ func pollRepository(ctx tcontext.TransferMetadata, client *githublib.Client, rep
 		}
 	}
 
-	// once, new release assets found, update cache to clear old SBOMs assets
-	cache.Lock()
-	if _, exists := cache.Data[outputAdapter]["github"][method]; exists {
-		newMethodCache := MethodCache{
-			Repos: cache.Data[outputAdapter]["github"][method].Repos,
-			SBOMs: make(map[string]bool),
-		}
-		cache.Data[outputAdapter]["github"][method] = newMethodCache
-		logger.LogDebug(ctx.Context, "Cleared old SBOMs for new release", "repo", repo, "adapter", outputAdapter, "method", method)
-	}
-	cache.Unlock()
+	// // once, new release assets found, update cache to clear old SBOMs assets
+	// cache.Lock()
+	// if _, exists := cache.Data[outputAdapter]["github"][method]; exists {
+	// 	newMethodCache := MethodCache{
+	// 		Repos: cache.Data[outputAdapter]["github"][method].Repos,
+	// 		SBOMs: make(map[string]bool),
+	// 	}
+	// 	cache.Data[outputAdapter]["github"][method] = newMethodCache
+	// 	logger.LogDebug(ctx.Context, "Cleared old SBOMs for new release", "repo", repo, "adapter", outputAdapter, "method", method)
+	// }
+	// cache.Unlock()
 
 	// after the new released is confirmed, fetch SBOMs based on the configured method
 	switch method {
@@ -208,10 +208,15 @@ func pollRepository(ctx tcontext.TransferMetadata, client *githublib.Client, rep
 
 	// update cache with latest repository release info
 	cache.Lock()
-	cache.Data[outputAdapter]["github"][method].Repos[repo] = RepoState{
-		PublishedAt: publishedAt,
-		ReleaseID:   releaseID,
-	}
+	repoState := cache.Data[outputAdapter]["github"][method].Repos[repo]
+	repoState.PublishedAt = publishedAt
+	repoState.ReleaseID = releaseID
+	cache.Data[outputAdapter]["github"][method].Repos[repo] = repoState
+
+	// RepoState{
+	// 	PublishedAt: publishedAt,
+	// 	ReleaseID:   releaseID,
+	// }
 	cache.Unlock()
 
 	logger.LogDebug(ctx.Context, "Updated cache for repository", "repo", repo, "tag", tagName, "published_at", publishedAt, "release_id", releaseID)
@@ -252,7 +257,11 @@ func processAsset(ctx tcontext.TransferMetadata, client *githublib.Client, owner
 
 	// create unique cache key for the SBOM (owner:repo:tagName:filename)
 	sbomCacheKey := fmt.Sprintf("%s:%s:%s:%s", owner, repo, tagName, assetName)
-	cache.IsSBOMProcessed(ctx, outputAdapter, "github", string(MethodReleases), sbomCacheKey, repo)
+	processed := cache.IsSBOMProcessed(ctx, outputAdapter, "github", string(MethodReleases), sbomCacheKey, repo)
+	if processed {
+		logger.LogDebug(ctx.Context, "SBOM already processed", "repo", "sbom_key", sbomCacheKey, "method", MethodReleases)
+		return nil
+	}
 
 	// pass SBOM to the channel
 	logger.LogInfo(ctx.Context, "Found new SBOM", "repo", repo, "tag", tagName, "asset", assetName)
@@ -312,7 +321,11 @@ func fetchSBOMFromDependencyGraph(ctx tcontext.TransferMetadata, client *githubl
 	sbomCacheKey := fmt.Sprintf("%s:%s:%s:dependency-graph-sbom.json", owner, repo, tagName)
 	outputAdapter := ctx.Value("destination").(string)
 
-	cache.IsSBOMProcessed(ctx, outputAdapter, "github", string(MethodAPI), sbomCacheKey, repo)
+	processed := cache.IsSBOMProcessed(ctx, outputAdapter, "github", string(MethodAPI), sbomCacheKey, repo)
+	if processed {
+		logger.LogDebug(ctx.Context, "SBOM already processed", "repo", "sbom_key", sbomCacheKey, "method", MethodAPI)
+		return nil
+	}
 
 	// get SBOM from Dependency Graph API
 	dependencyGraph, _, err := client.DependencyGraph.GetSBOM(ctx.Context, owner, repo)
@@ -325,7 +338,7 @@ func fetchSBOMFromDependencyGraph(ctx tcontext.TransferMetadata, client *githubl
 		return fmt.Errorf("failed to marshal SBOM: %w", err)
 	}
 
-	filepath := fmt.Sprintf("%s-%s-%s-dependency-graph-sbom.json", owner, repo, tagName)
+	filepath := fmt.Sprintf("dependency-graph-sbom.json")
 	logger.LogInfo(ctx.Context, "Found new SBOM from Dependency Graph API", "repo", repo)
 	sbomChan <- &iterator.SBOM{
 		Data:      sbomData,
@@ -345,7 +358,11 @@ func fetchSBOMUsingTool(ctx tcontext.TransferMetadata, client *githublib.Client,
 	sbomCacheKey := fmt.Sprintf("%s:%s:%s:syft-generated-sbom.json", owner, repo, tagName)
 	outputAdapter := ctx.Value("destination").(string)
 
-	cache.IsSBOMProcessed(ctx, outputAdapter, "github", string(MethodTool), sbomCacheKey, repo)
+	processed := cache.IsSBOMProcessed(ctx, outputAdapter, "github", string(MethodTool), sbomCacheKey, repo)
+	if processed {
+		logger.LogDebug(ctx.Context, "SBOM already processed", "repo", "sbom_key", sbomCacheKey, "method", MethodTool)
+		return nil
+	}
 
 	// get release commit SHA
 	releaseCommit, _, err := client.Repositories.GetCommit(ctx.Context, owner, repo, release.GetTargetCommitish(), nil)
@@ -368,7 +385,7 @@ func fetchSBOMUsingTool(ctx tcontext.TransferMetadata, client *githublib.Client,
 		return fmt.Errorf("failed to generate SBOM: %w", err)
 	}
 
-	filepath := fmt.Sprintf("%s-%s-%s-syft-generated-sbom.json", owner, repo, tagName)
+	filepath := fmt.Sprintf("syft-generated-sbom.json")
 	logger.LogInfo(ctx.Context, "Generated new SBOM with Syft", "repo", repo, "tag", tagName)
 	sbomChan <- &iterator.SBOM{
 		Data:      sbomData,
