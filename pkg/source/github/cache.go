@@ -62,6 +62,11 @@ func NewCache() *Cache {
 	}
 }
 
+// CachePath generates a daemon-specific cache file path
+func CachePath(outputAdapter, method string) string {
+	return filepath.Join(".sbommv", fmt.Sprintf("cache_%s_%s.db", outputAdapter, method))
+}
+
 const createReposAndSBOMsTable string = `
 	CREATE TABLE IF NOT EXISTS repos (
 		output_adapter TEXT,
@@ -87,29 +92,26 @@ const createReposAndSBOMsTable string = `
 `
 
 // InitCache initializes SQLite database with repos and sboms tables.
-func (c *Cache) InitCache(ctx tcontext.TransferMetadata, path string) error {
+func (c *Cache) InitCache(ctx tcontext.TransferMetadata, outputAdapter, method string) error {
+	path := CachePath(outputAdapter, method)
+
 	logger.LogDebug(ctx.Context, "Initializing SQLite cache", "path", path)
 
-	fmt.Println("1")
 	// Create cache directory
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		logger.LogError(ctx.Context, err, "Failed to create cache directory")
 		return fmt.Errorf("failed to create cache directory: %w", err)
 	}
-	fmt.Println("2")
+
 	// Open embedded SQLite database with timeout
 	dbCtx, cancel := context.WithTimeout(ctx.Context, 5*time.Second)
 	defer cancel()
+
 	db, err := sql.Open("sqlite3", path)
 	if err != nil {
 		logger.LogError(ctx.Context, err, "Failed to open SQLite database")
 		return fmt.Errorf("failed to open SQLite database: %w", err)
 	}
-	// // Open SQLite database
-	// db, err := sql.Open("sqlite3", path)
-	// if err != nil {
-	// 	return fmt.Errorf("failed to open cache database: %w", err)
-	// }
-	fmt.Println("3")
 
 	c.db = db
 	logger.LogDebug(ctx.Context, "Cache database opened", "path", path)
@@ -128,24 +130,6 @@ func (c *Cache) InitCache(ctx tcontext.TransferMetadata, path string) error {
 
 	logger.LogDebug(ctx.Context, "Successfully initialized SQLite cache", "path", path)
 	return nil
-
-	// // Enable WAL mode for concurrent access
-	// _, err = db.Exec("PRAGMA journal_mode=WAL;")
-	// if err != nil {
-	// 	return fmt.Errorf("failed to enable WAL mode: %w", err)
-	// }
-	// fmt.Println("4")
-
-	// // Create tables
-	// _, err = db.Exec(createReposAndSBOMsTable)
-	// if err != nil {
-	// 	return fmt.Errorf("failed to create tables: %w", err)
-	// }
-	// fmt.Println("5")
-
-	// logger.LogDebug(ctx.Context, "Successfully initialized SQLite cache", "path", path)
-	// // c.db = db
-	// return nil
 }
 
 // ensureCachePathFor initializes a specific in-memory cache path (DRY helper).
@@ -165,11 +149,13 @@ func (c *Cache) ensureCachePathFor(outputAdapter, inputAdapter, method string) {
 }
 
 // LoadCache populates in-memory cache (cache-aside pattern) from SQLite to reduce query frequency.
-func (c *Cache) LoadCache(ctx tcontext.TransferMetadata, path string) error {
+func (c *Cache) LoadCache(ctx tcontext.TransferMetadata, adapter, method string) error {
+	path := CachePath(adapter, method)
+
 	logger.LogDebug(ctx.Context, "Loading cache from SQLite database", "path", path)
 
 	if c.db == nil {
-		if err := c.InitCache(ctx, path); err != nil {
+		if err := c.InitCache(ctx, adapter, method); err != nil {
 			return err
 		}
 	}
@@ -183,6 +169,7 @@ func (c *Cache) LoadCache(ctx tcontext.TransferMetadata, path string) error {
 		FROM repos
 	`)
 	if err != nil {
+		logger.LogError(ctx.Context, err, "Failed to query repos")
 		return fmt.Errorf("failed to query repos: %w", err)
 	}
 
@@ -227,31 +214,10 @@ func (c *Cache) LoadCache(ctx tcontext.TransferMetadata, path string) error {
 	return nil
 }
 
-// func (c *Cache) LoadCache(ctx tcontext.TransferMetadata, path string) error {
-// 	c.Lock()
-// 	defer c.Unlock()
-
-// 	data, err := os.ReadFile(path)
-// 	if os.IsNotExist(err) {
-// 		logger.LogDebug(ctx.Context, "Cache file does not exist, starting with empty cache", "path", path)
-// 		return nil // Cache doesn't exist
-// 	}
-
-// 	if err != nil {
-// 		return fmt.Errorf("failed to read cache file: %w", err)
-// 	}
-
-// 	if err := json.Unmarshal(data, c); err != nil {
-// 		logger.LogDebug(ctx.Context, "Failed to parse cache file, starting with empty cache", "path", path, "error", err)
-// 		return nil // Invalid cache
-// 	}
-
-// 	logger.LogDebug(ctx.Context, "Successfully loaded cache", "path", path)
-// 	return nil
-// }
-
 // SaveCache updates SQLite with in-memory cache changes (write-through caching).
-func (c *Cache) SaveCache(ctx tcontext.TransferMetadata, path string) error {
+func (c *Cache) SaveCache(ctx tcontext.TransferMetadata, adapter, method string) error {
+	path := CachePath(adapter, method)
+
 	if c.db == nil {
 		return fmt.Errorf("SQLite database not initialized")
 	}
@@ -318,30 +284,6 @@ func (c *Cache) SaveCache(ctx tcontext.TransferMetadata, path string) error {
 	logger.LogDebug(ctx.Context, "Successfully saved cache to SQLite", "path", path)
 	return nil
 }
-
-// // SaveCache writes the cache to file.
-// func (c *Cache) SaveCache(ctx tcontext.TransferMetadata, path string) error {
-// 	logger.LogDebug(ctx.Context, "Saving cache to file", "path", path)
-// 	c.RLock()
-// 	defer c.RUnlock()
-
-// 	data, err := json.MarshalIndent(c, "", "  ")
-// 	if err != nil {
-// 		return fmt.Errorf("failed to marshal cache: %w", err)
-// 	}
-
-// 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-// 		return fmt.Errorf("failed to create cache directory: %w", err)
-// 	}
-
-// 	if err := os.WriteFile(path, data, 0o644); err != nil {
-// 		return fmt.Errorf("failed to write cache file: %w", err)
-// 	}
-
-// 	logger.LogDebug(ctx.Context, "Successfully saved cache", "path", path)
-
-// 	return nil
-// }
 
 func (c *Cache) EnsureCachePath(ctx tcontext.TransferMetadata, outputAdapter, inputAdapter string) {
 	logger.LogDebug(ctx.Context, "Ensuring cache path exists", "output_adapter", outputAdapter, "input_adapter", inputAdapter)

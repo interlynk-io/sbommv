@@ -83,6 +83,9 @@ func TransferRun(ctx context.Context, cmd *cobra.Command, config types.Config) e
 	if config.Daemon {
 		if ma, ok := inputAdapterInstance.(monitor.MonitorAdapter); ok {
 			sbomIterator, err = ma.Monitor(*transferCtx)
+			if err != nil {
+				return fmt.Errorf("failed to monitor SBOMs: %w", err)
+			}
 		} else {
 			return fmt.Errorf("input adapter %s does not support daemon mode", config.SourceAdapter)
 		}

@@ -42,17 +42,18 @@ func NewWatcherFetcher() *GithubWatcherFetcher {
 func (f *GithubWatcherFetcher) Fetch(ctx tcontext.TransferMetadata, config *GithubConfig) (iterator.SBOMIterator, error) {
 	logger.LogDebug(ctx.Context, "Starting GitHub watcher", "repo", config.Repo, "version", config.Version)
 
+	outputAdapter := ctx.Value("destination").(string)
+	method := config.Method
+
 	// Initialize cache with SQLite and in-memory caching
 	cache := NewCache()
-	if err := cache.InitCache(ctx, CACHE_PATH); err != nil {
+	if err := cache.InitCache(ctx, outputAdapter, method); err != nil {
 		return nil, fmt.Errorf("failed to initialize cache: %w", err)
 	}
 
-	if err := cache.LoadCache(ctx, CACHE_PATH); err != nil {
+	if err := cache.LoadCache(ctx, outputAdapter, method); err != nil {
 		return nil, fmt.Errorf("failed to load cache: %w", err)
 	}
-
-	outputAdapter := ctx.Value("destination").(string)
 
 	// Ensure cache paths for all methods
 	cache.EnsureCachePath(ctx, outputAdapter, "github")
@@ -64,7 +65,7 @@ func (f *GithubWatcherFetcher) Fetch(ctx tcontext.TransferMetadata, config *Gith
 		return nil, fmt.Errorf("failed to initialize GitHub client: %w", err)
 	}
 
-	var finalReposPostFilter []string
+	var finalRepoList []string
 
 	if config.Repo == "" && config.Owner != "" {
 
@@ -79,18 +80,18 @@ func (f *GithubWatcherFetcher) Fetch(ctx tcontext.TransferMetadata, config *Gith
 		}
 
 		// filter repos based on the provided icluded/excluded repos
-		finalReposPostFilter = config.applyRepoFilters(ctx, repos)
-		if len(finalReposPostFilter) == 0 {
+		finalRepoList = config.applyRepoFilters(ctx, repos)
+		if len(finalRepoList) == 0 {
 			return nil, fmt.Errorf("no repositories found post filtering")
 		}
 	}
 
-	finalReposPostFilter = append(finalReposPostFilter, config.Repo)
-	if len(finalReposPostFilter) == 0 {
+	finalRepoList = append(finalRepoList, config.Repo)
+	if len(finalRepoList) == 0 {
 		return nil, fmt.Errorf("no repositories found")
 	}
 
-	logger.LogDebug(ctx.Context, "Final repositories list to watch out", "repos", finalReposPostFilter)
+	logger.LogDebug(ctx.Context, "Final repositories list to watch out", "repos", finalRepoList)
 
 	// start polling loop in a goroutine
 	go func() {
@@ -106,17 +107,12 @@ func (f *GithubWatcherFetcher) Fetch(ctx tcontext.TransferMetadata, config *Gith
 				return
 			case <-ticker.C:
 
-				// newReleaseDetected := false
+				newReleaseDetected := false
 
-				for _, repo := range finalReposPostFilter {
-					if err := pollRepository(ctx, client, repo, config.Owner, config.Method, config.BinaryPath, config.AssetWaitDelay, cache, sbomChan); err != nil {
+				for _, repo := range finalRepoList {
+					if err := pollRepository(ctx, client, repo, config.Owner, config.Method, config.BinaryPath, config.AssetWaitDelay, cache, sbomChan, &newReleaseDetected); err != nil {
 						logger.LogError(ctx.Context, err, "Failed to poll repository", "repo", repo)
 					}
-					// if newReleaseDetected {
-					if err := cache.SaveCache(ctx, CACHE_PATH); err != nil {
-						logger.LogError(ctx.Context, err, "Failed to save cache")
-					}
-					// }
 				}
 			}
 		}
@@ -126,7 +122,7 @@ func (f *GithubWatcherFetcher) Fetch(ctx tcontext.TransferMetadata, config *Gith
 }
 
 // pollRepository checks a single repository for new releases and fetches SBOMs based on the configured method.
-func pollRepository(ctx tcontext.TransferMetadata, client *githublib.Client, repo, owner, method, binaryPath string, assetWaitDelay int64, cache *Cache, sbomChan chan *iterator.SBOM) error {
+func pollRepository(ctx tcontext.TransferMetadata, client *githublib.Client, repo, owner, method, binaryPath string, assetWaitDelay int64, cache *Cache, sbomChan chan *iterator.SBOM, newReleaseDetected *bool) error {
 	logger.LogDebug(ctx.Context, "Polling repository", "repo", repo, "time", time.Now().Format(time.RFC3339))
 
 	outputAdapter := ctx.Value("destination").(string)
@@ -184,13 +180,6 @@ func pollRepository(ctx tcontext.TransferMetadata, client *githublib.Client, rep
 		}
 	}
 
-	// // Prune old SBOMs for release method
-	// if method == string(MethodReleases) {
-	// 	if err := cache.PruneSBOMs(ctx, outputAdapter, "github", method, fmt.Sprintf("%s:%s", owner, repo)); err != nil {
-	// 		logger.LogError(ctx.Context, err, "Failed to prune SBOMs", "repo", repo)
-	// 	}
-	// }
-
 	// after the new released is confirmed, fetch SBOMs based on the configured method
 	switch method {
 	case string(MethodAPI):
@@ -227,6 +216,11 @@ func pollRepository(ctx tcontext.TransferMetadata, client *githublib.Client, rep
 	// 	ReleaseID:   releaseID,
 	// }
 	// cache.Unlock()
+
+	// Save cache immediately to persist this daemon's update
+	if err := cache.SaveCache(ctx, outputAdapter, method); err != nil {
+		logger.LogError(ctx.Context, err, "Failed to save cache after new release", "repo", repo)
+	}
 
 	logger.LogDebug(ctx.Context, "Updated cache for repository", "repo", repo, "tag", tagName, "published_at", publishedAt, "release_id", releaseID)
 	return nil
