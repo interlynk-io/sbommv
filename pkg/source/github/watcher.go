@@ -90,7 +90,10 @@ func (f *GithubWatcherFetcher) Fetch(ctx tcontext.TransferMetadata, config *Gith
 		}
 	}
 
-	finalRepoList = append(finalRepoList, config.Repo)
+	if config.Repo != "" {
+		finalRepoList = append(finalRepoList, config.Repo)
+	}
+
 	if len(finalRepoList) == 0 {
 		return nil, fmt.Errorf("no repositories found")
 	}
