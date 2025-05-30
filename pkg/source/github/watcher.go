@@ -59,6 +59,10 @@ func (f *GithubWatcherFetcher) Fetch(ctx tcontext.TransferMetadata, config *Gith
 	cache.EnsureCachePath(ctx, outputAdapter, "github")
 
 	sbomChan := make(chan *iterator.SBOM, 10)
+	token := config.Token
+	if token == "" {
+		logger.LogDebug(ctx.Context, "No GitHub token provided")
+	}
 
 	client, err := config.GetGitHubClient(ctx)
 	if err != nil {
@@ -110,7 +114,7 @@ func (f *GithubWatcherFetcher) Fetch(ctx tcontext.TransferMetadata, config *Gith
 				newReleaseDetected := false
 
 				for _, repo := range finalRepoList {
-					if err := pollRepository(ctx, client, repo, config.Owner, config.Method, config.BinaryPath, config.AssetWaitDelay, cache, sbomChan, &newReleaseDetected); err != nil {
+					if err := pollRepository(ctx, client, token, repo, config.Owner, config.Method, config.BinaryPath, config.AssetWaitDelay, cache, sbomChan, &newReleaseDetected); err != nil {
 						logger.LogError(ctx.Context, err, "Failed to poll repository", "repo", repo)
 					}
 				}
@@ -122,7 +126,7 @@ func (f *GithubWatcherFetcher) Fetch(ctx tcontext.TransferMetadata, config *Gith
 }
 
 // pollRepository checks a single repository for new releases and fetches SBOMs based on the configured method.
-func pollRepository(ctx tcontext.TransferMetadata, client *githublib.Client, repo, owner, method, binaryPath string, assetWaitDelay int64, cache *Cache, sbomChan chan *iterator.SBOM, newReleaseDetected *bool) error {
+func pollRepository(ctx tcontext.TransferMetadata, client *githublib.Client, token, repo, owner, method, binaryPath string, assetWaitDelay int64, cache *Cache, sbomChan chan *iterator.SBOM, newReleaseDetected *bool) error {
 	logger.LogDebug(ctx.Context, "Polling repository", "repo", repo, "time", time.Now().Format(time.RFC3339))
 
 	outputAdapter := ctx.Value("destination").(string)
@@ -183,7 +187,7 @@ func pollRepository(ctx tcontext.TransferMetadata, client *githublib.Client, rep
 	// after the new released is confirmed, fetch SBOMs based on the configured method
 	switch method {
 	case string(MethodAPI):
-		if err := fetchSBOMFromDependencyGraph(ctx, client, owner, repo, releaseID, publishedAt, tagName, cache, sbomChan); err != nil {
+		if err := fetchSBOMFromDependencyGraph(ctx, client, token, owner, repo, releaseID, publishedAt, tagName, cache, sbomChan); err != nil {
 			logger.LogError(ctx.Context, err, "Failed to fetch SBOM from Dependency Graph API", "repo", repo)
 		}
 
@@ -318,7 +322,9 @@ func fetchSBOMFromReleaseAssets(ctx tcontext.TransferMetadata, client *githublib
 }
 
 // fetchSBOMFromDependencyGraph fetches an SBOM from the GitHub Dependency Graph API.
-func fetchSBOMFromDependencyGraph(ctx tcontext.TransferMetadata, client *githublib.Client, owner, repo, releaseID, publishedAt, tagName string, cache *Cache, sbomChan chan *iterator.SBOM) error {
+// TODO: revert back to github client once the API is stable
+// This function fetches the SBOM for a specific repository and tag using http client.
+func fetchSBOMFromDependencyGraph(ctx tcontext.TransferMetadata, client *githublib.Client, token, owner, repo, releaseID, publishedAt, tagName string, cache *Cache, sbomChan chan *iterator.SBOM) error {
 	logger.LogDebug(ctx.Context, "Fetching SBOM from Dependency Graph API", "repo", repo, "tag", tagName)
 
 	sbomCacheKey := fmt.Sprintf("%s:%s:%s:dependency-graph-sbom.json", owner, repo, tagName)
@@ -330,25 +336,78 @@ func fetchSBOMFromDependencyGraph(ctx tcontext.TransferMetadata, client *githubl
 		return nil
 	}
 
-	// get SBOM from Dependency Graph API
-	dependencyGraph, _, err := client.DependencyGraph.GetSBOM(ctx.Context, owner, repo)
+	baseURL := "https://api.github.com"
+	dependencyGraphSBOMAPI := fmt.Sprintf("repos/%s/%s/dependency-graph/sbom", owner, repo)
+	url := fmt.Sprintf("%s/%s", baseURL, dependencyGraphSBOMAPI)
+
+	// Create request
+	req, err := http.NewRequestWithContext(ctx.Context, "GET", url, nil)
 	if err != nil {
-		return fmt.Errorf("failed to fetch SBOM from Dependency Graph API: %w", err)
+		return fmt.Errorf("failed to create request: %w", err)
 	}
 
-	sbomData, err := json.Marshal(dependencyGraph.SBOM)
-	if err != nil {
-		return fmt.Errorf("failed to marshal SBOM: %w", err)
+	// Add authentication only if a token is provided
+	if token != "" {
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
 	}
+
+	req.Header.Set("Accept", "application/vnd.github.v3+json")
+
+	// Perform the request
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to fetch SBOM: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Handle non-200 responses
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("GitHub API returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	// Read response body
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	// Extract SBOM field from response
+	var response GitHubSBOMResponse
+	if err := json.Unmarshal(body, &response); err != nil {
+		return fmt.Errorf("parsing SBOM response: %w", err)
+	}
+
+	// Ensure SBOM field is not empty
+	if len(response.SBOM) == 0 {
+		return fmt.Errorf("empty SBOM data received from GitHub API")
+	}
+
+	// let's write the SBOM to a file name `sbom.json` in the current directory
+	if err := os.WriteFile("sbom.json", response.SBOM, 0o644); err != nil {
+		return fmt.Errorf("failed to write SBOM to file: %w", err)
+	}
+
+	// // get SBOM from Dependency Graph API
+	// dependencyGraph, _, err := client.DependencyGraph.GetSBOM(ctx.Context, owner, repo)
+	// if err != nil {
+	// 	return fmt.Errorf("failed to fetch SBOM from Dependency Graph API: %w", err)
+	// }
+
+	// sbomData, err := json.Marshal(dependencyGraph.SBOM)
+	// if err != nil {
+	// 	return fmt.Errorf("failed to marshal SBOM: %w", err)
+	// }
 
 	filepath := "dependency-graph-sbom.json"
 	logger.LogInfo(ctx.Context, "Found new SBOM from Dependency Graph API", "repo", repo)
 	sbomChan <- &iterator.SBOM{
-		Data:      sbomData,
+		Data:      response.SBOM,
 		Path:      filepath,
 		Version:   tagName,
 		Namespace: fmt.Sprintf("%s-%s", owner, repo),
 	}
+	logger.LogDebug(ctx.Context, "Fetched SBOM successfully", "repository", repo, "tag", tagName, "filepath", filepath)
 
 	cache.MarkSBOMProcessed(ctx, outputAdapter, "github", string(MethodAPI), sbomCacheKey, repo)
 	return nil
