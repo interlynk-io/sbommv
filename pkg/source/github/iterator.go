@@ -82,9 +82,9 @@ func (it *GitHubIterator) fetchSBOMFromAPI(ctx tcontext.TransferMetadata) ([]*it
 	}
 
 	var sbomSlice []*iterator.SBOM
-
+	filepath := "dependency-graph-sbom.json"
 	sbomSlice = append(sbomSlice, &iterator.SBOM{
-		Path: "",
+		Path: filepath,
 		Data: sbomData,
 
 		// namespace as owner/repo, where SBOM are present
@@ -150,8 +150,9 @@ func (it *GitHubIterator) fetchSBOMFromTool(ctx tcontext.TransferMetadata) ([]*i
 		return nil, fmt.Errorf("generate SBOM with zero file data: %w", err)
 	}
 
+	filepath := "syft-generated-sbom.json"
 	sbomSlice = append(sbomSlice, &iterator.SBOM{
-		Path: "",
+		Path: filepath,
 		Data: sbomBytes,
 
 		// namespace as owner/repo, where SBOM are present

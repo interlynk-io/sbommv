@@ -55,7 +55,7 @@ func (g *GitHubAdapter) AddCommandParams(cmd *cobra.Command) {
 	cmd.Flags().String("in-github-branch", "", "Github repository branch")
 	cmd.Flags().String("in-github-version", "", "github repo version")
 	cmd.Flags().String("in-github-token", "", "GitHub token (required for more than 5000/hour rate limit)")
-	cmd.Flags().String("in-github-poll-interval", "60", "Polling interval to check GitHub Releases (default: 60s)")
+	cmd.Flags().String("in-github-poll-interval", "86400", "Polling interval to check GitHub Releases (default: 60s)")
 	cmd.Flags().Int("in-github-asset-wait-delay", 180, "Delay in seconds before fetching assets for a new release")
 
 	// Updated to StringSlice to support multiple values (comma-separated)
