@@ -116,11 +116,11 @@ func (c *Cache) InitCache(ctx tcontext.TransferMetadata, outputAdapter, method s
 	c.db = db
 	logger.LogDebug(ctx.Context, "Cache database opened", "path", path)
 
-	// Enable WAL mode for concurrent reads/writes
-	if _, err = db.ExecContext(dbCtx, "PRAGMA journal_mode=WAL;"); err != nil {
-		logger.LogError(ctx.Context, err, "Failed to enable WAL mode")
-		return fmt.Errorf("failed to enable WAL mode: %w", err)
-	}
+	// // Enable WAL mode for concurrent reads/writes
+	// if _, err = db.ExecContext(dbCtx, "PRAGMA journal_mode=WAL;"); err != nil {
+	// 	logger.LogError(ctx.Context, err, "Failed to enable WAL mode")
+	// 	return fmt.Errorf("failed to enable WAL mode: %w", err)
+	// }
 
 	// Create tables
 	if _, err = db.ExecContext(dbCtx, createReposAndSBOMsTable); err != nil {
