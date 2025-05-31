@@ -224,38 +224,190 @@ sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigst
   - Save these SBOMs to a folder `temp`.
   - Under `temp`, seperate sub-dir with name `cosign`, `fulcio` and `rekor` will be created and respective repo SBOMs will be stored there.
 
-## 4. Folder → Interlynk
+## 4. Continuous Monitoring (Daemon Mode): GitHub → Interlynk
 
-### Fetch SBOMs from folder "temp" and upload/push it to a Interlynk
+Enable continuous monitoring by adding the `--daemon` or `-d` flag to your command. In daemon mode, sbommv periodically checks for new releases or SBOM updates in the specified GitHub repositories and uploads them to Interlynk. The polling interval can be customized using `--in-github-poll-interval` (default: 24 hours, supports formats like 60s, 1m, 1hr, or plain seconds).
+
+### 4.1 Single Repository Monitoring
+
+#### 4.1.1 GitHub Release Method (Daemon Mode)
 
 ```bash
-sbommv transfer --input-adapter=folder --in-folder-path="temp"  --in-folder-recursive=true  --output-adapter=interlynk --out-interlynk-url="http://localhost:3000/lynkapi"
+sbommv transfer --input-adapter=github --in-github-url="https://github.com/interlynk-io/sbomqs" \
+                --in-github-method=release --output-adapter=interlynk --out-interlynk-url="https://api.interlynk.io/lynkapi" \
+                --daemon --in-github-poll-interval="60s"
+```
+
+**What this does:**
+
+- Continuously monitors the `interlynk-io/sbomqs` repository for new releases containing SBOM artifacts.
+- Polls every 60 seconds (customizable via `--in-github-poll-interval`).
+- Fetches SBOMs from the GitHub Release page when a new release is detected.
+- Uploads new SBOMs to Interlynk as a project named `interlynk-io/sbomqs-<sbom_file-name>`.
+
+**NOTE**:
+
+- If you are running local instance of interlynk, replace it by `--out-interlynk-url="http://localhost:3000/lynkapi"`
+- Use `--in-github-asset-wait-delay` (e.g., `--in-github-asset-wait-delay="180s"`) to add a delay before fetching assets, ensuring GitHub has time to process new releases. By default, it may take approximately 3 minutes for release assets to be available after publishing a release.
+- Cache files (e.g., `.sbommv/cache_interlynk_release.db`) are created to track processed releases and SBOMs, avoiding duplicates.
+- To stop the daemon, press Ctrl+C.
+
+#### 4.1.2 GitHub API Method (Daemon Mode)
+
+```bash
+sbommv transfer --input-adapter=github --in-github-url="https://github.com/interlynk-io/sbomqs" \
+                --output-adapter=interlynk --out-interlynk-url="https://api.interlynk.io/lynkapi" \
+                --daemon --in-github-poll-interval="24h"
+```
+
+**What this does:**
+
+- Continuously monitors the `interlynk-io/sbomqs` repository for updates to its Dependency Graph SBOM..
+- Polls every 60 seconds (customizable via `--in-github-poll-interval`).
+- Fetches SBOMs using GitHub’s Dependency Graph API when updates are detected.
+- Uploads new SBOMs to Interlynk as a project named `interlynk-io/sbomqs`.
+
+**NOTE**:
+
+- Cache files (e.g., `.sbommv/cache_interlynk_api.db`) are created to track processed releases and SBOMs, avoiding duplicates.
+- To stop the daemon, press Ctrl+C.
+
+#### 4.1.3 GitHub Tool Method (Daemon Mode)
+
+```bash
+sbommv transfer --input-adapter=github --in-github-url="https://github.com/interlynk-io/sbomqs" \
+                --in-github-method=tool --output-adapter=interlynk --out-interlynk-url="https://api.interlynk.io/lynkapi" \
+                --daemon --in-github-poll-interval="24h"
+```
+
+**What this does:**
+
+- Continuously monitors the `interlynk-io/sbomqs` repository for new releases.
+- Polls every 60 seconds (customizable via `--in-github-poll-interval`).
+- Clones the repository and generates an SBOM using Syft when a new release is detected.
+- Uploads new SBOMs to Interlynk as a project named `interlynk-io/sbomqs`.
+
+**NOTE**:
+
+- Use `--in-github-branch` (e.g., `--in-github-branch="main"`) to monitor a specific branch.
+- Cache files (e.g., `.sbommv/cache_interlynk_tool.db`) are created to track processed releases and SBOMs, avoiding duplicates.
+- To stop the daemon, press Ctrl+C.
+
+### 4.2 Multiple Repository Monitoring (Organization-Level)
+
+#### 4.2.1 GitHub Release Method (Daemon Mode)
+
+```bash
+sbommv transfer --input-adapter=github --in-github-url="https://github.com/interlynk-io" \
+                --in-github-method=release --in-github-include-repos=sbomqs,sbommv \
+                --output-adapter=interlynk --out-interlynk-url="https://api.interlynk.io/lynkapi" \
+                --daemon --in-github-poll-interval="24h"
+```
+
+**What this does:**
+
+- Continuously monitors the `sbomqs` and `sbommv` repositories under the `interlynk-io` organization for new releases containing SBOM artifacts.
+- Polls every 24 hours (customizable via `--in-github-poll-interval`).
+- Fetches SBOMs from the GitHub Release pages when new releases are detected.
+- Uploads new SBOMs to Interlynk as projects named `interlynk-io/sbomqs-<sbom-filename` and `interlynk-io/sbommv-<sbom_filename>`.
+
+**NOTE:**
+
+- Use `--in-github-exclude-repos` (e.g., `--in-github-exclude-repos=docs`) to exclude specific repositories.
+- Cache files (e.g., `.sbommv/cache_interlynk_release.db`) are created per adapter-method combination.
+- To stop the daemon, press Ctrl+C.
+
+#### 4.2.2 GitHub API Method (Daemon Mode)
+
+```bash
+sbommv transfer --input-adapter=github --in-github-url="https://github.com/interlynk-io" \
+                --in-github-method=api --in-github-include-repos=sbomqs,sbommv \
+                --output-adapter=interlynk --out-interlynk-url="https://api.interlynk.io/lynkapi" \
+                --daemon --in-github-poll-interval="24h"
+```
+
+**What this does:**
+
+- Continuously monitors the `sbomqs` and `sbommv` repositories under the `interlynk-io` organization for Dependency Graph SBOM updates.
+- Polls every 24 hours (customizable via `--in-github-poll-interval`).
+- Fetches SBOMs using GitHub’s Dependency Graph API when updates are detected.
+- Uploads new SBOMs to Interlynk as projects named `interlynk-io/sbomqs-latest-dependency-graph-sbom.json` and `interlynk-io/sbommv-latest-dependency-graph-sbom.json`.
+
+**NOTE:**
+
+- Use `--in-github-exclude-repos` (e.g., `--in-github-exclude-repos=docs`) to exclude specific repositories.
+- Cache files (e.g., `.sbommv/cache_interlynk_api.db`) are created per adapter-method combination.
+- To stop the daemon, press Ctrl+C.
+
+#### 4.2.3 GitHub Tool Method (Daemon Mode)
+
+```bash
+sbommv transfer --input-adapter=github --in-github-url="https://github.com/interlynk-io" \
+                --in-github-method=tool --in-github-include-repos=sbomqs,sbommv \
+                --output-adapter=interlynk --out-interlynk-url="https://api.interlynk.io/lynkapi" \
+                --daemon --in-github-poll-interval="24h"
+```
+
+**What this does:**
+
+- Continuously monitors the `sbomqs` and `sbommv` repositories under the `interlynk-io` organization for new releases containing SBOM artifacts.
+- Polls every 24 hours (customizable via `--in-github-poll-interval`).
+- Clones the repositories and generates SBOMs using Syft when new releases are detected.
+- Uploads new SBOMs to Interlynk as projects named `interlynk-io/sbomqs-latest-syft-generated-sbom.json` and `interlynk-io/sbommv-latest-syft-generated-sbom.json`.
+
+**NOTE:**
+
+- Use `--in-github-exclude-repos` (e.g., `--in-github-exclude-repos=docs`) to exclude specific repositories.
+- Cache files (e.g., `.sbommv/cache_interlynk_tool.db`) are created per adapter-method combination.
+- To stop the daemon, press Ctrl+C.
+
+## 5. GitHub → Folder
+
+### Fetch SBOMs from GitHub repo and save it to a folder
+
+```bash
+sbommv transfer --input-adapter=github --in-github-url="https://github.com/interlynk-io/" --in-github-include-repos=sbomqs,sbommv --in-github-method="release" --output-adapter=folder --out-folder-path="temp"
 ```
 
 - **What this does**:
-  - Fetches/Scan SBOMs from `temp` directory for all sub-directories such as `cosign`, `fulcio`, and `rekor`.
-  - Upload these SBOMs to a Interlynk with a project ID `cosign`, `fulcio`, and `rekor`.
+  - Fetches SBOMs from the `interlynk-io` organization for repositories `sbomqs` and `sbommv`.
+  - Saves these SBOMs to a folder named `temp`.
+  - Under temp, separate sub-directories named `sbomqs` and `sbommv` will be created, and the respective repo SBOMs will be stored there.
 
-## Some More Examples
+## 6. Folder → Interlynk
+
+### Fetch SBOMs from folder "temp" and upload/push it to Interlynk
+
+```bash
+sbommv transfer --input-adapter=folder --in-folder-path="temp" --in-folder-recursive=true --output-adapter=interlynk --out-interlynk-url="https://api.interlynk.io/lynkapi"
+```
+
+**What this does:**
+
+- Fetches/scans SBOMs from the temp directory for all sub-directories such as `sbomqs` and `sbommv`.
+- Uploads these SBOMs to Interlynk with project IDs `interlynk-io/sbomqs` and `interlynk-io/sbommv`.
+
+## 7. Some More Examples
 
 ### Combine Multiple Flags for Full Customization
 
 ```bash
-sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigstore/cosign" \
+sbommv transfer --input-adapter=github --in-github-url="https://github.com/interlynk-io/sbomqs" \
                 --in-github-method=tool --in-github-branch="dev" \
                 --output-adapter=interlynk --out-interlynk-url="https://api.interlynk.io/lynkapi" \
-                --out-interlynk-project-name="cosign-dev" --out-interlynk-project-env="development"
+                --out-interlynk-project-name="sbomqs-dev" --out-interlynk-project-env="development"
 ```
 
-- **What This Does**:
-  - Fetches SBOMs using tool from cosign for dev branch
-  - Uploads them to a specific Interlynk project (`cosign-dev`)
-  - Uses the `development` environment instead of the default
+**What this does:**
 
-NOTE:
+- Fetches SBOMs using the tool method from the dev branch of interlynk-io/sbomqs.
+- Uploads them to a specific Interlynk project (sbomqs-dev).
+- Uses the development environment instead of the default.
 
-- Project `cosign-dev` must be present in the Interlynk
+**NOTE:**
+
+- The project sbomqs-dev must already exist in Interlynk.
 
 ## Conclusion
 
-These examples cover various ways to fetch and upload SBOMs using sbommv. Whether you are fetching SBOMs from a single repo, an entire organization, or using a specific branch, sbommv provides flexibility to handle it efficiently.
+These examples cover various ways to fetch and upload SBOMs using sbommv. Whether you are performing a single transfer, monitoring a single repository, or continuously monitoring an entire organization, sbommv provides flexibility to handle it efficiently.
