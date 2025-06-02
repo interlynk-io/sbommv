@@ -2,6 +2,10 @@
 
 Fetch SBOM from Github System(adapter) and upload it to DependencyTrack System(adapter)
 
+It covers 4 section:
+
+- 
+
 ## Overview
 
 `sbommv` is a tool designed to transfer SBOMs (Software Bill of Materials) between systems. It operates with two different systems. In this case:
@@ -227,6 +231,147 @@ sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigst
   - The repository has large binary files instead of source code – Syft analyzes source-level dependencies, not compiled binaries.
   - The repository is private, and you don’t have access to clone it.
 
+## 4. Continuous Monitoring (Daemon Mode): GitHub → DependencyTrack
+
+Enable continuous monitoring by adding the `--daemon` or `-d` flag to your command. In daemon mode, `sbommv` periodically checks for new releases or SBOM updates in the specified GitHub repositories and uploads them to DependencyTrack. The polling interval can be customized using `--in-github-poll-interval`, default poll period is 24hrs.
+
+### 4.1 Single Repository Monitoring
+
+#### 4.1.1 GitHub Release Method (Daemon Mode)
+
+```bash
+sbommv transfer --input-adapter=github --in-github-url="https://github.com/interlynk-io/sbomqs" \
+                --in-github-method=release --output-adapter=dtrack --out-dtrack-url="http://localhost:8081" \
+                --daemon --in-github-poll-interval="60s"
+```
+
+**What this does:**
+
+- Continuously monitors the `interlynk-io/sbomqs` repository for new releases containing SBOMs.
+- Polls every 60 second (customizable via `--in-github-poll-interval`, supports formats like 60s, 1m, 1hr, or plain seconds).
+- Fetches SBOMs from the GitHub Release page when new release is detected.
+- Dtrack client automatically creates a new project with name `interlynk-io/sbomqs-<version>-<sbom_file_name>` with project version latest.
+- Uploads new SBOMs to the project `interlynk-io/sbomqs-<version>-<sbom_file_name>`.
+
+**NOTE**:
+
+- Use `--in-github-asset-wait-delay` (e.g., `--in-github-asset-wait-delay="180s"`) to add a delay before fetching assets, ensuring GitHub has time to process new releases. By default it take approx 3 minute to release assets after publishing release.
+- Cache files (e.g., .`sbommv/cache_dtrack_release.db`) are created to track processed releases and SBOMs, avoiding duplicates.
+- To stop the daemon, press `Ctrl+C`.
+
+#### 4.1.2 GitHub API Method (Daemon Mode)
+
+```bash
+sbommv transfer --input-adapter=github --in-github-url="https://github.com/interlynk-io/sbomqs" \
+                --output-adapter=dtrack --out-dtrack-url="http://localhost:8081" \
+                --daemon --in-github-poll-interval="24h"
+```
+
+**What this does:**
+
+- Continuously monitors the `interlynk-io/sbomqs` repository for updates to its Dependency Graph SBOM.
+- Polls every 24 hours (customizable via `--in-github-poll-interval`).
+- Fetches SBOMs using GitHub’s Dependency Graph API when updates are detected.
+- Dtrack client automatically creates a new project with name `interlynk-io/sbomqs-latest-dependency-graph-sbom.json` with project version latest.
+- Uploads new SBOMs to the project sigstore/cosign.
+
+**NOTE**:
+
+- Cache files (e.g., `.sbommv/cache_dtrack_api.db`) are created to track processed SBOMs, avoiding duplicates.
+- To stop the daemon, press Ctrl+C.
+
+#### 4.1.3 GitHub Tool Method (Daemon Mode)
+
+```bash
+sbommv transfer --input-adapter=github --in-github-url="https://github.com/interlynk-io/sbomqs" \
+                --in-github-method=tool --output-adapter=dtrack --out-dtrack-url="http://localhost:8081" \
+                --daemon --in-github-poll-interval="24h"
+```
+
+What this does:
+
+- Continuously monitors the `interlynk-io/sbomqs` repository for new releases.
+- Polls every 24 hours (customizable via `--in-github-poll-interval`).
+- Clones the repository and generates an SBOM using Syft when a new release is detected.
+- Dtrack client automatically creates a new project with name `interlynk-io/sbomqs-latest-syft-generated-sbom.json` with project version latest.
+- Uploads new SBOMs to the project `interlynk-io/sbomqs-latest-syft-generated-sbom.json`.
+
+NOTE:
+
+- Use `--in-github-branch` (e.g., --in-github-branch="main") to monitor a specific branch.
+- Cache files (e.g., `.sbommv/cache_dtrack_tool.db`) are created to track processed releases and SBOMs.
+- To stop the daemon, press Ctrl+C.
+
+### 4.2 Multiple Repository Monitoring (Organization-Level)
+
+#### 4.2.1 GitHub Release Method (Daemon Mode)
+
+```bash
+sbommv transfer --input-adapter=github --in-github-url="https://github.com/interlynk-io" \
+                --in-github-method=release --in-github-include-repos=sbomqs,sbommv \
+                --output-adapter=dtrack --out-dtrack-url="http://localhost:8081" \
+                --daemon --in-github-poll-interval="24h"
+```
+
+**What this does:**
+
+- Continuously monitors the `sbomqs` and `sbommv` repositories under the `interlynk-io` organization for new releases containing SBOMs artifacts..
+- Polls every 24 hours (customizable via `--in-github-poll-interval`).
+- Fetches SBOMs from the GitHub Release pages when new releases are detected.
+- Dtrack client automatically creates projects with names `interlynk-io/sbomqs-<version>-<sbom_file_name>` and `interlynk-io/sbommv-<version>-<sbom_file_name>` with project version latest.
+- Uploads new SBOMs to the respective projects.
+
+**NOTE**:
+
+- Use --in-github-exclude-repos (e.g., --in-github-exclude-repos=docs) to exclude specific repositories.
+- Cache files (e.g., .sbommv/cache_dtrack_release.db) are created per adapter-method combination.
+- To stop the daemon, press Ctrl+C.
+
+#### 4.2.2 GitHub API Method (Daemon Mode)
+
+```bash
+sbommv transfer --input-adapter=github --in-github-url="https://github.com/interlynk-io" \
+                --in-github-method=api --in-github-include-repos=sbomqs,sbommv \
+                --output-adapter=dtrack --out-dtrack-url="http://localhost:8081" \
+                --daemon --in-github-poll-interval="24h"
+```
+
+**What this does:**
+
+- Continuously monitors the `sbomqs` and `sbommv` repositories under the `interlynk-io` organization for Dependency Graph SBOM updates.
+- Polls every 24 hours (customizable via `--in-github-poll-interval`).
+- Fetches SBOMs using GitHub’s Dependency Graph API when updates are detected..
+- Dtrack client automatically creates projects with names `interlynk-io/sbomqs-latest-dependency-graph-sbom.json` and `interlynk-io/sbommv-latest-dependency-graph-sbom.json` with project version latest.
+- Uploads new SBOMs to the respective projects.
+
+**NOTE**:
+
+- Use `--in-github-exclude-repos` (e.g., --in-github-exclude-repos=docs) to exclude specific repositories.
+- Cache files (e.g., `.sbommv/cache_dtrack_api.db`) are created per adapter-method combination.
+- To stop the daemon, press Ctrl+C.
+
+#### 4.2.3 GitHub Tool Method (Daemon Mode)
+
+```bash
+sbommv transfer --input-adapter=github --in-github-url="https://github.com/interlynk-io" \
+                --in-github-method=tool --in-github-include-repos=sbomqs,sbommv \
+                --output-adapter=dtrack --out-dtrack-url="http://localhost:8081" \
+                --daemon --in-github-poll-interval="24h"
+```
+
+**What this does:**
+
+- Continuously monitors the `sbomqs` and `sbommv` repositories under the `interlynk-io` organization for Dependency Graph SBOM updates.
+- Polls every 24 hours (customizable via `--in-github-poll-interval`).
+- Clones the repositories and generates SBOMs using Syft when new releases are detected.
+- Dtrack client automatically creates projects with names `interlynk-io/sbomqs-latest-syft-generated-sbom.json` and `interlynk-io/sbommv-latest-syft-generated-sbom.json` with project version latest.
+- Uploads new SBOMs to the respective projects.
+
+**NOTE**:
+
+- Cache files (e.g., `.sbommv/cache_dtrack_tool.db`) are created per adapter-method combination.
+- To stop the daemon, press Ctrl+C.
+
 ## Conclusion
 
-These examples cover various ways to fetch and upload SBOMs using sbommv. Whether you are fetching SBOMs from a single repo, an entire organization, or using a specific branch, sbommv provides flexibility to handle it efficiently.
+These examples cover various ways to fetch and upload SBOMs using sbommv. Whether you are performing a single transfer, monitoring a single repository, or continuously monitoring an entire organization, sbommv provides flexibility to handle it efficiently.

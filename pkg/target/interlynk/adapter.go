@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"path/filepath"
 	"strings"
 
 	"github.com/interlynk-io/sbommv/pkg/iterator"
@@ -210,16 +209,16 @@ func (i *InterlynkAdapter) uploadSequential(ctx tcontext.TransferMetadata, sboms
 
 		sourceAdapter := ctx.Value("source")
 
-		projectName, projectVersion := utils.ConstructProjectName(ctx, client.ProjectName, client.ProjectVersion, sbom.Namespace, sbom.Version, sbom.Data, sourceAdapter.(string))
+		finalProjectName, _ := utils.ConstructProjectName(ctx, client.ProjectName, client.ProjectVersion, sbom.Namespace, sbom.Version, sbom.Path, sbom.Data, sourceAdapter.(string))
 
-		if projectName == "" {
-			// THIS CASE OCCURS WHEN SBOM IS NOT IN JSON FORMAT
-			// when a JSON SBOM has empty primary comp and version, use the file name as project name
-			projectName = filepath.Base(sbom.Path)
-			projectName = projectName[:len(projectName)-len(filepath.Ext(projectName))]
-			projectVersion = "latest"
-		}
-		finalProjectName := fmt.Sprintf("%s-%s", projectName, projectVersion)
+		// if projectName == "" {
+		// 	// THIS CASE OCCURS WHEN SBOM IS NOT IN JSON FORMAT
+		// 	// when a JSON SBOM has empty primary comp and version, use the file name as project name
+		// 	projectName = filepath.Base(sbom.Path)
+		// 	projectName = projectName[:len(projectName)-len(filepath.Ext(projectName))]
+		// 	projectVersion = "latest"
+		// }
+		// finalProjectName := fmt.Sprintf("%s-%s", projectName, projectVersion)
 
 		projectID, projectName, err := client.FindOrCreateProjectGroup(ctx, finalProjectName)
 		if err != nil {
@@ -282,16 +281,7 @@ func (i *InterlynkAdapter) DryRun(ctx tcontext.TransferMetadata, sbomIterator it
 
 		sourceAdapter := ctx.Value("source")
 
-		projectName, projectVersion := utils.ConstructProjectName(ctx, i.ProjectName, i.ProjectVersion, sbom.Namespace, sbom.Version, sbom.Data, sourceAdapter.(string))
-		if projectName == "" {
-			// THIS CASE OCCURS WHEN SBOM IS NOT IN JSON FORMAT
-			// when a JSON SBOM has empty primary comp and version, use the file name as project name
-			projectName = filepath.Base(sbom.Path)
-			projectName = projectName[:len(projectName)-len(filepath.Ext(projectName))]
-			projectVersion = "latest"
-		}
-
-		finalProjectName := fmt.Sprintf("%s-%s", projectName, projectVersion)
+		finalProjectName, _ := utils.ConstructProjectName(ctx, i.ProjectName, i.ProjectVersion, sbom.Namespace, sbom.Version, sbom.Path, sbom.Data, sourceAdapter.(string))
 
 		projectKey := fmt.Sprintf("%s", finalProjectName)
 		projectSBOMs[projectKey] = append(projectSBOMs[projectKey], doc)

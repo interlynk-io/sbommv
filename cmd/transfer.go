@@ -270,7 +270,7 @@ Explore examples at https://github.com/interlynk-io/sbommv/tree/main/examples.`)
 	defer logger.Sync()
 
 	ctx := logger.WithLogger(context.Background())
-	viper.AutomaticEnv()
+
 	logger.LogDebug(ctx, "Starting transferSBOM")
 
 	// Parse config
@@ -289,6 +289,9 @@ Explore examples at https://github.com/interlynk-io/sbommv/tree/main/examples.`)
 }
 
 func parseConfig(cmd *cobra.Command) (types.Config, error) {
+	// Init configuration
+	initConfig()
+
 	inputType, _ := cmd.Flags().GetString("input-adapter")
 	outputType, _ := cmd.Flags().GetString("output-adapter")
 	dr, _ := cmd.Flags().GetBool("dry-run")
@@ -343,4 +346,24 @@ func parseConfig(cmd *cobra.Command) (types.Config, error) {
 	}
 
 	return config, nil
+}
+
+func initConfig() {
+	// Set up Viper to automatically bind environment variables
+	viper.AutomaticEnv()
+
+	// Load .env file if it exists
+	viper.SetConfigFile(".env")
+	viper.SetConfigType("env")
+
+	// Read the .env file (if present)
+	if err := viper.ReadInConfig(); err != nil {
+		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
+			logger.LogDebug(context.Background(), "No .env file found, relying on environment variables")
+		} else {
+			logger.LogError(context.Background(), err, "Failed to read .env file")
+		}
+	} else {
+		logger.LogDebug(context.Background(), "Loaded .env file for configuration")
+	}
 }

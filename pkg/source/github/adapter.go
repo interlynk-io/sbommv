@@ -16,40 +16,23 @@ package github
 
 import (
 	"fmt"
-	"io"
+	"strconv"
 	"strings"
-	"sync"
-	"time"
 
 	"github.com/interlynk-io/sbommv/pkg/iterator"
 	"github.com/interlynk-io/sbommv/pkg/logger"
-	"github.com/interlynk-io/sbommv/pkg/sbom"
 	"github.com/interlynk-io/sbommv/pkg/tcontext"
 	"github.com/interlynk-io/sbommv/pkg/types"
 	"github.com/interlynk-io/sbommv/pkg/utils"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"golang.org/x/time/rate"
 )
 
 // GitHubAdapter handles fetching SBOMs from GitHub releases
 type GitHubAdapter struct {
-	URL            string
-	Repo           string
-	Owner          string
-	Version        string
-	Branch         string
-	Method         string
-	BinaryPath     string
-	client         *Client
-	GithubToken    string
-	Role           types.AdapterRole
-	ProcessingMode types.ProcessingMode
-	Daemon         bool
-
-	// Comma-separated list (e.g., "repo1,repo2")
-	IncludeRepos []string
-	ExcludeRepos []string
+	Config  *GithubConfig
+	Role    types.AdapterRole
+	Fetcher SBOMFetcher
 }
 
 type GitHubMethod string
@@ -71,6 +54,9 @@ func (g *GitHubAdapter) AddCommandParams(cmd *cobra.Command) {
 	cmd.Flags().String("in-github-method", "api", "GitHub method: release, api, or tool")
 	cmd.Flags().String("in-github-branch", "", "Github repository branch")
 	cmd.Flags().String("in-github-version", "", "github repo version")
+	cmd.Flags().String("in-github-token", "", "GitHub token (required for more than 5000/hour rate limit)")
+	cmd.Flags().String("in-github-poll-interval", "86400", "Polling interval to check GitHub Releases (default: 60s)")
+	cmd.Flags().Int("in-github-asset-wait-delay", 180, "Delay in seconds before fetching assets for a new release")
 
 	// Updated to StringSlice to support multiple values (comma-separated)
 	cmd.Flags().StringSlice("in-github-include-repos", nil, "Include only these repositories e.g sbomqs,sbomasm")
@@ -83,9 +69,11 @@ func (g *GitHubAdapter) AddCommandParams(cmd *cobra.Command) {
 // ParseAndValidateParams validates the GitHub adapter params
 func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 	var (
-		urlFlag, methodFlag, includeFlag, excludeFlag, githubBranchFlag, githubVersionFlag string
-		missingFlags                                                                       []string
-		invalidFlags                                                                       []string
+		urlFlag, methodFlag, includeFlag, excludeFlag,
+		githubBranchFlag, githubVersionFlag,
+		githubToken, githubPoll, assetWaitDelay string
+		missingFlags []string
+		invalidFlags []string
 	)
 
 	switch g.Role {
@@ -96,6 +84,9 @@ func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 		excludeFlag = "in-github-exclude-repos"
 		githubBranchFlag = "in-github-branch"
 		githubVersionFlag = "in-github-version"
+		githubToken = "in-github-token"
+		githubPoll = "in-github-poll-interval"
+		assetWaitDelay = "in-github-asset-wait-delay"
 
 	case types.OutputAdapterRole:
 		return fmt.Errorf("The GitHub adapter doesn't support output adapter functionalities.")
@@ -152,6 +143,10 @@ func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 		invalidFlags = append(invalidFlags, fmt.Sprintf("--%s is only supported for --in-github-method=tool, whereas it's not supported for --in-github-method=api and --in-github-method=release", githubBranchFlag))
 	}
 
+	poll, _ := cmd.Flags().GetString(githubPoll)
+
+	assetDelay, _ := cmd.Flags().GetInt(assetWaitDelay)
+
 	// Validate include & exclude repos cannot be used together
 	if len(includeRepos) > 0 && len(excludeRepos) > 0 {
 		invalidFlags = append(invalidFlags, fmt.Sprintf("Cannot use both %s and %s together", includeFlag, excludeFlag))
@@ -167,11 +162,24 @@ func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 		return fmt.Errorf("invalid input adapter flag usage:\n %s\n\nUse 'sbommv transfer --help' for correct usage.", strings.Join(invalidFlags, "\n "))
 	}
 
-	g.IncludeRepos = includeRepos
-	g.ExcludeRepos = excludeRepos
+	var fetcher SBOMFetcher
+	daemon := g.Config.Daemon
+
+	if daemon {
+		// daemon fetcher initialized
+		fetcher = NewWatcherFetcher()
+	} else if g.Config.ProcessingMode == types.FetchSequential {
+		fetcher = &SequentialFetcher{}
+	} else if g.Config.ProcessingMode == types.FetchParallel {
+		fetcher = &ParallelFetcher{}
+	}
+
+	cfg := NewGithubConfig()
+	cfg.SetIncludeRepos(includeRepos)
+	cfg.SetExcludeRepos(excludeRepos)
 
 	// Validate that both include & exclude are not used together
-	if len(g.IncludeRepos) > 0 && len(g.ExcludeRepos) > 0 {
+	if len(cfg.IncludeRepos) > 0 && len(cfg.ExcludeRepos) > 0 {
 		return fmt.Errorf("cannot use both --in-github-include-repos and --in-github-exclude-repos together")
 	}
 
@@ -181,11 +189,12 @@ func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 			return fmt.Errorf("failed to get Syft binary: %w", err)
 		}
 
-		g.BinaryPath = binaryPath
+		cfg.BinaryPath = binaryPath
 	}
 
 	token := viper.GetString("GITHUB_TOKEN")
 	if token == "" {
+		token, _ = cmd.Flags().GetString(githubToken)
 		logger.LogDebug(cmd.Context(), "GitHub Token not found in environment")
 	}
 
@@ -193,84 +202,44 @@ func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 		fmt.Println("Github API method calculates SBOM for a complete repo not for any particular version: ", version)
 	}
 
-	// Assign extracted values to struct
 	if version == "" {
 		version = "latest"
-		g.URL = githubURL
+		cfg.URL = githubURL
 	} else {
-		g.URL = fmt.Sprintf("https://github.com/%s/%s", owner, repo)
+		cfg.URL = fmt.Sprintf("https://github.com/%s/%s", owner, repo)
 	}
 
-	g.Owner = owner
-	g.Repo = repo
-	g.Branch = branch
-	g.Version = version
-	g.Method = method
-	g.GithubToken = token
+	cfg.Owner = owner
+	cfg.Repo = repo
+	cfg.Branch = branch
+
+	cfg.Version = version
+	cfg.Method = method
+	cfg.Token = token
+	pollInterval, err := strconv.Atoi(poll)
+	if err != nil {
+		return fmt.Errorf("invalid poll interval format: %w", err)
+	}
+	cfg.Poll = int64(pollInterval)
+	cfg.AssetWaitDelay = int64(assetDelay)
 
 	// Initialize GitHub client
-	g.client = NewClient(g)
+	cfg.client = NewClient(cfg)
 
-	// Debugging logs for tracking
-	logger.LogDebug(cmd.Context(), "Parsed GitHub parameters",
-		"url", g.URL,
-		"owner", g.Owner,
-		"branch", g.Branch,
-		"repo", g.Repo,
-		"version", g.Version,
-		"include_repos", g.IncludeRepos,
-		"exclude_repos", g.ExcludeRepos,
-		"method", g.Method,
-		"token", g.GithubToken,
-		"processing_mode", g.ProcessingMode,
-	)
+	g.Config = cfg
+	g.Fetcher = fetcher
 	return nil
 }
 
 // FetchSBOMs initializes the GitHub SBOM iterator using the unified method
 func (g *GitHubAdapter) FetchSBOMs(ctx tcontext.TransferMetadata) (iterator.SBOMIterator, error) {
-	logger.LogDebug(ctx.Context, "Intializing SBOM fetching process")
-
-	// Org Mode: Fetch all repositories
-	repos, err := g.client.GetAllRepositories(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get repositories: %w", err)
-	}
-
-	// filtering to include/exclude repos
-	repos = g.applyRepoFilters(repos)
-
-	if len(repos) == 1 {
-	}
-	if len(repos) == 0 {
-		return nil, fmt.Errorf("no repositories left after applying filters")
-	}
-
-	logger.LogDebug(ctx.Context, "Total repos from which SBOMs will be fetched", "count", len(repos), "repos", repos)
-
-	logger.LogDebug(ctx.Context, "Processing Mode", "strategy", g.ProcessingMode)
-
-	var sbomIterator iterator.SBOMIterator
-
-	switch g.ProcessingMode {
-	case types.FetchParallel:
-		sbomIterator, err = g.fetchSBOMsConcurrently(ctx, repos)
-	case types.FetchSequential:
-		sbomIterator, err = g.fetchSBOMsSequentially(ctx, repos)
-	default:
-		return nil, fmt.Errorf("Unsupported Processing Mode !!")
-	}
-
-	if err != nil {
-		logger.LogDebug(ctx.Context, "Failed to fetch SBOMs via Processing Mode", "error", err)
-		return nil, err
-	}
-
-	return sbomIterator, err
+	logger.LogDebug(ctx.Context, "Intializing SBOM fetching process", "fetching strategy", g.Config.ProcessingMode)
+	return g.Fetcher.Fetch(ctx, g.Config)
 }
 
-func (g *GitHubAdapter) Monitor(ctx tcontext.TransferMetadata) (iterator.SBOMIterator, tcontext.TransferMetadata, error) {
-	return nil, ctx, fmt.Errorf("GitHub adapter does not support real-time monitoring in daemon mode")
+func (g *GitHubAdapter) Monitor(ctx tcontext.TransferMetadata) (iterator.SBOMIterator, error) {
+	logger.LogInfo(ctx.Context, "monitoring", "repo", g.Config.Repo)
+	return g.Fetcher.Fetch(ctx, g.Config)
 }
 
 // OutputSBOMs should return an error since GitHub does not support SBOM uploads
@@ -280,257 +249,6 @@ func (g *GitHubAdapter) UploadSBOMs(ctx tcontext.TransferMetadata, iterator iter
 
 // DryRun for Input Adapter: Displays all fetched SBOMs from input adapter
 func (g *GitHubAdapter) DryRun(ctx tcontext.TransferMetadata, iterator iterator.SBOMIterator) error {
-	logger.LogDebug(ctx.Context, "Dry-run mode: Displaying SBOMs fetched from input adapter")
-
-	var outputDir string
-	var verbose bool
-
-	processor := sbom.NewSBOMProcessor(outputDir, verbose)
-	sbomCount := 0
-	fmt.Println()
-	fmt.Printf("📦 Details of all Fetched SBOMs by Github Input Adapter\n")
-
-	for {
-
-		sbom, err := iterator.Next(ctx)
-		if err == io.EOF {
-			break // No more SBOMs
-		}
-		if err != nil {
-			logger.LogError(ctx.Context, err, "Error retrieving SBOM from iterator")
-			continue
-		}
-		// Update processor with current SBOM data
-		processor.Update(sbom.Data, sbom.Namespace, sbom.Path)
-
-		doc, err := processor.ProcessSBOMs()
-		if err != nil {
-			logger.LogError(ctx.Context, err, "Failed to process SBOM")
-			continue
-		}
-
-		// If outputDir is provided, save the SBOM file
-		if outputDir != "" {
-			if err := processor.WriteSBOM(doc, sbom.Namespace); err != nil {
-				logger.LogError(ctx.Context, err, "Failed to write SBOM to output directory")
-			}
-		}
-
-		// Print SBOM content if verbose mode is enabled
-		if verbose {
-			fmt.Println("\n-------------------- 📜 SBOM Content --------------------")
-			fmt.Printf("📂 Filename: %s\n", doc.Filename)
-			fmt.Printf("📦 Format: %s | SpecVersion: %s\n\n", doc.Format, doc.SpecVersion)
-			fmt.Println(string(doc.Content))
-			fmt.Println("------------------------------------------------------")
-			fmt.Println()
-		}
-
-		sbomCount++
-		fmt.Printf(" - 📁 Repo: %s | Format: %s | SpecVersion: %s | Filename: %s \n", sbom.Namespace, doc.Format, doc.SpecVersion, doc.Filename)
-
-		// logger.LogInfo(ctx.Context, fmt.Sprintf("%d. Repo: %s | Format: %s | SpecVersion: %s | Filename: %s",
-		// 	sbomCount, sbom.Repo, doc.Format, doc.SpecVersion, doc.Filename))
-	}
-	fmt.Printf("📊 Total SBOMs are: %d\n", sbomCount)
-
-	logger.LogDebug(ctx.Context, "Dry-run mode completed for input adapter", "total_sboms", sbomCount)
-	return nil
-}
-
-// applyRepoFilters filters repositories based on inclusion/exclusion flags
-func (g *GitHubAdapter) applyRepoFilters(repos []string) []string {
-	includedRepos := make(map[string]bool)
-	excludedRepos := make(map[string]bool)
-
-	for _, repo := range g.IncludeRepos {
-		if repo != "" {
-			includedRepos[strings.TrimSpace(repo)] = true
-		}
-	}
-
-	for _, repo := range g.ExcludeRepos {
-		if repo != "" {
-			excludedRepos[strings.TrimSpace(repo)] = true
-		}
-	}
-
-	var filteredRepos []string
-
-	for _, repo := range repos {
-		if _, isExcluded := excludedRepos[repo]; isExcluded {
-			continue // Skip excluded repositories
-		}
-
-		// Include only if in the inclusion list (if provided)
-		if len(includedRepos) > 0 {
-			if _, isIncluded := includedRepos[repo]; !isIncluded {
-				continue // Skip repos that are not in the include list
-			}
-		}
-		// filtered repo are added to the final list
-		filteredRepos = append(filteredRepos, repo)
-	}
-
-	return filteredRepos
-}
-
-func (g *GitHubAdapter) fetchWatcher(ctx tcontext.TransferMetadata, repos []string) (iterator.SBOMIterator, error) {
-	logger.LogInfo(ctx.Context, "Monitoring SBOM via github adapter currently doesn't support")
-	return nil, nil
-}
-
-func (g *GitHubAdapter) fetchSBOMsConcurrently(ctx tcontext.TransferMetadata, repos []string) (iterator.SBOMIterator, error) {
-	logger.LogDebug(ctx.Context, "Fetching SBOMs concurrently")
-	const maxWorkers = 5
-	const requestsPerSecond = 5
-
-	repoChan := make(chan string, len(repos))
-	sbomsChan := make(chan []*iterator.SBOM, len(repos))
-
-	var wg sync.WaitGroup
-
-	// Rate limiter to respect GitHub API limits
-	limiter := rate.NewLimiter(rate.Every(time.Second/requestsPerSecond), requestsPerSecond)
-
-	// Start worker goroutines
-	for i := 0; i < maxWorkers; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for repo := range repoChan {
-				// Apply rate limiting
-				if err := limiter.Wait(ctx.Context); err != nil {
-					logger.LogDebug(ctx.Context, "Rate limiter error", "repo", repo, "error", err)
-					continue
-				}
-
-				g.client.updateRepo(repo)
-				iter := NewGitHubIterator(ctx, g, repo)
-
-				var repoSboms []*iterator.SBOM
-				var err error
-
-				switch GitHubMethod(g.Method) {
-				case MethodAPI:
-					repoSboms, err = iter.fetchSBOMFromAPI(ctx)
-					if err == nil {
-						logger.LogDebug(ctx.Context, "Total SBOM fetched from API method", "count", len(repoSboms), "repo", repo, "error", err)
-					}
-
-				case MethodReleases:
-					repoSboms, err = iter.fetchSBOMFromReleases(ctx)
-					if err == nil {
-						logger.LogDebug(ctx.Context, "Total SBOM fetched from release method", "count", len(repoSboms), "repo", repo, "error", err)
-					}
-
-				case MethodTool:
-					repoSboms, err = iter.fetchSBOMFromTool(ctx)
-					if err == nil {
-						logger.LogDebug(ctx.Context, "Total SBOM fetched from tool method", "count", len(repoSboms), "repo", repo, "error", err)
-					}
-
-				default:
-					logger.LogInfo(ctx.Context, "Unsupported method", "repo", repo, "method", g.Method)
-					err = fmt.Errorf("unsupported method: %s", g.Method)
-				}
-
-				// only send SBOMs if fetch succeeded (no error)
-				if err == nil && len(repoSboms) > 0 {
-					logger.LogDebug(ctx.Context, "Fetched SBOMs", "repo", repo, "count", len(repoSboms))
-					sbomsChan <- repoSboms
-				} else {
-					logger.LogInfo(ctx.Context, "Skipping SBOMs due to fetch error or no SBOMs found", "repo", repo, "error", err)
-				}
-			}
-		}()
-	}
-
-	// Distribute repositories to workers
-	for _, repo := range repos {
-		repoChan <- repo
-	}
-	close(repoChan)
-
-	// Wait for all workers to complete and close the results channel
-	wg.Wait()
-	close(sbomsChan)
-
-	// Collect all SBOMs
-	var finalSbomList []*iterator.SBOM
-	for repoSboms := range sbomsChan {
-		finalSbomList = append(finalSbomList, repoSboms...)
-	}
-
-	if len(finalSbomList) == 0 {
-		return nil, fmt.Errorf("no SBOMs found for any repository")
-	}
-	logger.LogDebug(ctx.Context, "Total SBOMs fetched from all repos", "count", len(finalSbomList))
-
-	return &GitHubIterator{sboms: finalSbomList}, nil
-}
-
-// fetchSBOMsSequentially: fetch SBOMs from repositories one at a time
-func (g *GitHubAdapter) fetchSBOMsSequentially(ctx tcontext.TransferMetadata, repos []string) (iterator.SBOMIterator, error) {
-	logger.LogDebug(ctx.Context, "Fetching SBOMs sequentially")
-
-	var sbomList []*iterator.SBOM
-	giter := &GitHubIterator{client: g.client, binaryPath: g.BinaryPath}
-
-	// Iterate over repositories one by one (sequential processing)
-	for _, repo := range repos {
-		giter.client.updateRepo(repo)
-
-		logger.LogDebug(ctx.Context, "Repository", "value", repo)
-
-		switch GitHubMethod(g.Method) {
-
-		case MethodAPI:
-
-			releaseSBOM, err := giter.fetchSBOMFromAPI(ctx)
-			if err != nil {
-				logger.LogDebug(ctx.Context, "Failed to fetch SBOMs from API Method for", "repo", repo, "error", err)
-				continue
-			}
-			if len(releaseSBOM) > 0 {
-				sbomList = append(sbomList, releaseSBOM...)
-			}
-
-		case MethodReleases:
-
-			releaseSBOMs, err := giter.fetchSBOMFromReleases(ctx)
-			if err != nil {
-				logger.LogDebug(ctx.Context, "Failed to fetch SBOMs from Release Method for", "repo", repo, "error", err)
-				continue
-			}
-			if len(releaseSBOMs) > 0 {
-				sbomList = append(sbomList, releaseSBOMs...)
-			}
-
-		case MethodTool:
-
-			releaseSBOM, err := giter.fetchSBOMFromTool(ctx)
-			if err != nil {
-				logger.LogDebug(ctx.Context, "Failed to generate SBOMs via Tool Method for", "repo", repo, "error", err)
-				continue
-			}
-
-			if len(releaseSBOM) > 0 {
-				sbomList = append(sbomList, releaseSBOM...)
-			}
-
-		default:
-			return nil, fmt.Errorf("unsupported GitHub method: %s", g.Method)
-		}
-
-	}
-
-	if len(sbomList) == 0 {
-		return nil, fmt.Errorf("no SBOMs found for any repository")
-	}
-	logger.LogDebug(ctx.Context, "Total SBOMs fetched from all repos", "count", len(sbomList))
-
-	return &GitHubIterator{
-		sboms: sbomList,
-	}, nil
+	reporter := NewGithubReporter(false, "")
+	return reporter.DryRun(ctx, iterator)
 }

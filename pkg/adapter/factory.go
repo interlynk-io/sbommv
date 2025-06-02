@@ -66,7 +66,7 @@ func NewAdapter(ctx tcontext.TransferMetadata, config types.Config) (map[types.A
 		switch types.AdapterType(config.SourceAdapter) {
 
 		case types.GithubAdapterType:
-			adapters[types.InputAdapterRole] = &github.GitHubAdapter{Role: types.InputAdapterRole, ProcessingMode: processingMode, Daemon: config.Daemon}
+			adapters[types.InputAdapterRole] = &github.GitHubAdapter{Role: types.InputAdapterRole, Config: &github.GithubConfig{ProcessingMode: processingMode, Daemon: config.Daemon}}
 			inputAdp = "github"
 
 		case types.FolderAdapterType:

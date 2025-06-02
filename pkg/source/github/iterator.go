@@ -34,7 +34,7 @@ type GitHubIterator struct {
 }
 
 // NewGitHubIterator initializes and returns a new GitHubIterator instance
-func NewGitHubIterator(ctx tcontext.TransferMetadata, g *GitHubAdapter, repo string) *GitHubIterator {
+func NewGitHubIterator(ctx tcontext.TransferMetadata, g *GithubConfig, repo string) *GitHubIterator {
 	logger.LogDebug(ctx.Context, "Initializing GitHub Iterator", "repo", g.URL, "method", g.Method, "repo", repo)
 
 	g.client.updateRepo(repo)
@@ -58,6 +58,22 @@ func (it *GitHubIterator) Next(ctx tcontext.TransferMetadata) (*iterator.SBOM, e
 	return sbom, nil
 }
 
+type GithubWatcherIterator struct {
+	sbomChan chan *iterator.SBOM
+}
+
+func (it *GithubWatcherIterator) Next(ctx tcontext.TransferMetadata) (*iterator.SBOM, error) {
+	select {
+	case sbom, ok := <-it.sbomChan:
+		if !ok {
+			return nil, fmt.Errorf("watcher channel closed")
+		}
+		return sbom, nil
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+}
+
 // Fetch SBOM via GitHub API
 func (it *GitHubIterator) fetchSBOMFromAPI(ctx tcontext.TransferMetadata) ([]*iterator.SBOM, error) {
 	sbomData, err := it.client.FetchSBOMFromAPI(ctx)
@@ -66,9 +82,9 @@ func (it *GitHubIterator) fetchSBOMFromAPI(ctx tcontext.TransferMetadata) ([]*it
 	}
 
 	var sbomSlice []*iterator.SBOM
-
+	filepath := "dependency-graph-sbom.json"
 	sbomSlice = append(sbomSlice, &iterator.SBOM{
-		Path: "",
+		Path: filepath,
 		Data: sbomData,
 
 		// namespace as owner/repo, where SBOM are present
@@ -134,8 +150,9 @@ func (it *GitHubIterator) fetchSBOMFromTool(ctx tcontext.TransferMetadata) ([]*i
 		return nil, fmt.Errorf("generate SBOM with zero file data: %w", err)
 	}
 
+	filepath := "syft-generated-sbom.json"
 	sbomSlice = append(sbomSlice, &iterator.SBOM{
-		Path: "",
+		Path: filepath,
 		Data: sbomBytes,
 
 		// namespace as owner/repo, where SBOM are present
