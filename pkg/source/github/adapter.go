@@ -144,18 +144,6 @@ func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 		invalidFlags = append(invalidFlags, fmt.Sprintf("--%s is only supported for --in-github-method=tool, whereas it's not supported for --in-github-method=api and --in-github-method=release", githubBranchFlag))
 	}
 
-	pollStr, _ := cmd.Flags().GetString(githubPoll)
-	pollSeconds, err := parseDuration(pollStr)
-	if err != nil {
-		return fmt.Errorf("invalid --in-github-poll-interval: %w", err)
-	}
-
-	assetDelayStr, _ := cmd.Flags().GetString(assetWaitDelay)
-	assetDelaySeconds, err := parseDuration(assetDelayStr)
-	if err != nil {
-		return fmt.Errorf("invalid --in-github-asset-wait-delay: %w", err)
-	}
-
 	// Validate include & exclude repos cannot be used together
 	if len(includeRepos) > 0 && len(excludeRepos) > 0 {
 		invalidFlags = append(invalidFlags, fmt.Sprintf("Cannot use both %s and %s together", includeFlag, excludeFlag))
@@ -218,6 +206,23 @@ func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 		cfg.URL = fmt.Sprintf("https://github.com/%s/%s", owner, repo)
 	}
 
+	if g.Config.Daemon {
+		pollStr, _ := cmd.Flags().GetString(githubPoll)
+		pollSeconds, err := parseDuration(pollStr)
+		if err != nil {
+			return fmt.Errorf("invalid --in-github-poll-interval: %w", err)
+		}
+
+		assetDelayStr, _ := cmd.Flags().GetString(assetWaitDelay)
+		assetDelaySeconds, err := parseDuration(assetDelayStr)
+		if err != nil {
+			return fmt.Errorf("invalid --in-github-asset-wait-delay: %w", err)
+		}
+
+		cfg.Poll = pollSeconds
+		cfg.AssetWaitDelay = assetDelaySeconds
+	}
+
 	cfg.Owner = owner
 	cfg.Repo = repo
 	cfg.Branch = branch
@@ -225,8 +230,6 @@ func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 	cfg.Version = version
 	cfg.Method = method
 	cfg.Token = token
-	cfg.Poll = pollSeconds
-	cfg.AssetWaitDelay = assetDelaySeconds
 
 	// Initialize GitHub client
 	cfg.client = NewClient(cfg)
