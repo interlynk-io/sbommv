@@ -148,8 +148,18 @@ func (u *S3SequentialUploader) Upload(ctx tcontext.TransferMetadata, s3cfg *S3Co
 			break
 		}
 		sourceAdapter := ctx.Value("source")
+		destinationAdapter := ctx.Value("destination")
 
-		finalProjectName, _ := utils.ConstructProjectName(ctx, "", "", sbom.Namespace, sbom.Version, sbom.Path, sbom.Data, sourceAdapter.(string))
+		var finalProjectName string
+
+		// if the source adapter is local folder cloud storage(s3), and the o/p adapter is local folder or cloud storage(s3),
+		// use the SBOM file name as the project name instead of primary comp and version
+		// because at the end they have to save the SBOM file as it is.
+		if sourceAdapter.(string) == "folder" && destinationAdapter.(string) == "s3" || sourceAdapter.(string) == "s3" && destinationAdapter.(string) == "s3" {
+			finalProjectName = sbom.Path
+		} else {
+			finalProjectName, _ = utils.ConstructProjectName(ctx, "", "", sbom.Namespace, sbom.Version, sbom.Path, sbom.Data, sourceAdapter.(string))
+		}
 
 		totalSBOMs++
 		if err != nil {
