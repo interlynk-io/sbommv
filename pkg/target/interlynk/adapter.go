@@ -235,6 +235,8 @@ func (i *InterlynkAdapter) uploadSequential(ctx tcontext.TransferMetadata, sboms
 			successfullyUploaded++
 			logger.LogDebug(ctx.Context, "upload", "file", sbom.Path, "project name", projectName)
 		}
+		logger.LogInfo(ctx.Context, "upload", "success", true, "project", finalProjectName, "file", sbom.Path)
+
 	}
 
 	logger.LogInfo(ctx.Context, "upload", "sboms", totalSBOMs, "success", successfullyUploaded, "failed", errorCount)
