@@ -189,6 +189,10 @@ func (i *InterlynkAdapter) uploadSequential(ctx tcontext.TransferMetadata, sboms
 	maxRetries := 5
 	totalSBOMs := 0
 	successfullyUploaded := 0
+
+	// space for proper logging
+	fmt.Println()
+
 	for {
 		sbom, err := sboms.Next(ctx)
 		if err == io.EOF {

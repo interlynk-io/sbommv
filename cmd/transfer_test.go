@@ -102,7 +102,7 @@ func TestUploadGithubAPIToDTrack(t *testing.T) {
 
 		// mock "/api/v1/project" api
 		if r.Method == "PUT" && r.URL.Path == "/api/v1/project" {
-			w.Write([]byte(`{"uuid": "39a35c94-b369-46e2-b67f-aed235cbc9c1", "name": "interlynk-io/sbomqs-latest-dependency-graph-sbom.json", "version": "latest"}`))
+			w.Write([]byte(`{"uuid": "39a35c94-b369-46e2-b67f-aed235cbc9c1", "name": "interlynk-io-sbomqs-latest-dependency-graph-sbom.json", "version": "latest"}`))
 			return
 		}
 
@@ -178,10 +178,10 @@ func TestUploadGithubAPIToDTrack(t *testing.T) {
 	assert.Contains(t, outBuf.String(), "Initializing SBOMs uploading to Dependency-Track sequentially", "Expected upload start")
 
 	assert.Contains(t, outBuf.String(), "New project will be created", "Expected project creation")
-	assert.Contains(t, outBuf.String(), `{"name": "interlynk-io/sbomqs-latest-dependency-graph-sbom.json", "version": "latest"}`, "Expected new project details")
+	assert.Contains(t, outBuf.String(), `{"name": "interlynk-io-sbomqs-latest-dependency-graph-sbom.json", "version": "latest"}`, "Expected new project details")
 
 	assert.Contains(t, outBuf.String(), "Processing Uploading SBOMs", "Expected successful upload completion")
-	assert.Contains(t, outBuf.String(), `{"project": "interlynk-io/sbomqs-latest-dependency-graph-sbom.json", "version": "latest"}`, "Expected project upload processsing")
+	assert.Contains(t, outBuf.String(), `{"project": "interlynk-io-sbomqs-latest-dependency-graph-sbom.json", "version": "latest"}`, "Expected project upload processsing")
 
 	assert.Contains(t, outBuf.String(), "Fetched SBOM successfully", "Expected fetch success")
 	assert.Contains(t, outBuf.String(), "New project will be created", "Expected project creation")

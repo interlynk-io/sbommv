@@ -44,6 +44,9 @@ func (u *SequentialUploader) Upload(ctx tcontext.TransferMetadata, config *Folde
 	successfullyUploaded := 0
 	failed := 0
 
+	// space for proper logging
+	fmt.Println()
+
 	for {
 		sbom, err := iter.Next(ctx)
 		if err == io.EOF {
