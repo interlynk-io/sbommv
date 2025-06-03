@@ -40,7 +40,7 @@ func NewWatcherFetcher() *GithubWatcherFetcher {
 }
 
 func (f *GithubWatcherFetcher) Fetch(ctx tcontext.TransferMetadata, config *GithubConfig) (iterator.SBOMIterator, error) {
-	logger.LogDebug(ctx.Context, "Starting GitHub watcher", "repo", config.Repo, "version", config.Version)
+	logger.LogInfo(ctx.Context, "Starting GitHub daemon watcher", "repo", config.Repo, "version", config.Version)
 
 	outputAdapter := ctx.Value("destination").(string)
 	method := config.Method
@@ -98,7 +98,7 @@ func (f *GithubWatcherFetcher) Fetch(ctx tcontext.TransferMetadata, config *Gith
 		return nil, fmt.Errorf("no repositories found")
 	}
 
-	logger.LogDebug(ctx.Context, "Final repositories list to watch out", "repos", finalRepoList)
+	logger.LogInfo(ctx.Context, "Final list of repositories to monitor", "repos", finalRepoList)
 
 	// start polling loop in a goroutine
 	go func() {
@@ -130,7 +130,7 @@ func (f *GithubWatcherFetcher) Fetch(ctx tcontext.TransferMetadata, config *Gith
 
 // pollRepository checks a single repository for new releases and fetches SBOMs based on the configured method.
 func pollRepository(ctx tcontext.TransferMetadata, client *githublib.Client, token, repo, owner, method, binaryPath string, assetWaitDelay int64, cache *Cache, sbomChan chan *iterator.SBOM, newReleaseDetected *bool) error {
-	logger.LogDebug(ctx.Context, "Polling repository", "repo", repo, "time", time.Now().Format(time.RFC3339))
+	logger.LogInfo(ctx.Context, "Polling repository", "repo", repo, "time", time.Now().Format(time.RFC3339))
 
 	outputAdapter := ctx.Value("destination").(string)
 
@@ -177,7 +177,7 @@ func pollRepository(ctx tcontext.TransferMetadata, client *githublib.Client, tok
 
 	// wait before fetching assets to allow GitHub Actions/workflows to upload them
 	if assetWaitDelay > 0 {
-		logger.LogDebug(ctx.Context, "Waiting before fetching assets", "repo", repo, "tag", tagName, "delay_seconds", assetWaitDelay)
+		logger.LogInfo(ctx.Context, "Waiting to fetch assets", "delay_seconds", assetWaitDelay)
 		select {
 		case <-time.After(time.Duration(assetWaitDelay) * time.Second):
 			// Continue after delay
@@ -274,13 +274,15 @@ func processAsset(ctx tcontext.TransferMetadata, client *githublib.Client, owner
 	}
 
 	// pass SBOM to the channel
-	logger.LogInfo(ctx.Context, "Found new SBOM", "repo", repo, "tag", tagName, "asset", assetName)
+	logger.LogDebug(ctx.Context, "Found new SBOM", "repo", repo, "tag", tagName, "asset", assetName)
 	sbomChan <- &iterator.SBOM{
 		Data:      content,
 		Path:      assetName,
 		Version:   tagName,
 		Namespace: fmt.Sprintf("%s-%s", owner, repo),
 	}
+
+	logger.LogInfo(ctx.Context, "Fetched SBOM", "repository", repo, "tag", tagName, "asset", assetName)
 
 	// update SBOM cache
 	cache.MarkSBOMProcessed(ctx, outputAdapter, "github", string(MethodReleases), sbomCacheKey, repo)
@@ -289,7 +291,7 @@ func processAsset(ctx tcontext.TransferMetadata, client *githublib.Client, owner
 
 // fetchSBOMFromReleaseAssets fetches SBOMs from the release assets.
 func fetchSBOMFromReleaseAssets(ctx tcontext.TransferMetadata, client *githublib.Client, owner, repo string, release *githublib.RepositoryRelease, releaseID, publishedAt, tagName string, cache *Cache, sbomChan chan *iterator.SBOM) error {
-	logger.LogDebug(ctx.Context, "Fetching SBOMs from release assets", "repo", repo)
+	logger.LogDebug(ctx.Context, "Fetching SBOMs via GitHub repository release page", "repo", repo, "tag", tagName)
 
 	opt := &githublib.ListOptions{PerPage: 100}
 	var allAssets []*githublib.ReleaseAsset
@@ -328,7 +330,7 @@ func fetchSBOMFromReleaseAssets(ctx tcontext.TransferMetadata, client *githublib
 // TODO: revert back to github client once the API is stable
 // This function fetches the SBOM for a specific repository and tag using http client.
 func fetchSBOMFromDependencyGraph(ctx tcontext.TransferMetadata, client *githublib.Client, token, owner, repo, releaseID, publishedAt, tagName string, cache *Cache, sbomChan chan *iterator.SBOM) error {
-	logger.LogDebug(ctx.Context, "Fetching SBOM from Dependency Graph API", "repo", repo, "tag", tagName)
+	logger.LogInfo(ctx.Context, "Fetching SBOM via Dependency Graph API", "repo", repo, "tag", tagName)
 
 	sbomCacheKey := fmt.Sprintf("%s:%s:%s:dependency-graph-sbom.json", owner, repo, tagName)
 	outputAdapter := ctx.Value("destination").(string)
@@ -403,14 +405,14 @@ func fetchSBOMFromDependencyGraph(ctx tcontext.TransferMetadata, client *githubl
 	// }
 
 	filepath := "dependency-graph-sbom.json"
-	logger.LogInfo(ctx.Context, "Found new SBOM from Dependency Graph API", "repo", repo)
+	logger.LogDebug(ctx.Context, "Found new SBOM from Dependency Graph API", "repo", repo)
 	sbomChan <- &iterator.SBOM{
 		Data:      response.SBOM,
 		Path:      filepath,
 		Version:   tagName,
 		Namespace: fmt.Sprintf("%s-%s", owner, repo),
 	}
-	logger.LogDebug(ctx.Context, "Fetched SBOM successfully", "repository", repo, "tag", tagName, "filepath", filepath)
+	logger.LogInfo(ctx.Context, "Fetched SBOM successfully", "repository", repo, "tag", tagName, "filepath", filepath)
 
 	cache.MarkSBOMProcessed(ctx, outputAdapter, "github", string(MethodAPI), sbomCacheKey, repo)
 	return nil
@@ -418,7 +420,7 @@ func fetchSBOMFromDependencyGraph(ctx tcontext.TransferMetadata, client *githubl
 
 // fetchSBOMUsingTool generates an SBOM using the Syft tool for the repository at the release's commit.
 func fetchSBOMUsingTool(ctx tcontext.TransferMetadata, client *githublib.Client, owner, repo string, release *githublib.RepositoryRelease, releaseID, publishedAt, tagName, binaryPath string, cache *Cache, sbomChan chan *iterator.SBOM) error {
-	logger.LogDebug(ctx.Context, "Generating SBOM with Syft tool", "repo", repo, "tag", tagName)
+	logger.LogInfo(ctx.Context, "Fetching SBOM via SBOM Generating Syft tool", "repo", repo, "tag", tagName)
 
 	sbomCacheKey := fmt.Sprintf("%s:%s:%s:syft-generated-sbom.json", owner, repo, tagName)
 	outputAdapter := ctx.Value("destination").(string)
@@ -458,7 +460,7 @@ func fetchSBOMUsingTool(ctx tcontext.TransferMetadata, client *githublib.Client,
 		Version:   tagName,
 		Namespace: fmt.Sprintf("%s-%s", owner, repo),
 	}
-
+	logger.LogInfo(ctx.Context, "Fetched SBOM successfully", "repository", repo, "tag", tagName, "filepath", filepath)
 	cache.MarkSBOMProcessed(ctx, outputAdapter, "github", string(MethodTool), sbomCacheKey, repo)
 	return nil
 }
