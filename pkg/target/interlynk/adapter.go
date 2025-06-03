@@ -189,6 +189,10 @@ func (i *InterlynkAdapter) uploadSequential(ctx tcontext.TransferMetadata, sboms
 	maxRetries := 5
 	totalSBOMs := 0
 	successfullyUploaded := 0
+
+	// space for proper logging
+	fmt.Println()
+
 	for {
 		sbom, err := sboms.Next(ctx)
 		if err == io.EOF {
@@ -235,6 +239,8 @@ func (i *InterlynkAdapter) uploadSequential(ctx tcontext.TransferMetadata, sboms
 			successfullyUploaded++
 			logger.LogDebug(ctx.Context, "upload", "file", sbom.Path, "project name", projectName)
 		}
+		logger.LogInfo(ctx.Context, "upload", "success", true, "project", finalProjectName, "file", sbom.Path)
+
 	}
 
 	logger.LogInfo(ctx.Context, "upload", "sboms", totalSBOMs, "success", successfullyUploaded, "failed", errorCount)

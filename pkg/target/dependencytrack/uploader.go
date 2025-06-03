@@ -14,6 +14,7 @@
 package dependencytrack
 
 import (
+	"fmt"
 	"io"
 	"sync"
 
@@ -41,6 +42,9 @@ func NewSequentialUploader() *SequentialUploader {
 
 func (u *SequentialUploader) Upload(ctx tcontext.TransferMetadata, config *DependencyTrackConfig, client *DependencyTrackClient, iter iterator.SBOMIterator) error {
 	logger.LogDebug(ctx.Context, "Initializing SBOMs uploading to Dependency-Track sequentially")
+
+	// space for proper logging
+	fmt.Println()
 
 	totalSBOMs := 0
 	successfullyUploaded := 0
@@ -164,6 +168,9 @@ func (u *ParallelUploader) Upload(ctx tcontext.TransferMetadata, config *Depende
 	sbomChan := make(chan *iterator.SBOM, 100)
 	totalSBOMs := 0
 	successfullyUploaded := 0
+
+	// space for proper logging
+	fmt.Println()
 
 	// multiple goroutines will read SBOMs from the iterator.
 	go func() {

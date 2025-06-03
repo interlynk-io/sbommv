@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/interlynk-io/sbommv/pkg/iterator"
 	"github.com/interlynk-io/sbommv/pkg/logger"
@@ -55,8 +56,8 @@ func (g *GitHubAdapter) AddCommandParams(cmd *cobra.Command) {
 	cmd.Flags().String("in-github-branch", "", "Github repository branch")
 	cmd.Flags().String("in-github-version", "", "github repo version")
 	cmd.Flags().String("in-github-token", "", "GitHub token (required for more than 5000/hour rate limit)")
-	cmd.Flags().String("in-github-poll-interval", "86400", "Polling interval to check GitHub Releases (default: 60s)")
-	cmd.Flags().Int("in-github-asset-wait-delay", 180, "Delay in seconds before fetching assets for a new release")
+	cmd.Flags().String("in-github-poll-interval", "24h", "Polling interval to check GitHub Releases (default: 24h; supports formats like '60s', '10m', '10hr', or plain seconds)")
+	cmd.Flags().String("in-github-asset-wait-delay", "180s", "Delay before fetching assets for a new release (default: 180s; supports formats like '60s', '10m', '10hr', or plain seconds)")
 
 	// Updated to StringSlice to support multiple values (comma-separated)
 	cmd.Flags().StringSlice("in-github-include-repos", nil, "Include only these repositories e.g sbomqs,sbomasm")
@@ -143,10 +144,6 @@ func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 		invalidFlags = append(invalidFlags, fmt.Sprintf("--%s is only supported for --in-github-method=tool, whereas it's not supported for --in-github-method=api and --in-github-method=release", githubBranchFlag))
 	}
 
-	poll, _ := cmd.Flags().GetString(githubPoll)
-
-	assetDelay, _ := cmd.Flags().GetInt(assetWaitDelay)
-
 	// Validate include & exclude repos cannot be used together
 	if len(includeRepos) > 0 && len(excludeRepos) > 0 {
 		invalidFlags = append(invalidFlags, fmt.Sprintf("Cannot use both %s and %s together", includeFlag, excludeFlag))
@@ -209,6 +206,23 @@ func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 		cfg.URL = fmt.Sprintf("https://github.com/%s/%s", owner, repo)
 	}
 
+	if g.Config.Daemon {
+		pollStr, _ := cmd.Flags().GetString(githubPoll)
+		pollSeconds, err := parseDuration(pollStr)
+		if err != nil {
+			return fmt.Errorf("invalid --in-github-poll-interval: %w", err)
+		}
+
+		assetDelayStr, _ := cmd.Flags().GetString(assetWaitDelay)
+		assetDelaySeconds, err := parseDuration(assetDelayStr)
+		if err != nil {
+			return fmt.Errorf("invalid --in-github-asset-wait-delay: %w", err)
+		}
+
+		cfg.Poll = pollSeconds
+		cfg.AssetWaitDelay = assetDelaySeconds
+	}
+
 	cfg.Owner = owner
 	cfg.Repo = repo
 	cfg.Branch = branch
@@ -216,12 +230,6 @@ func (g *GitHubAdapter) ParseAndValidateParams(cmd *cobra.Command) error {
 	cfg.Version = version
 	cfg.Method = method
 	cfg.Token = token
-	pollInterval, err := strconv.Atoi(poll)
-	if err != nil {
-		return fmt.Errorf("invalid poll interval format: %w", err)
-	}
-	cfg.Poll = int64(pollInterval)
-	cfg.AssetWaitDelay = int64(assetDelay)
 
 	// Initialize GitHub client
 	cfg.client = NewClient(cfg)
@@ -238,7 +246,7 @@ func (g *GitHubAdapter) FetchSBOMs(ctx tcontext.TransferMetadata) (iterator.SBOM
 }
 
 func (g *GitHubAdapter) Monitor(ctx tcontext.TransferMetadata) (iterator.SBOMIterator, error) {
-	logger.LogInfo(ctx.Context, "monitoring", "repo", g.Config.Repo)
+	logger.LogDebug(ctx.Context, "monitoring", "repo", g.Config.Repo)
 	return g.Fetcher.Fetch(ctx, g.Config)
 }
 
@@ -251,4 +259,39 @@ func (g *GitHubAdapter) UploadSBOMs(ctx tcontext.TransferMetadata, iterator iter
 func (g *GitHubAdapter) DryRun(ctx tcontext.TransferMetadata, iterator iterator.SBOMIterator) error {
 	reporter := NewGithubReporter(false, "")
 	return reporter.DryRun(ctx, iterator)
+}
+
+// parseDuration parses a duration string (e.g., "10s", "10m", "10hr") into seconds.
+func parseDuration(durationStr string) (int64, error) {
+	// Normalize the input
+	durationStr = strings.TrimSpace(durationStr)
+	durationStr = strings.ToLower(durationStr)
+	durationStr = strings.ReplaceAll(durationStr, " ", "")
+
+	// Parse the duration
+	var duration time.Duration
+	var err error
+
+	switch {
+	case strings.HasSuffix(durationStr, "s"): // Seconds: xs (e.g., "60s")
+		duration, err = time.ParseDuration(durationStr)
+	case strings.HasSuffix(durationStr, "m"): // Minutes: xm (e.g., "10m")
+		duration, err = time.ParseDuration(durationStr)
+	case strings.HasSuffix(durationStr, "hr"): // Hours: xhr (e.g., "10hr")
+		// Normalize "hr" to "h" for time.ParseDuration
+		durationStr = strings.TrimSuffix(durationStr, "hr") + "h"
+		duration, err = time.ParseDuration(durationStr)
+	default: // Backward compatibility: plain seconds (e.g., "60")
+		seconds, err := strconv.Atoi(durationStr)
+		if err != nil {
+			return 0, fmt.Errorf("must be in format like '60s', '10m', '10hr', or plain seconds (e.g., '60'): %w", err)
+		}
+		duration = time.Duration(seconds) * time.Second
+	}
+
+	if err != nil {
+		return 0, fmt.Errorf("must be in format like '60s', '10m', '10hr', or plain seconds (e.g., '60'): %w", err)
+	}
+
+	return int64(duration.Seconds()), nil
 }

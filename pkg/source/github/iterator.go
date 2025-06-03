@@ -88,7 +88,7 @@ func (it *GitHubIterator) fetchSBOMFromAPI(ctx tcontext.TransferMetadata) ([]*it
 		Data: sbomData,
 
 		// namespace as owner/repo, where SBOM are present
-		Namespace: fmt.Sprintf("%s/%s", it.client.Owner, it.client.Repo),
+		Namespace: fmt.Sprintf("%s-%s", it.client.Owner, it.client.Repo),
 		Version:   "latest",
 	})
 	logger.LogDebug(ctx.Context, "SBOM successfully fetched using API Method")
@@ -112,7 +112,7 @@ func (it *GitHubIterator) fetchSBOMFromReleases(ctx tcontext.TransferMetadata) (
 				Data: sbomData.Content,
 
 				// namespace as owner/repo, where SBOM are present
-				Namespace: fmt.Sprintf("%s/%s", it.client.Owner, it.client.Repo),
+				Namespace: fmt.Sprintf("%s-%s", it.client.Owner, it.client.Repo),
 				Version:   version,
 			})
 		}
@@ -156,7 +156,7 @@ func (it *GitHubIterator) fetchSBOMFromTool(ctx tcontext.TransferMetadata) ([]*i
 		Data: sbomBytes,
 
 		// namespace as owner/repo, where SBOM are present
-		Namespace: fmt.Sprintf("%s/%s", it.client.Owner, it.client.Repo),
+		Namespace: fmt.Sprintf("%s-%s", it.client.Owner, it.client.Repo),
 		Version:   it.client.Version,
 		Branch:    it.client.Branch,
 	})

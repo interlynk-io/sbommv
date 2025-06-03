@@ -120,7 +120,7 @@ func (f *FolderAdapter) Monitor(ctx tcontext.TransferMetadata) (iterator.SBOMIte
 		return nil, fmt.Errorf("daemon mode not enabled for folder adapter")
 	}
 
-	logger.LogInfo(ctx.Context, "monitoring", "path", f.Config.FolderPath)
+	logger.LogDebug(ctx.Context, "monitoring", "path", f.Config.FolderPath)
 	return f.Fetcher.Fetch(ctx, f.Config)
 }
 
