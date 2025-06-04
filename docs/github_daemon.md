@@ -2,25 +2,28 @@
 
 ## Overview
 
-The GitHub Daemon Mode feature in sbommv enables **continuous monitoring of external GitHub repositories for new releases and automatically fetches their Software Bill of Materials (SBOMs) using a specified method (release, api, or tool)**. It’s designed as a lightweight, flexible component of sbommv’s glue layer, bridging GitHub repositories with output platforms like local folders (folder adapter) or DependencyTrack (dtrack adapter). This feature is ideal for users who need to track SBOMs for repositories they don’t own, such as sigstore/cosign or owner/stree, without manual intervention.
+The GitHub Daemon Mode feature in sbommv enables **continuous monitoring of external GitHub repositories for new releases and automatically fetches their Software Bill of Materials (SBOMs) using a specified method (release, api, or tool)**. It’s designed as a lightweight, flexible component of sbommv’s glue layer, bridging GitHub repositories with output platforms like DependencyTrack (dtrack adapter), Interlynk (interlynk adapter), AWS S3(s3 adapter) and local folders (folder adapter). This feature is ideal for users who need to track SBOMs for repositories they don’t own, such as `interlynk-io/cosign` or any, without manual intervention.
 
-## Key capabilities:
+## Key capabilities
 
 **Continuous Polling**: Periodically checks repositories for new releases (default: every 24 hours).
 
-**SBOM Fetching**: Retrieves SBOMs using configurable methods:
+**SBOM Fetching**
+Retrieves SBOMs using specified methods:
 
 - **release**: Fetches SBOMs from release assets.
 - **api**: Uses GitHub’s Dependency Graph API.
 - **tool**: Generates SBOMs with Syft.
 
-**Cache Management**: Tracks repository states and SBOMs to avoid redundant fetching, pruning old SBOMs for efficiency.
+**Cache Management**
+Tracks repository states and SBOMs to avoid redundant fetching.
 
-**Asset Delay Handling**: Waits 3 minutes for assets to ensure GitHub Actions/workflows have time to upload SBOMs.
+**Asset Delay Handling**
+Waits 3 minutes for assets to ensure GitHub Actions/workflows have time to upload SBOMs.
 
 ## How It Works
 
-The daemon mode operates by polling GitHub repositories, comparing release information, and fetching SBOMs when new releases are detected. Here’s a step-by-step breakdown:
+The daemon mode operates by polling GitHub repositories, comparing release information(`released_id` and `published_at`), and fetching SBOMs when new releases are detected. Here’s a step-by-step breakdown:
 
 ### 1. Polling Mechanism
 
@@ -29,9 +32,9 @@ The daemon mode operates by polling GitHub repositories, comparing release infor
 
 - The daemon runs a polling loop with a configurable interval (default: 24 hours, set via `--in-github-poll-interval`).
 
-- For each repository (e.g., owner/stree), it queries the GitHub API to fetch the latest release’s `release_id` and `published_at`.
+- For each repository (for example, `interlynk-io/sbomqs` repo), it queries the GitHub API to fetch the latest release’s `release_id` and `published_at`.
 
-- It compares these with cached values in `sbommv/cache.json` under `cache[adapter][github][method][repos][repo]`.
+- It compares these with cached values stored in sqlite embedded db `sbommv/cache_<output_adapter>_<github_method>.db`.
 
 - If `release_id` or `published_at`  differs, a new release is detected, triggering SBOM fetching.
 
@@ -45,9 +48,7 @@ If they match, no new release exists, and polling continues.
 
 - When a new release is detected, the daemon waits for a configurable delay (default: 3 minutes, set via `--in-github-asset-wait-delay`) before fetching assets.
 
-- This accounts for typical delays in workflows (e.g., building and uploading SBOMs for stree).
-
-- The wait is applied only for the release method, as api and tool methods don’t rely on release assets.
+- This accounts for typical delays in workflows (e.g., building and uploading SBOMs for repositories).
 
 ### 3. SBOM Fetching
 
@@ -55,63 +56,59 @@ If they match, no new release exists, and polling continues.
 
 **Process**:
 
-- **release** Method: Queries release assets via GitHub API (e.g., stree-darwin-amd64.spdx.sbom).
+- **release** Method: Queries release assets from GitHub repository release page (e.g., stree-darwin-amd64.spdx.sbom).
 
 - **api** Method: Fetches a single SBOM from GitHub’s Dependency Graph API (dependency-graph-sbom.json).
 
 - **tool** Method: Clones the repo at the release’s commit and generates an SBOM using Syft (syft-generated-sbom.json).
 
-Duplicate SBOMs are skipped by checking the cache (`data[adapter][github][method][sboms][sbomCacheKey]`).
-
 ### 4. Cache Management
 
-**Purpose**: Tracks repository states and SBOMs to optimize polling and avoid redundant fetching.
+**Purpose**: Tracks repository states and SBOMs to optimize polling and avoid redundant fetching.  
+**Cache Structure**:
 
-**Cache Structure** (sbommv/cache.json):
+- **Database Files**: Uses method-specific SQLite databases (e.g., `.sbommv/cache_<output_adapter>_<github_method>.db`, such as `.sbommv/cache_dtrack_api.db` for `dtrack` with `api` method).
 
-- **Repos**: Stores the latest release’s published_at and release_id for each repo (e.g., `data[folder][github][release][repos][owner/stree]`).
+- **Repos Table**: Stores the latest release’s `published_at` and `release_id` for each repo (e.g., `repos` table entry for `interlynk-io/sbomqs`).
 
-- **SBOMs**: Tracks processed SBOMs to prevent duplicates (e.g., `data[folder][github][release][sboms][owner/stree:220351508:stree-darwin-amd64.spdx.sbom]`).
+- **SBOMs Table**: Tracks processed SBOMs to prevent duplicates (e.g., `sboms` table entry for `interlynk-io/sbomqs:220351508:sbomqs-v0.0.21.spdx.sbom`).
 
-Uses a JSON-based key-value structure for simplicity and readability.
-
-**Pruning**: When a new release is detected, the sboms map for the repo and method (e.g., release) is cleared to store only the latest release’s SBOMs.
-
-This prevents cache bloat from accumulating SBOMs for old releases (e.g., 220288414, 220320120).
-
-Pruning is applied only for the release method, as api and tool methods typically yield one SBOM per release.
+- **Method-Specific Caches**: Each combination of output adapter and GitHub method has its own cache file to prevent overwrites (e.g., `.sbommv/cache_dtrack_release.db`, `.sbommv/cache_dtrack_api.db`).
 
 ### 5. Output
 
 **Purpose**: Delivers fetched SBOMs to the configured output adapter.
 
-**Process**: SBOMs are sent to the adapter (e.g., folder saves to disk, dtrack uploads to DependencyTrack).
+**Process**:
 
-The cache is updated (Repos and SBOMs) only if SBOMs are found (for release) or for api/tool methods.
+- SBOMs are sent to the adapter (e.g., `folder` saves to disk, `dtrack` uploads to DependencyTrack, `interlynk` uploads to Interlynk, `s3` uploads to an S3 bucket).
+- The cache is updated (`repos` and `sboms` tables) only if SBOMs are found (for `release`) or for `api`/`tool` methods.
 
 ## Design Q/A
 
 ### Why Polling?
 
-GitHub doesn’t support third-party webhooks for repositories you don’t own, making polling the best approach for external repos like sigstore/cosign or owner/stree.
+GitHub doesn’t support third-party webhooks for repositories you don’t own, making polling the best approach for external repos like `interlynk-io/sbomqs` or any other repositories.
 
-A 24-hour default interval balances timeliness and API rate limit usage (configurable via --in-github-poll-interval).
+A 24-hour default interval balances timeliness and API rate limit usage (configurable via `--in-github-poll-interval`).
 
-### Why JSON Cache?
+### Why SQLite Cache?
 
-A JSON-based key-value cache (`sbommv/cache.json`) is lightweight, human-readable, and dependency-free, aligning with sbommv’s “no internal state” design.
+We initially used a JSON-based key-value cache (`sbommv/cache.json`) for its simplicity, but switched to SQLite databases (e.g., `.sbommv/cache_dtrack_api.db`) for better performance and concurrency handling:
 
-Compared to an embedded SQLite cache, JSON is simpler for small caches (~100 KB for stree), avoiding the complexity of SQL queries and CGO dependencies. See JSON vs. SQLite Rationale for details.
+- **Concurrency**: SQLite with WAL mode supports concurrent access by multiple adapter instances (e.g., `dtrack` with `api`, `tool`, `release`), but we later disabled WAL mode since method-specific caches eliminate shared database scenarios.
 
-The nested structure (adapter:github:method:repos/sboms) supports multiple adapters and methods efficiently.
+- **Method-Specific Caches**: Each adapter-method pair (e.g., `dtrack` with `api`) has its own database to prevent overwrites and ensure coherence.
+
+- **Structure**: Uses `repos` and `sboms` tables for efficient querying and updates, replacing the nested JSON structure.
 
 ### Why 3-Minute Wait ?
 
-GitHub Actions/workflows often delay asset uploads (e.g., SBOMs for stree) by seconds to minutes after a release is created.
+GitHub Actions/workflows often delay asset uploads (e.g., SBOMs for `interlynk-io/sbomqs`) by seconds to minutes after a release is created.
 
-A 3-minute wait (`--in-github-asset-wait-delay=180`) covers typical delays, ensuring assets are available before fetching.
+A 3-minute default wait (`--in-github-asset-wait-delay="180s"`) covers typical delays, ensuring assets are available before fetching.
 
-Configurable to accommodate varying workflow speeds (e.g., 60s for fast workflows, 300s for slow ones).
+Configurable to accommodate varying workflow speeds (e.g., `60s` for fast workflows, `300s` for slow ones), supporting formats like `60s`, `10m`, `10hr`, or plain seconds.
 
 ### Why Prune SBOMs?
 

@@ -38,7 +38,7 @@ func (f *SequentialFetcher) Fetch(ctx tcontext.TransferMetadata, config *GithubC
 
 	var filterdRepos []string
 
-	if config.Repo == "" {
+	if config.Repo == "" && config.Owner != "" {
 		repos, err := config.client.GetAllRepositories(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get repositories: %w", err)
@@ -50,9 +50,15 @@ func (f *SequentialFetcher) Fetch(ctx tcontext.TransferMetadata, config *GithubC
 
 		// filtering to include/exclude repos
 		filterdRepos = config.client.applyRepoFilters(ctx, repos, config.IncludeRepos, config.ExcludeRepos)
+		if len(filterdRepos) == 0 {
+			return nil, fmt.Errorf("no repositories found post filtering")
+		}
 	}
 
-	filterdRepos = append(filterdRepos, config.Repo)
+	if config.Repo != "" {
+		filterdRepos = append(filterdRepos, config.Repo)
+	}
+
 	if len(filterdRepos) == 0 {
 		return nil, fmt.Errorf("no repositories found")
 	}

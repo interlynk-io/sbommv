@@ -2,10 +2,6 @@
 
 Fetch SBOM from Github System(adapter) and upload it to DependencyTrack System(adapter)
 
-It covers 4 section:
-
-- 
-
 ## Overview
 
 `sbommv` is a tool designed to transfer SBOMs (Software Bill of Materials) between systems. It operates with two different systems. In this case:
@@ -30,39 +26,61 @@ Once SBOMs are fetched, they need to be uploaded to DependencyTrack. To setup De
 ### 1.1 Github Release Method
 
 ```bash
-sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigstore/cosign" \
-                --in-github-method=release --output-adapter=dtrack --out-dtrack-url="http://localhost:8081"
+sbommv transfer \
+--input-adapter=github \
+--in-github-url="https://github.com/interlynk-io/sbomqs" \
+--in-github-method=release \
+--output-adapter=dtrack \
+--out-dtrack-url="http://localhost:8081"
 ```
 
 - **What this does**:
-  - Fetches SBOMs from GitHub’s Release page of `sigstore/cosign`
-  - dtrack client automatically creates a new project with name `sigstore/cosign` with project version `latest`
-  - Uploads those sboms to a project `sigstore/cosign`
+  - Fetches SBOMs from GitHub’s Release page of `interlynk-io/sbomqs`
+  - `dtrack` client automatically creates a 6 new project as the same as number of SBOMS with following names:
+    - `interlynk-io-sbomqs-v1.0.6-sbomqs-linux-amd64.spdx.sbom`
+    - `interlynk-io-sbomqs-v1.0.6-sbomqs-windows-arm64.exe.spdx.sbom`
+    - `interlynk-io-sbomqs-v1.0.6-sbomqs-darwin-amd64.spdx.sbom`
+    - `interlynk-io-sbomqs-v1.0.6-sbomqs-windows-amd64.exe.spdx.sbom`
+    - `interlynk-io-sbomqs-v1.0.6-sbomqs-linux-arm64.spdx.sbom`
+    - `interlynk-io-sbomqs-v1.0.6-sbomqs-darwin-arm64.spdx.sbom`
+  - Uploads to dtrack platform with as it is project name.
 
 #### Let's specify a project name and version
 
 ```bash
-sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigstore/cosign" \
-                --in-github-method=release --output-adapter=dtrack --out-dtrack-url="http://localhost:8081" \        
-∙               --out-dtrack-project-name="cosign_demo" --out-dtrack-project-version="v1.0.1"
+sbommv transfer \                                 
+--input-adapter=github \            
+--in-github-url="https://github.com/interlynk-io/sbomqs" \
+--in-github-method=release \               
+--output-adapter=dtrack \                                             
+--out-dtrack-url="http://localhost:8081" \   
+--out-dtrack-project-name="sbomqs_demo" \        
+--out-dtrack-project-version="v1.0.1"
 ```
 
+**NOTE**:
+
+- In Dependency Track, each project signifies to one SBOM only. Therefore, although your repo has many SBOMs, but it will only upload only one SBOM to it. To avoid this, remove explicit flag  `--out-dtrack-project-name="sbomqs_demo"` and `--out-dtrack-project-version="v1.0.1"`. And let sbommv create seperate project for each SBOM, as above command does.
+
 - **What this does**:
-  - Fetches SBOMs from GitHub’s Release page of `sigstore/cosign`
-  - dtrack client creates a new project with name `cosign_demo` with project version `v1.0.1`
-  - Uploads those sboms to a project `cosign_demo`
+  - Fetches SBOMs from GitHub’s Release page of `interlynk-io/sbomqs`
+  - dtrack client creates a new project with name `sbomqs_demo` with project version `v1.0.1`
+  - Uploads any one sbom to a project `sbomqs_demo-v1.0.1`
 
 ### 1.2 GitHub API Method (Dependency Graph): default method
 
 ```bash
-sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigstore/cosign" \
-                 --output-adapter=dtrack --out-dtrack-url="http://localhost:8081"
+sbommv transfer \
+--input-adapter=github \
+--in-github-url="https://github.com/interlynk-io/sbomqs" \
+--output-adapter=dtrack \
+--out-dtrack-url="http://localhost:8081"
 ```
 
 - **What this does**:
-  - Fetches SBOMs from GitHub’s dependency graph API for the repository `sigstore/cosign`
-  - dtrack client automatically creates a new project with name `sigstore/cosign` with project version `latest`
-  - Uploads those sboms to a project `sigstore/cosign`
+  - Fetches SBOMs from GitHub’s dependency graph API for the repository `interlynk-io/sbomqs`
+  - dtrack client automatically creates a new project with name `interlynk-io-sbomqs-latest-dependency-graph-sbom.json` with dtrack project version `latest`
+  - Uploads this SBOM to a project `interlynk-io-sbomqs-latest-dependency-graph-sbom.json`
 
 **NOTE**:
 
@@ -71,15 +89,19 @@ sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigst
 ### 1.3 GitHub Tool Method (SBOM Generation Using Syft)
 
 ```bash
-sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigstore/cosign" \
-                --in-github-method=tool --output-adapter=dtrack --out-dtrack-url="http://localhost:8081"
+sbommv transfer \
+--input-adapter=github \
+--in-github-url="https://github.com/interlynk-io/sbomqs" \
+--in-github-method=tool \   
+--output-adapter=dtrack \               
+--out-dtrack-url="http://localhost:8081"
 ```
 
 - **What this does**:
   - Clones the repository
-  - Generates an SBOM using Syft for the repository `sigstore/cosign`
-  - dtrack client automatically creates a new project with name `sigstore/cosign` with project version `latest`
-  - Uploads those sboms to a project `sigstore/cosign`
+  - Generates an SBOM using Syft for the repository `interlynk-io/sbomqs`
+  - dtrack client automatically creates a new project with name `interlynk-io-sbomqs-latest-syft-generated-sbom.json` with dtrack project version `latest`
+  - Uploads this sboms to a project `interlynk-io-sbomqs-latest-syft-generated-sbom.json`
 
 **NOTE**:
 
@@ -88,16 +110,20 @@ sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigst
 #### 1.3.1 Fetch SBOMs for a Specific GitHub Branch (Tool Method Only)
 
 ```bash
-sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigstore/cosign" \
-                --in-github-method=tool --in-github-branch="main" \
-                --output-adapter=dtrack --out-dtrack-url="http://localhost:8081"
+sbommv transfer \
+--input-adapter=github \
+--in-github-url="https://github.com/interlynk-io/sbomqs" \
+--in-github-method=tool \
+--in-github-branch="main" \
+--output-adapter=dtrack \
+--out-dtrack-url="http://localhost:8081" \
 ```
 
 - **What this does**:
   - Clones the main branch instead of the default branch.
-  - Generates an SBOM using Syft for the repository `sigstore/cosign`
-  - dtrack client automatically creates a new project with name `sigstore/cosign` with project version `latest`
-  - Uploads those sboms to a project `sigstore/cosign`
+  - Generates an SBOM using Syft for the repository `interlynk-io/sbomqs`
+  - dtrack client automatically creates a new project with name `interlynk-io-sbomqs-latest-syft-generated-sbom.json` with dtrack project version `latest`
+  - Uploads those sboms to a project `interlynk-io-sbomqs-latest-syft-generated-sbom.json`
 
 **NOTE**:
 
@@ -106,8 +132,12 @@ sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigst
 ## 2. Using Dry-Run Mode (No Upload, Just Simulation)
 
 ```bash
-sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigstore/cosign" \
-                --output-adapter=dtrack --out-dtrack-url="http://localhost:8081" --dry-run
+sbommv transfer \
+--input-adapter=github \
+--in-github-url="https://github.com/interlynk-io/sbomqs" \
+--output-adapter=dtrack \
+--out-dtrack-url="http://localhost:8081" \
+--dry-run
 ```
 
 - **What this does**:
@@ -126,15 +156,19 @@ sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigst
 #### 3.1.1 Github Release Method
 
 ```bash
-sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigstore" \
-                --in-github-method=release --in-github-include-repos=cosign,rekor \
-                --output-adapter=dtrack --out-dtrack-url="http://localhost:8081"
+sbommv transfer \
+--input-adapter=github \
+--in-github-url="https://github.com/interlynk-io" \
+--in-github-method=release \
+--in-github-include-repos=sbomqs,sbommv \
+--output-adapter=dtrack \
+--out-dtrack-url="http://localhost:8081"
 ```
 
 - **What this does**:
-  - Fetches SBOMs only from `cosign` and `rekor` repositories under `sigstore` organization
-  - dtrack client automatically creates a new project with name `sigstore/cosign`, `sigstore/rekor` with project version `latest`
-  - `cosign`, `rekor` SBOMs will be uploaded to `sigstore/cosign` and `sigstore/rekor` respectively.
+  - Fetches SBOMs only from `sbomqs` and `sbommv` repositories under `interlynk-io` organization
+  - dtrack client automatically creates a new project with name `interlynk-io/sbomqs`, `interlynk-io/sbommv` with project version `latest`
+  - `sbomqs`, `sbommv` SBOMs will be uploaded to `interlynk-io/sbomqs` and `interlynk-io/sbommv` respectively.
 
 **NOTE**:
 
@@ -143,43 +177,54 @@ sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigst
 #### 3.1.2 Github API Method
 
 ```bash
-sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigstore" \
-                --in-github-include-repos=cosign,rekor \
-                --output-adapter=dtrack --out-dtrack-url="http://localhost:8081"
+sbommv transfer \
+--input-adapter=github \
+--in-github-url="https://github.com/interlynk-io" \
+--in-github-include-repos=sbomqs,sbommv \
+--output-adapter=dtrack \
+--out-dtrack-url="http://localhost:8081"
 ```
 
 - **What this does**:
-  - Fetches SBOMs only from `cosign` and `rekor` repositories in the `sigstore` organization.
-  - dtrack client automatically creates a new project with name `sigstore/cosign`, `sigstore/rekor` with project version `latest`
-  - `cosign`, `rekor` SBOMs will be uploaded to `sigstore/cosign` and `sigstore/rekor` respectively.
+  - Fetches SBOMs only from `sbomqs` and `sbommv` repositories in the `interlynk-io` organization.
+  - dtrack client automatically creates a new project with name:
+    - For sbomqs: `interlynk-io-sbomqs-latest-dependency-graph-sbom.json`,
+    - For sbommv `interlynk-io-sbommv-latest-dependency-graph-sbom.json` with dtrack project version `latest`
+  - These SBOMs will be uploaded to dtrack with respective project name.
 
 #### 3.1.3 Github Tool Method
 
 ```bash
-sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigstore" \
-                --in-github-method=tool --in-github-include-repos=cosign,rekor \
-                --output-adapter=dtrack --out-dtrack-url="http://localhost:8081"
+sbommv transfer \
+--input-adapter=github \
+--in-github-url="https://github.com/interlynk-io" \
+--in-github-method=tool --in-github-include-repos=sbomqs,sbommv \
+--output-adapter=dtrack --out-dtrack-url="http://localhost:8081"
 ```
 
 - **What this does**:
-  - Fetches SBOMs only from `cosign` and `rekor` repositories in the `sigstore` organization.
-  - dtrack client automatically creates a new project with name `sigstore/cosign`, `sigstore/rekor` with project version `latest`
-  - `cosign`, `rekor` SBOMs will be uploaded to `sigstore/cosign` and `sigstore/rekor` respectively.
+  - Fetches SBOMs only from `sbomqs` and `sbommv` repositories in the `interlynk-io` organization.
+  - dtrack client automatically creates a new project with name:
+    - For sbomqs: `interlynk-io-sbomqs-latest-syft-generated-sbom.json`,
+    - For sbommv `interlynk-io-sbommv-latest-syft-generated-sbom.json` with dtrack project version `latest`
+  - These SBOMs will be uploaded to dtrack with respective project name.
 
 ### 3.2 Exclude Certain Repositories from an Organization
 
 #### 3.2.1  Github Release Method
 
 ```bash
-sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigstore" \
-                --in-github-method=release --in-github-exclude-repos=docs \
-                --output-adapter=dtrack --out-dtrack-url="http://localhost:8081"
+sbommv transfer \
+--input-adapter=github \
+--in-github-url="https://github.com/interlynk-io" \
+--in-github-method=release \
+--in-github-exclude-repos=cyclonedx-property-taxonomy,homebrew-interlynk,purl-tools \
+--output-adapter=dtrack \
+--out-dtrack-url="http://localhost:8081"
 ```
 
 - **What this does**:
-  - Fetches SBOMs from all repositories under `sigstore` except `docs` from respective Release Page.
-  - dtrack client automatically creates a new project with name `sigstore/cosign`, `sigstore/rekor`, and similarly for all others repo present in the `sigstore` organization except `docs` repo.
-  - `cosign`, `rekor` and all other repo SBOMs will be uploaded to `sigstore/cosign` , `sigstore/rekor` , etc  respectively.
+  - Fetches SBOMs from all repositories under `interlynk-io` except `cyclonedx-property-taxonomy,homebrew-interlynk,purl-tools` from respective Release Page.
 
 **NOTE**:
 
@@ -192,15 +237,16 @@ sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigst
 #### 3.2.2 Github API Method
 
 ```bash
-sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigstore" \
-                --in-github-exclude-repos=docs \
-                --output-adapter=dtrack --out-dtrack-url="http://localhost:8081"
+sbommv transfer \
+--input-adapter=github \
+--in-github-url="https://github.com/interlynk-io" \
+--in-github-exclude-repos=cyclonedx-property-taxonomy,homebrew-interlynk,purl-tools \
+--output-adapter=dtrack \
+--out-dtrack-url="http://localhost:8081"
 ```
 
 - **What this does**:
-  - Fetches SBOMs from all repositories in `sigstore` except `docs`.
-  - Using Dependency Graph API.
-  - Uploads them as separate projects in dtrack.
+  - Fetches SBOMs from all repositories in `interlynk-io` except `cyclonedx-property-taxonomy,homebrew-interlynk,purl-tools`.
 
 **NOTE**:
 
@@ -213,14 +259,17 @@ sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigst
 #### 3.2.3 Github Tool Method
 
 ```bash
-sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigstore" \
-                --in-github-method=tool --in-github-exclude-repos=docs \
-                --output-adapter=dtrack --out-dtrack-url="http://localhost:8081"
+sbommv transfer \
+--input-adapter=github \
+--in-github-url="https://github.com/interlynk-io" \
+--in-github-method=tool \
+--in-github-exclude-repos=cyclonedx-property-taxonomy,homebrew-interlynk,purl-tools \
+--output-adapter=dtrack \
+--out-dtrack-url="http://localhost:8081"
 ```
 
 - **What this does**:
-  - Fetches SBOMs from all repositories in `sigstore` except `docs`.
-  - Uploads them as separate projects in dtrack.
+  - Fetches SBOMs from all repositories in `interlynk-io` except `cyclonedx-property-taxonomy,homebrew-interlynk,purl-tools`.
 
 **NOTE**:
 
@@ -240,9 +289,14 @@ Enable continuous monitoring by adding the `--daemon` or `-d` flag to your comma
 #### 4.1.1 GitHub Release Method (Daemon Mode)
 
 ```bash
-sbommv transfer --input-adapter=github --in-github-url="https://github.com/interlynk-io/sbomqs" \
-                --in-github-method=release --output-adapter=dtrack --out-dtrack-url="http://localhost:8081" \
-                --daemon --in-github-poll-interval="60s"
+sbommv transfer \
+--input-adapter=github \
+--in-github-url="https://github.com/interlynk-io/sbomqs" \
+--in-github-method=release \
+--output-adapter=dtrack \
+--out-dtrack-url="http://localhost:8081" \
+--in-github-poll-interval="60s" \
+--daemon
 ```
 
 **What this does:**
@@ -262,9 +316,12 @@ sbommv transfer --input-adapter=github --in-github-url="https://github.com/inter
 #### 4.1.2 GitHub API Method (Daemon Mode)
 
 ```bash
-sbommv transfer --input-adapter=github --in-github-url="https://github.com/interlynk-io/sbomqs" \
-                --output-adapter=dtrack --out-dtrack-url="http://localhost:8081" \
-                --daemon --in-github-poll-interval="24h"
+sbommv transfer \
+--input-adapter=github \
+--in-github-url="https://github.com/interlynk-io/sbomqs" \
+--output-adapter=dtrack --out-dtrack-url="http://localhost:8081" \
+ --in-github-poll-interval="24hr" \
+ --daemon
 ```
 
 **What this does:**
@@ -273,7 +330,7 @@ sbommv transfer --input-adapter=github --in-github-url="https://github.com/inter
 - Polls every 24 hours (customizable via `--in-github-poll-interval`).
 - Fetches SBOMs using GitHub’s Dependency Graph API when updates are detected.
 - Dtrack client automatically creates a new project with name `interlynk-io/sbomqs-latest-dependency-graph-sbom.json` with project version latest.
-- Uploads new SBOMs to the project sigstore/cosign.
+- Uploads new SBOMs to the project interlynk-io/sbomqs.
 
 **NOTE**:
 
@@ -283,9 +340,14 @@ sbommv transfer --input-adapter=github --in-github-url="https://github.com/inter
 #### 4.1.3 GitHub Tool Method (Daemon Mode)
 
 ```bash
-sbommv transfer --input-adapter=github --in-github-url="https://github.com/interlynk-io/sbomqs" \
-                --in-github-method=tool --output-adapter=dtrack --out-dtrack-url="http://localhost:8081" \
-                --daemon --in-github-poll-interval="24h"
+sbommv transfer \
+--input-adapter=github \
+--in-github-url="https://github.com/interlynk-io/sbomqs" \
+--in-github-method=tool \
+--output-adapter=dtrack \
+--out-dtrack-url="http://localhost:8081" \
+--in-github-poll-interval="24hr" \
+--daemon
 ```
 
 What this does:
@@ -307,10 +369,15 @@ NOTE:
 #### 4.2.1 GitHub Release Method (Daemon Mode)
 
 ```bash
-sbommv transfer --input-adapter=github --in-github-url="https://github.com/interlynk-io" \
-                --in-github-method=release --in-github-include-repos=sbomqs,sbommv \
-                --output-adapter=dtrack --out-dtrack-url="http://localhost:8081" \
-                --daemon --in-github-poll-interval="24h"
+sbommv transfer \
+--input-adapter=github \
+--in-github-url="https://github.com/interlynk-io" \
+--in-github-method=release \
+--in-github-include-repos=sbomqs,sbommv \
+--output-adapter=dtrack \
+--out-dtrack-url="http://localhost:8081" \
+--in-github-poll-interval="24hr" \
+--daemon
 ```
 
 **What this does:**
@@ -330,10 +397,15 @@ sbommv transfer --input-adapter=github --in-github-url="https://github.com/inter
 #### 4.2.2 GitHub API Method (Daemon Mode)
 
 ```bash
-sbommv transfer --input-adapter=github --in-github-url="https://github.com/interlynk-io" \
-                --in-github-method=api --in-github-include-repos=sbomqs,sbommv \
-                --output-adapter=dtrack --out-dtrack-url="http://localhost:8081" \
-                --daemon --in-github-poll-interval="24h"
+sbommv transfer \
+--input-adapter=github \
+--in-github-url="https://github.com/interlynk-io" \
+--in-github-method=api \
+--in-github-include-repos=sbomqs,sbommv \
+--output-adapter=dtrack \
+--out-dtrack-url="http://localhost:8081" \
+--in-github-poll-interval="24hr" \
+--daemon
 ```
 
 **What this does:**
@@ -353,10 +425,15 @@ sbommv transfer --input-adapter=github --in-github-url="https://github.com/inter
 #### 4.2.3 GitHub Tool Method (Daemon Mode)
 
 ```bash
-sbommv transfer --input-adapter=github --in-github-url="https://github.com/interlynk-io" \
-                --in-github-method=tool --in-github-include-repos=sbomqs,sbommv \
-                --output-adapter=dtrack --out-dtrack-url="http://localhost:8081" \
-                --daemon --in-github-poll-interval="24h"
+sbommv transfer \
+--input-adapter=github \
+--in-github-url="https://github.com/interlynk-io" \
+--in-github-method=tool \
+--in-github-include-repos=sbomqs,sbommv \
+--output-adapter=dtrack \
+--out-dtrack-url="http://localhost:8081" \
+--in-github-poll-interval="24hr" \
+--daemon
 ```
 
 **What this does:**
