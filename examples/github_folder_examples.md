@@ -42,15 +42,22 @@ sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigst
   - remove the `dry-run` flag, to process with uploading part.
 
 ```bash
-sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigstore/cosign" \
-                --in-github-method=release --output-adapter=folder --out-folder-path="temp-release"
+sbommv transfer \
+--input-adapter=github \
+--in-github-url="https://github.com/sigstore/cosign" \
+--in-github-method=release \
+--output-adapter=folder \
+--out-folder-path="temp-release"
 ```
 
 ### 1.2 GitHub API Method (Dependency Graph): default method
 
 ```bash
-sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigstore/cosign" \
-                 --output-adapter=folder --out-folder-path="temp-api"
+sbommv transfer \
+--input-adapter=github \
+--in-github-url="https://github.com/sigstore/cosign" \
+--output-adapter=folder \
+--out-folder-path="temp-api"
 ```
 
 - **What this does**:
@@ -64,8 +71,12 @@ sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigst
 ### 1.3 GitHub Tool Method (SBOM Generation Using Syft)
 
 ```bash
-sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigstore/cosign" \
-                --in-github-method=tool --output-adapter=folder --out-folder-path="temp-tool"
+sbommv transfer \
+--input-adapter=github \
+--in-github-url="https://github.com/sigstore/cosign" \
+--in-github-method=tool \
+--output-adapter=folder \
+--out-folder-path="temp-tool"
 ```
 
 - **What this does**:
@@ -80,9 +91,13 @@ sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigst
 ### 1.4 Fetch SBOMs for a Specific GitHub Branch (GitHub Tool Method Only)
 
 ```bash
-sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigstore/cosign" \
-                --in-github-method=tool --in-github-branch="main" \
-                --output-adapter=folder --out-folder-path="temp-tool-branch"
+sbommv transfer \
+--input-adapter=github \
+--in-github-url="https://github.com/sigstore/cosign" \
+--in-github-method=tool \
+--in-github-branch="main" \
+--output-adapter=folder \
+--out-folder-path="temp-tool-branch"
 ```
 
 - **What this does**:
@@ -97,8 +112,12 @@ sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigst
 ## 2. Using Dry-Run Mode (No Upload, Just Simulation)
 
 ```bash
-sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigstore/cosign" \
-                --output-adapter=folder --out-folder-path="temp" --dry-run
+sbommv transfer \
+--input-adapter=github \
+--in-github-url="https://github.com/sigstore/cosign" \
+--output-adapter=folder \
+--out-folder-path="temp" \
+--dry-run
 ```
 
 - **What this does**:
@@ -117,9 +136,13 @@ sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigst
 #### 3.1.1 Github Release Method
 
 ```bash
-sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigstore" \
-                --in-github-method=release --in-github-include-repos=cosign,rekor \
-                --output-adapter=folder --out-folder-path="temp-release"
+sbommv transfer \
+--input-adapter=github \
+--in-github-url="https://github.com/sigstore" \
+--in-github-method=release \
+--in-github-include-repos=cosign,rekor \
+--output-adapter=folder \
+--out-folder-path="temp-release"
 ```
 
 - **What this does**:
@@ -134,9 +157,12 @@ sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigst
 #### 3.1.2 Github API Method
 
 ```bash
-sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigstore" \
-                --in-github-include-repos=cosign,rekor \
-                --output-adapter=folder --out-folder-path="temp-api"
+sbommv transfer \
+--input-adapter=github \
+--in-github-url="https://github.com/sigstore" \
+--in-github-include-repos=cosign,rekor \
+--output-adapter=folder \
+--out-folder-path="temp-api"
 ```
 
 - **What this does**:
@@ -147,9 +173,13 @@ sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigst
 #### 3.1.3 Github Tool Method
 
 ```bash
-sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigstore" \
-                --in-github-method=tool --in-github-include-repos=cosign,rekor \
-                --output-adapter=folder --out-folder-path="temp-tool"
+sbommv transfer \
+--input-adapter=github \
+--in-github-url="https://github.com/sigstore" \
+--in-github-method=tool \
+--in-github-include-repos=cosign,rekor \
+--output-adapter=folder \
+--out-folder-path="temp-tool"
 ```
 
 - **What this does**:
@@ -162,9 +192,13 @@ sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigst
 #### 3.2.1  Github Release Method
 
 ```bash
-sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigstore" \
-                --in-github-method=release --in-github-exclude-repos=docs \
-                --output-adapter=folder --out-folder-path="temp-release"
+sbommv transfer \
+--input-adapter=github \
+--in-github-url="https://github.com/sigstore" \
+--in-github-method=release \
+--in-github-exclude-repos=docs \
+--output-adapter=folder \
+--out-folder-path="temp-release"
 ```
 
 - **What this does**:
@@ -175,9 +209,12 @@ sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigst
 #### 3.2.2 Github API Method
 
 ```bash
-sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigstore" \
-                --in-github-exclude-repos=docs \
-                --output-adapter=folder --out-folder-path="temp-api"
+sbommv transfer \
+--input-adapter=github \
+--in-github-url="https://github.com/sigstore" \
+--in-github-exclude-repos=docs \
+--output-adapter=folder \
+--out-folder-path="temp-api"
 ```
 
 - **What this does**:
@@ -188,9 +225,13 @@ sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigst
 #### 3.2.3 Github Tool Method
 
 ```bash
-sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigstore" \
-                --in-github-method=tool --in-github-exclude-repos=docs \
-                --output-adapter=folder --out-folder-path="temp-tool"
+sbommv transfer \
+--input-adapter=github \
+--in-github-url="https://github.com/sigstore" \
+--in-github-method=tool \
+--in-github-exclude-repos=docs \
+--output-adapter=folder \
+--out-folder-path="temp-tool"
 ```
 
 - **What this does**:
@@ -206,9 +247,14 @@ Enable continuous monitoring by adding the `--daemon` or `-d` flag to your comma
 #### 4.1.1 GitHub Release Method (Daemon Mode)
 
 ```bash
-sbommv transfer --input-adapter=github --in-github-url="https://github.com/interlynk-io/sbomqs" \
-                --in-github-method=release --output-adapter=folder --out-folder-path="temp-release" \
-                --daemon --in-github-poll-interval="60s"
+sbommv transfer \
+--input-adapter=github \
+--in-github-url="https://github.com/interlynk-io/sbomqs" \
+--in-github-method=release \
+--output-adapter=folder \
+--out-folder-path="temp-release" \
+--in-github-poll-interval="60s" \
+--daemon
 ```
 
 **What this does:**
@@ -227,9 +273,14 @@ sbommv transfer --input-adapter=github --in-github-url="https://github.com/inter
 #### 4.1.2 GitHub API Method (Daemon Mode)
 
 ```bash
-sbommv transfer --input-adapter=github --in-github-url="https://github.com/interlynk-io/sbomqs" \
-                --in-github-method=api --output-adapter=folder --out-folder-path="temp-api" \
-                --daemon --in-github-poll-interval="60s"
+sbommv transfer \
+--input-adapter=github \
+--in-github-url="https://github.com/interlynk-io/sbomqs" \
+--in-github-method=api \
+--output-adapter=folder \
+--out-folder-path="temp-api" \
+--in-github-poll-interval="60s" \
+--daemon 
 ```
 
 **What this does:**
@@ -248,9 +299,14 @@ sbommv transfer --input-adapter=github --in-github-url="https://github.com/inter
 #### 4.1.3 GitHub Tool Method (Daemon Mode)
 
 ```bash
-sbommv transfer --input-adapter=github --in-github-url="https://github.com/interlynk-io/sbomqs" \
-                --in-github-method=tool --output-adapter=folder --out-folder-path="temp-tool" \
-                --daemon --in-github-poll-interval="60s"
+sbommv transfer \
+--input-adapter=github \
+--in-github-url="https://github.com/interlynk-io/sbomqs" \
+--in-github-method=tool \
+--output-adapter=folder \
+--out-folder-path="temp-tool" \
+--in-github-poll-interval="60s" \
+--daemon
 ```
 
 **What this does:**
@@ -272,10 +328,15 @@ sbommv transfer --input-adapter=github --in-github-url="https://github.com/inter
 #### 4.2.1 GitHub Release Method (Daemon Mode)
 
 ```bash
-sbommv transfer --input-adapter=github --in-github-url="https://github.com/interlynk-io" \
-                --in-github-method=release --in-github-include-repos=sbomqs,sbommv \
-                --output-adapter=folder --out-folder-path="temp-release" \
-                --daemon --in-github-poll-interval="24h"
+sbommv transfer \
+--input-adapter=github \
+--in-github-url="https://github.com/interlynk-io" \
+--in-github-method=release \
+--in-github-include-repos=sbomqs,sbommv \
+--output-adapter=folder \
+--out-folder-path="temp-release" \
+--in-github-poll-interval="24hr" \
+--daemon
 ```
 
 **What this does:**
@@ -294,10 +355,15 @@ sbommv transfer --input-adapter=github --in-github-url="https://github.com/inter
 #### 4.2.2 GitHub API Method (Daemon Mode)
 
 ```bash
-sbommv transfer --input-adapter=github --in-github-url="https://github.com/interlynk-io" \
-                --in-github-method=api --in-github-include-repos=sbomqs,sbommv \
-                --output-adapter=folder --out-folder-path="temp-api" \
-                --daemon --in-github-poll-interval="24h"
+sbommv transfer \
+--input-adapter=github \
+--in-github-url="https://github.com/interlynk-io" \
+--in-github-method=api \
+--in-github-include-repos=sbomqs,sbommv \
+--output-adapter=folder \
+--out-folder-path="temp-api" \
+--in-github-poll-interval="24hr" \
+--daemon
 ```
 
 **What this does:**
@@ -316,10 +382,15 @@ sbommv transfer --input-adapter=github --in-github-url="https://github.com/inter
 #### 4.2.3 GitHub Tool Method (Daemon Mode)
 
 ```bash
-sbommv transfer --input-adapter=github --in-github-url="https://github.com/interlynk-io" \
-                --in-github-method=tool --in-github-include-repos=sbomqs,sbommv \
-                --output-adapter=folder --out-folder-path="temp-tool" \
-                --daemon --in-github-poll-interval="24h"
+sbommv transfer \
+--input-adapter=github \
+--in-github-url="https://github.com/interlynk-io" \
+--in-github-method=tool \
+--in-github-include-repos=sbomqs,sbommv \
+--output-adapter=folder \
+--out-folder-path="temp-tool" \
+--in-github-poll-interval="24hr" \
+--daemon
 ```
 
 **What this does:**

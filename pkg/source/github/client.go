@@ -423,61 +423,115 @@ func (c *Client) updateRepo(repo string) {
 	c.RepoURL = fmt.Sprintf("https://github.com/%s/%s", c.Owner, repo)
 }
 
+// GetAllRepositories fetches all repositories for the organization specified in c.Owner.
+// It also handles pagination to ensure all repositories are retrieved.
 func (c *Client) GetAllRepositories(ctx tcontext.TransferMetadata) ([]string, error) {
 	if c.Repo != "" {
 		return []string{c.Repo}, nil
 	}
 	logger.LogDebug(ctx.Context, "Fetching all repositories for an organization", "name", c.Owner)
 
-	apiURL := fmt.Sprintf("https://api.github.com/orgs/%s/repos", c.Owner)
+	baseURL := fmt.Sprintf("https://api.github.com/orgs/%s/repos", c.Owner)
+	apiURL := baseURL + "?per_page=100"
 
-	logger.LogDebug(ctx.Context, "Constructed API URL for repositories", "value", apiURL)
+	var allRepos []map[string]interface{}
+	page := 1
+	for {
+		logger.LogDebug(ctx.Context, "Fetching repository page", "org", c.Owner, "page", page)
 
-	req, err := http.NewRequestWithContext(ctx.Context, "GET", apiURL, nil)
-	if err != nil {
-		return nil, fmt.Errorf("creating request: %w", err)
+		req, err := http.NewRequestWithContext(ctx.Context, "GET", apiURL, nil)
+		if err != nil {
+			return nil, fmt.Errorf("creating request for page %d: %w", page, err)
+		}
+
+		if c.Token != "" {
+			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.Token))
+		}
+		req.Header.Set("Accept", "application/vnd.github.v3+json")
+
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("fetching repositories for page %d: %w", page, err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp.Body)
+			return nil, fmt.Errorf("GitHub API returned status %d for page %d: %s", resp.StatusCode, page, string(body))
+		}
+
+		var repos []map[string]interface{}
+		if err := json.NewDecoder(resp.Body).Decode(&repos); err != nil {
+			return nil, fmt.Errorf("decoding response for page %d: %w", page, err)
+		}
+
+		logger.LogDebug(ctx.Context, "Fetched repository page", "org", c.Owner, "page", page, "repos_fetched", len(repos), "total_so_far", len(allRepos)+len(repos))
+		allRepos = append(allRepos, repos...)
+
+		// Check for pagination via Link header
+		linkHeader := resp.Header.Get("Link")
+		if linkHeader == "" || !strings.Contains(linkHeader, `rel="next"`) {
+			// No more pages
+			break
+		}
+
+		// Extract the next page URL from the Link header
+		links := parseLinkHeader(linkHeader)
+		if nextURL, ok := links["next"]; ok {
+			apiURL = nextURL
+			page++
+		} else {
+			break
+		}
 	}
 
-	// Add authentication only if a token is provided
-	if c.Token != "" {
-		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.Token))
-	}
+	logger.LogInfo(ctx.Context, "Completed fetching repositories", "org", c.Owner, "total_repos", len(allRepos))
 
-	req.Header.Set("Accept", "application/vnd.github.v3+json")
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("fetching repositories: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("GitHub API returned status %d: %s", resp.StatusCode, string(body))
-	}
-
-	// Decode the JSON response
-	var repos []map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&repos); err != nil {
-		return nil, fmt.Errorf("decoding response: %w", err)
-	}
-
-	// Extract repository names
 	var repoNames []string
-	for _, r := range repos {
+	for _, r := range allRepos {
 		if name, ok := r["name"].(string); ok {
 			repoNames = append(repoNames, name)
 		}
 	}
 
-	// Check if repositories were found
 	if len(repoNames) == 0 {
 		return nil, fmt.Errorf("no repositories found for organization %s", c.Owner)
 	}
 
-	logger.LogDebug(ctx.Context, "Total available repos in an organization", "count", len(repos), "in organization", c.Owner)
+	logger.LogDebug(ctx.Context, "Total available repos in an organization", "count", len(repoNames), "in organization", c.Owner)
 
 	return repoNames, nil
+}
+
+// parseLinkHeader parses the GitHub Link header to extract pagination URLs.
+// Example: <https://api.github.com/orgs/interlynk-io/repos?page=2>; rel="next", <https://api.github.com/orgs/interlynk-io/repos?page=2>; rel="last"
+func parseLinkHeader(header string) map[string]string {
+	links := make(map[string]string)
+	if header == "" {
+		return links
+	}
+
+	parts := strings.Split(header, ",")
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if !strings.Contains(part, ";") {
+			continue
+		}
+
+		sections := strings.Split(part, ";")
+		if len(sections) < 2 {
+			continue
+		}
+
+		url := strings.Trim(sections[0], "<>")
+		rel := strings.TrimSpace(sections[1])
+		rel = strings.Trim(rel, `rel="`)
+		rel = strings.Trim(rel, `"`)
+
+		links[rel] = url
+	}
+
+	return links
 }
 
 // applyRepoFilters filters repositories based on inclusion/exclusion flags
@@ -502,23 +556,22 @@ func (c *Client) applyRepoFilters(ctx tcontext.TransferMetadata, repos, includeR
 	var filteredRepos []string
 
 	for _, repoName := range repos {
-		repo := repoName
 
-		if _, isExcluded := excludedRepos[repo]; isExcluded {
+		if _, isExcluded := excludedRepos[repoName]; isExcluded {
 			// skip excluded repositories
 			continue
 		}
 
 		// Include only if in the inclusion list (if provided)
 		if len(includedRepos) > 0 {
-			if _, isIncluded := includedRepos[repo]; !isIncluded {
+			if _, isIncluded := includedRepos[repoName]; !isIncluded {
 				// skip repos that are not in the include list
 				continue
 			}
 		}
 
 		// filtered repo are added to the final list
-		filteredRepos = append(filteredRepos, repo)
+		filteredRepos = append(filteredRepos, repoName)
 	}
 
 	logger.LogDebug(ctx.Context, "Filtered repositories", "filtered", filteredRepos)
