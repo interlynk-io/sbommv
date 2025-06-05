@@ -26,21 +26,28 @@ Once SBOMs are fetched, they need to be uploaded to DependencyTrack. To setup De
 ### 1. From Root Folder Only (no recursion) --> dtrack
 
 ```bash
-sbommv transfer --input-adapter=folder --in-folder-path="temp" \
-                 --output-adapter=dtrack --out-dtrack-url="http://localhost:8081"
+sbommv transfer \
+--input-adapter=folder \
+--in-folder-path="temp" \
+--output-adapter=dtrack \
+--out-dtrack-url="http://localhost:8081"
 ```
 
 **What this does**:
 
 - Scans SBOMs in the `temp` folder
-- Auto-creates a project in Dependency-Track
+- Auto-creates a project in Dependency-Track with names like <primary_comp_name:version>
 - Uploads each valid SBOM
 
 ### 2 From root Folder + sub-directories(recursion) --> dtrack
 
 ```bash
-sbommv transfer --input-adapter=folder --in-folder-path="temp" --in-folder-recursive=true \
-                 --output-adapter=dtrack --out-dtrack-url="http://localhost:8081"
+sbommv transfer \
+--input-adapter=folder \
+--in-folder-path="temp" \
+--in-folder-recursive=true \
+--output-adapter=dtrack \
+--out-dtrack-url="http://localhost:8081"
 ```
 
 **What this does**:
@@ -55,15 +62,24 @@ Use --dry-run to preview what would happen without uploading anything.
 ### 1. Dry Run from Root Folder --> dtrack
 
 ```bash
-sbommv transfer --input-adapter=folder --in-folder-path="temp" \
-                 --output-adapter=dtrack --out-dtrack-url="http://localhost:8081" --dry-run
+sbommv transfer \
+--input-adapter=folder \
+--in-folder-path="temp" \
+--output-adapter=dtrack \
+--out-dtrack-url="http://localhost:8081" \
+--dry-run
 ```
 
 ### 2 Dry Run from Folder + Subdirectories --> dtrack
 
 ```bash
-sbommv transfer --input-adapter=folder --in-folder-path="temp" --in-folder-recursive=true \
-                 --output-adapter=dtrack --out-dtrack-url="http://localhost:8081" --dry-run
+sbommv transfer \
+--input-adapter=folder \
+--in-folder-path="temp" \
+--in-folder-recursive=true \
+--output-adapter=dtrack \
+--out-dtrack-url="http://localhost:8081" \
+--dry-run
 ```
 
 **What this does**:

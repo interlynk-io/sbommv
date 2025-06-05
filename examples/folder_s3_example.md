@@ -37,15 +37,15 @@ Use the `--processing-mode` flag to specify `sequential` or `parallel`.
 
 ```bash
 sbommv transfer \
-        --input-adapter=folder \
-        --in-folder-path="temp-sboms" \
-        --output-adapter=s3 \
-        --out-s3-bucket-name="demo-test-sbom" \
-        --out-s3-prefix="sboms" \
-        --out-s3-region="us-east-1" \
-        --out-s3-access-key="AKIA..." \
-        --out-s3-secret-key="wJalr..." \
-        --dry-run
+--input-adapter=folder \
+--in-folder-path="temp-sboms" \
+--output-adapter=s3 \
+--out-s3-bucket-name="demo-test-sbom" \
+--out-s3-prefix="sboms" \
+--out-s3-region="us-east-1" \
+--out-s3-access-key="AKIA..." \
+--out-s3-secret-key="wJalr..." \
+--dry-run
 ```
 
 **What this does**:
@@ -57,14 +57,14 @@ To perform the actual transfer (remove `--dry-run`):
 
 ```bash
 sbommv transfer \
-        --input-adapter=folder \
-        --in-folder-path="temp-sboms" \
-        --output-adapter=s3 \
-        --out-s3-bucket-name="demo-test-sbom" \
-        --out-s3-prefix="sboms" \
-        --out-s3-region="us-east-1" \
-        --out-s3-access-key="AKIA..." \
-        --out-s3-secret-key="wJalr..."
+--input-adapter=folder \
+--in-folder-path="temp-sboms" \
+--output-adapter=s3 \
+--out-s3-bucket-name="demo-test-sbom" \
+--out-s3-prefix="sboms" \
+--out-s3-region="us-east-1" \
+--out-s3-access-key="AKIA..." \
+--out-s3-secret-key="wJalr..."
 ```
 
 **NOTE**:
@@ -73,26 +73,26 @@ sbommv transfer \
 
 ```bash
 sbommv transfer \
-        --input-adapter=folder\
-        --in-folder-path="temp-sboms" \
-        --output-adapter=s3\
-        --out-s3-bucket-name="demo-test-sbom"\
-        --out-s3-prefix="sboms"
+--input-adapter=folder\
+--in-folder-path="temp-sboms" \
+--output-adapter=s3\
+--out-s3-bucket-name="demo-test-sbom"\
+--out-s3-prefix="sboms"
 ```
 
 ### 2. Parallel Upload to S3
 
 ```bash
 sbommv transfer \
-        --input-adapter=folder \
-        --in-folder-path="temp-sboms" \
-        --output-adapter=s3\
-        --out-s3-bucket-name="demo-test-sbom"\
-        --out-s3-prefix="sboms" \
-        --out-s3-region="us-east-1"\
-        --out-s3-access-key="AKIA..."\
-        --out-s3-secret-key="wJalr..." \
-        --processing-mode="parallel"
+--input-adapter=folder \
+--in-folder-path="temp-sboms" \
+--output-adapter=s3\
+--out-s3-bucket-name="demo-test-sbom"\
+--out-s3-prefix="sboms" \
+--out-s3-region="us-east-1"\
+--out-s3-access-key="AKIA..."\
+--out-s3-secret-key="wJalr..." \
+--processing-mode="parallel"
 ```
 
 **What this does**:
@@ -109,15 +109,15 @@ sbommv transfer \
 
 ```bash
 sbommv transfer \
-        --input-adapter=folder \
-        --in-folder-path="temp-sboms" \
-        --output-adapter=s3 \
-        --out-s3-bucket-name="demo-test-sbom"\
-        --out-s3-prefix="sboms" \
-        --out-s3-region="us-east-1" \
-        --out-s3-access-key="AKIA..." \
-        --out-s3-secret-key="wJalr..." \
-        --dry-run
+--input-adapter=folder \
+--in-folder-path="temp-sboms" \
+--output-adapter=s3 \
+--out-s3-bucket-name="demo-test-sbom"\
+--out-s3-prefix="sboms" \
+--out-s3-region="us-east-1" \
+--out-s3-access-key="AKIA..." \
+--out-s3-secret-key="wJalr..." \
+--dry-run
 ```
 
 **What this does**:

@@ -32,14 +32,15 @@ Once SBOMs are fetched, they need to be uploaded to DependencyTrack. To setup De
 ### 1. Sequential Fetch from S3 Bucket --> DependencyTrack
 
 ```bash
-sbommv transfer --input-adapter=s3 \
-    --in-s3-bucket-name="demo-test-sbom" \
-    --in-s3-prefix="dropwizard" \
-    --in-s3-region="us-east-1" \
-    --in-s3-access-key="AKIA..." \
-    --in-s3-secret-key="wJalr..." \
-    --output-adapter=dtrack \
-    --out-dtrack-url="http://localhost:8081"
+sbommv transfer \
+--input-adapter=s3 \
+--in-s3-bucket-name="demo-test-sbom" \
+--in-s3-prefix="dropwizard" \
+--in-s3-region="us-east-1" \
+--in-s3-access-key="AKIA..." \
+--in-s3-secret-key="wJalr..." \
+--output-adapter=dtrack \
+--out-dtrack-url="http://localhost:8081"
 ```
 
 **What this does**:
@@ -51,15 +52,16 @@ sbommv transfer --input-adapter=s3 \
 ### 2. Parallel Fetch from S3 Bucket --> DependencyTrack
 
 ```bash
-sbommv transfer --input-adapter=s3 \
-    --in-s3-bucket-name="demo-test-sbom" \
-    --in-s3-prefix="dropwizard" \
-    --in-s3-region="us-east-1" \
-    --in-s3-access-key="AKIA..." \
-    --in-s3-secret-key="wJalr..." \
-    --processing-mode="parallel" \
-    --output-adapter=dtrack \
-    --out-dtrack-url="http://localhost:8081"
+sbommv transfer \
+--input-adapter=s3 \
+--in-s3-bucket-name="demo-test-sbom" \
+--in-s3-prefix="dropwizard" \
+--in-s3-region="us-east-1" \
+--in-s3-access-key="AKIA..." \
+--in-s3-secret-key="wJalr..." \
+--processing-mode="parallel" \
+--output-adapter=dtrack \
+--out-dtrack-url="http://localhost:8081"
 ```
 
 **What this does**:
@@ -74,30 +76,32 @@ Use --dry-run to preview what would happen without uploading anything.
 ### 1. Dry Run with Sequential Fetch --> DependencyTrack
 
 ```bash
-sbommv transfer --input-adapter=s3 \
-    --in-s3-bucket-name="demo-test-sbom" \
-    --in-s3-prefix="dropwizard" \
-    --in-s3-region="us-east-1" \
-    --in-s3-access-key="AKIA..." \
-    --in-s3-secret-key="wJalr..." \
-    --output-adapter=dtrack \
-    --out-dtrack-url="http://localhost:8081" \
-    --dry-run
+sbommv transfer \
+--input-adapter=s3 \
+--in-s3-bucket-name="demo-test-sbom" \
+--in-s3-prefix="dropwizard" \
+--in-s3-region="us-east-1" \
+--in-s3-access-key="AKIA..." \
+--in-s3-secret-key="wJalr..." \
+--output-adapter=dtrack \
+--out-dtrack-url="http://localhost:8081" \
+--dry-run
 ```
 
 ### 2. Dry Run with Parallel Fetch --> DependencyTrack
 
 ```bash
-sbommv transfer --input-adapter=s3 \
-    --in-s3-bucket-name="demo-test-sbom" \
-    --in-s3-prefix="dropwizard" \
-    --in-s3-region="us-east-1" \
-    --in-s3-access-key="AKIA..." \
-    --in-s3-secret-key="wJalr..." \
-    --in-s3-processing-mode="parallel" \
-    --output-adapter=dtrack \
-    --out-dtrack-url="http://localhost:8081" \
-    --dry-run
+sbommv transfer \
+--input-adapter=s3 \
+--in-s3-bucket-name="demo-test-sbom" \
+--in-s3-prefix="dropwizard" \
+--in-s3-region="us-east-1" \
+--in-s3-access-key="AKIA..." \
+--in-s3-secret-key="wJalr..." \
+--in-s3-processing-mode="parallel" \
+--output-adapter=dtrack \
+--out-dtrack-url="http://localhost:8081" \
+--dry-run
 ```
 
 **What this does**:

@@ -64,19 +64,25 @@ This gives you full control over how SBOM updates are handled—especially impor
 Let's create a dir `demo`, and start monitoring it and later will add SBOM to it
 
 ```bash
-sbommv transfer --input-adapter=folder --in-folder-path="demo"  --output-adapter=dtrack --out-dtrack-url="http://localhost:8081"  -d        
-
-2025-03-31T14:18:56.410+0530	INFO	logger/log.go:102	Initializing SBOM real-time monitoring for folder in daemon mode	{"path": "demo"}
+sbommv transfer \
+--input-adapter=folder \
+--in-folder-path="demo"  \
+--output-adapter=dtrack \
+--out-dtrack-url="http://localhost:8081"  \
+--daemon
 ```
 
-Now, let's add some SBOMs to it from another terminal.
+Now, let's add some SBOMs to monitoring folder `demo` it from another terminal using `sbommv`.
 
 ```bash
-go run main.go transfer --input-adapter=github --in-github-url="https://github.com/interlynk-io/sbomqs" --output-adapter=folder --out-folder-path=demo
+sbommv transfer \
+--input-adapter=github \
+--in-github-url="https://github.com/interlynk-io/sbomqs" \
+--output-adapter=folder --out-folder-path=demo
+
 2025-03-31T14:22:46.608+0530	INFO	logger/log.go:102	SBOM uploading processing done, no more SBOMs left
 2025-03-31T14:22:46.609+0530	INFO	logger/log.go:102	Total SBOMs	{"count": 1}
 2025-03-31T14:22:46.609+0530	INFO	logger/log.go:102	Successfully Uploaded	{"count": 1}
-
 ```
 
 You will see that an event is Triggered as soon as the SBOM is added to the folder `demo`
@@ -103,19 +109,30 @@ As soon as the SBOM is added to `demo` folder the following events are triggered
 If you check `projects` of dependency-track, a new project with `com.github.interlynk-io/sbomqs-main` is created and uploaded.
 ![alt text](image-4.png)
 
-
 #### Forcing Overwrite
 
 To overwrite an existing SBOM regardless of its presence:
 
 ```bash
-sbommv transfer --input-adapter=folder --in-folder-path="demo" --output-adapter=dtrack --out-dtrack-url="http://localhost:8081" --out-dtrack-overwrite -d
+sbommv transfer \
+--input-adapter=folder \
+--in-folder-path="demo" \
+--output-adapter=dtrack \
+--out-dtrack-url="http://localhost:8081" \
+--out-dtrack-overwrite \
+--daemon
 ```
 
 ### 2 From root Folder + sub-directories(recursion) --> dtrack
 
 ```bash
-sbommv transfer --input-adapter=folder --in-folder-path="demo" --in-folder-recursive=true  --output-adapter=dtrack --out-dtrack-url="http://localhost:8081"  -d
+sbommv transfer \
+--input-adapter=folder \
+--in-folder-path="demo" \
+--in-folder-recursive=true  \
+--output-adapter=dtrack \
+--out-dtrack-url="http://localhost:8081"  \
+--daemon
 ```
 
 Now create a directory `xyz` within `demo` from another terminal.
@@ -138,7 +155,12 @@ The event for directory creation will be triggered:
 Now pull up SBOMs from github(api method) to folder `demo/xyz`
 
 ```bash
-transfer --input-adapter=github --in-github-url="https://github.com/interlynk-io/sbomqs" --output-adapter=folder --out-folder-path=demo/xyz
+sbommv transfer \
+--input-adapter=github \
+--in-github-url="https://github.com/interlynk-io/sbomqs" \
+--output-adapter=folder \
+--out-folder-path=demo/xyz
+
 2025-03-31T15:32:52.713+0530	INFO	logger/log.go:102	SBOM uploading processing done, no more SBOMs left
 2025-03-31T15:32:52.713+0530	INFO	logger/log.go:102	Total SBOMs	{"count": 1}
 2025-03-31T15:32:52.713+0530	INFO	logger/log.go:102	Successfully Uploaded	{"count": 1}
@@ -170,7 +192,14 @@ Use `--dry-run` to preview what SBOMs are triggered from watcher directory and w
 ### 1. Dry Run from Root Folder --> dtrack
 
 ```bash
-sbommv transfer --input-adapter=folder --in-folder-path="demo" --in-folder-recursive=true  --output-adapter=dtrack --out-dtrack-url="http://localhost:8081"  -d  --dry-run
+sbommv transfer \
+--input-adapter=folder \
+--in-folder-path="demo" \
+--in-folder-recursive=true  \
+--output-adapter=dtrack \
+--out-dtrack-url="http://localhost:8081"  \
+--daemon \
+--dry-run
 
 
 ------------------------------------------                                 ------------------------------------------
