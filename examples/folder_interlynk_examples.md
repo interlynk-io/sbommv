@@ -33,8 +33,11 @@ Now let's dive into various use cases and examples.
 ### 1.1 From root Folder(no recursion)
 
 ```bash
-sbommv transfer --input-adapter=folder --in-folder-path="temp" \
-                 --output-adapter=interlynk --out-interlynk-url="https://api.interlynk.io/lynkapi"
+sbommv transfer \
+--input-adapter=folder \
+--in-folder-path="temp" \
+--output-adapter=interlynk \
+--out-interlynk-url="https://api.interlynk.io/lynkapi"
 ```
 
 - **What this does**:
@@ -44,8 +47,12 @@ sbommv transfer --input-adapter=folder --in-folder-path="temp" \
 ### 1.2 From root Folder as well as sub-directories(recursion)
 
 ```bash
-sbommv transfer --input-adapter=folder --in-folder-path="temp" --in-folder-recursive=true \
-                 --output-adapter=interlynk --out-interlynk-url="https://api.interlynk.io/lynkapi"
+sbommv transfer \
+--input-adapter=folder \
+--in-folder-path="temp" \
+--in-folder-recursive=true \
+--output-adapter=interlynk \
+--out-interlynk-url="https://api.interlynk.io/lynkapi"
 ```
 
 - **What this does**:
@@ -57,8 +64,12 @@ sbommv transfer --input-adapter=folder --in-folder-path="temp" --in-folder-recur
 ### 2.1 From root Folder(no recursion)
 
 ```bash
-sbommv transfer --input-adapter=folder --in-folder-path="temp" \
-                 --output-adapter=interlynk --out-interlynk-url="https://api.interlynk.io/lynkapi" --dry-run
+sbommv transfer \
+--input-adapter=folder \
+--in-folder-path="temp" \
+--output-adapter=interlynk \
+--out-interlynk-url="https://api.interlynk.io/lynkapi" \
+--dry-run
 ```
 
 - **What this does**:
@@ -68,8 +79,13 @@ sbommv transfer --input-adapter=folder --in-folder-path="temp" \
 ### 2.2 From root Folder as well as sub-directories(recursion)
 
 ```bash
-sbommv transfer --input-adapter=folder --in-folder-path="temp" --in-folder-recursive=true \
-                 --output-adapter=interlynk --out-interlynk-url="https://api.interlynk.io/lynkapi" --dry-run
+sbommv transfer \
+--input-adapter=folder \
+--in-folder-path="temp" \
+--in-folder-recursive=true \
+--output-adapter=interlynk \
+--out-interlynk-url="https://api.interlynk.io/lynkapi" \
+--dry-run
 ```
 
 - **What this does**:

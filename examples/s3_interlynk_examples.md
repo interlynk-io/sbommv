@@ -40,14 +40,15 @@ Once SBOMs are fetched, they need to be uploaded to Interlynk. To use Interlynk,
 ### 1. Sequential Fetch from S3 Bucket --> Interlynk
 
 ```bash
-sbommv transfer --input-adapter=s3 \
-    --in-s3-bucket-name="demo-test-sbom" \
-    --in-s3-prefix="dropwizard" \
-    --in-s3-region="us-east-1" \
-    --in-s3-access-key="AKIA..." \
-    --in-s3-secret-key="wJalr..." \
-    --output-adapter=interlynk \
-    --out-interlynk-url="http://localhost:3000/lynkapi"
+sbommv transfer \
+--input-adapter=s3 \
+--in-s3-bucket-name="demo-test-sbom" \
+--in-s3-prefix="dropwizard" \
+--in-s3-region="us-east-1" \
+--in-s3-access-key="AKIA..." \
+--in-s3-secret-key="wJalr..." \
+--output-adapter=interlynk \
+--out-interlynk-url="http://localhost:3000/lynkapi"
 ```
 
 **What this does**:
@@ -59,26 +60,28 @@ sbommv transfer --input-adapter=s3 \
 If AWS credentials is already configured and located at `~/aws/credentials`, it can auto-fetch those configuration by itself. Therefore, no need to provide external flags like `--in-s3-access-key` and `--in-s3-secret-key`. So updated command will be:
 
 ```bash
-sbommv transfer --input-adapter=s3 \
-    --in-s3-bucket-name="demo-test-sbom" \
-    --in-s3-prefix="dropwizard" \
-    --in-s3-region="us-east-1" \
-    --output-adapter=interlynk \
-    --out-interlynk-url="http://localhost:3000/lynkapi"
+sbommv transfer \
+--input-adapter=s3 \
+--in-s3-bucket-name="demo-test-sbom" \
+--in-s3-prefix="dropwizard" \
+--in-s3-region="us-east-1" \
+--output-adapter=interlynk \
+--out-interlynk-url="http://localhost:3000/lynkapi"
 ```
 
 ### 2. Parallel Fetch from S3 Bucket --> Interlynk Platform
 
 ```bash
-sbommv transfer --input-adapter=s3 \
-    --in-s3-bucket-name="demo-test-sbom" \
-    --in-s3-prefix="dropwizard" \
-    --in-s3-region="us-east-1" \
-    --in-s3-access-key="AKIA..." \
-    --in-s3-secret-key="wJalr..." \
-    --processing-mode="parallel" \
-    --output-adapter=interlynk \
-    --out-interlynk-url="http://localhost:3000/lynkapi"
+sbommv transfer \
+--input-adapter=s3 \
+--in-s3-bucket-name="demo-test-sbom" \
+--in-s3-prefix="dropwizard" \
+--in-s3-region="us-east-1" \
+--in-s3-access-key="AKIA..." \
+--in-s3-secret-key="wJalr..." \
+--processing-mode="parallel" \
+--output-adapter=interlynk \
+--out-interlynk-url="http://localhost:3000/lynkapi"
 ```
 
 **What this does**:
@@ -89,13 +92,14 @@ sbommv transfer --input-adapter=s3 \
 If AWS credentials is already configured and located at `~/aws/credentials`, it can auto-fetch those configuration by itself. Therefore, no need to provide external flags like `--in-s3-access-key` and `--in-s3-secret-key`. So updated command will be:
 
 ```bash
-sbommv transfer --input-adapter=s3 \
-    --in-s3-bucket-name="demo-test-sbom" \
-    --in-s3-prefix="dropwizard" \
-    --in-s3-region="us-east-1" \
-    --processing-mode="parallel" \
-    --output-adapter=interlynk \
-    --out-interlynk-url="http://localhost:3000/lynkapi"
+sbommv transfer \
+--input-adapter=s3 \
+--in-s3-bucket-name="demo-test-sbom" \
+--in-s3-prefix="dropwizard" \
+--in-s3-region="us-east-1" \
+--processing-mode="parallel" \
+--output-adapter=interlynk \
+--out-interlynk-url="http://localhost:3000/lynkapi"
 ```
 
 ## 🔍 Dry-Run Mode (Simulation Only)
@@ -105,30 +109,32 @@ Use --dry-run to preview what would happen without uploading anything.
 ### 1. Dry Run with Sequential Fetch --> Interlynk
 
 ```bash
-sbommv transfer --input-adapter=s3 \
-    --in-s3-bucket-name="demo-test-sbom" \
-    --in-s3-prefix="dropwizard" \
-    --in-s3-region="us-east-1" \
-    --in-s3-access-key="AKIA..." \
-    --in-s3-secret-key="wJalr..." \
-    --output-adapter=interlynk \
-    --out-interlynk-url="http://localhost:3000/lynkapi" \
-    --dry-run
+sbommv transfer \
+--input-adapter=s3 \
+--in-s3-bucket-name="demo-test-sbom" \
+--in-s3-prefix="dropwizard" \
+--in-s3-region="us-east-1" \
+--in-s3-access-key="AKIA..." \
+--in-s3-secret-key="wJalr..." \
+--output-adapter=interlynk \
+--out-interlynk-url="http://localhost:3000/lynkapi" \
+--dry-run
 ```
 
 ### 2. Dry Run with Parallel Fetch --> Interlynk Platform
 
 ```bash
-sbommv transfer --input-adapter=s3 \
-    --in-s3-bucket-name="demo-test-sbom" \
-    --in-s3-prefix="dropwizard" \
-    --in-s3-region="us-east-1" \
-    --in-s3-access-key="AKIA..." \
-    --in-s3-secret-key="wJalr..." \
-    --in-s3-processing-mode="parallel" \
-    --output-adapter=interlynk \
-    --out-interlynk-url="http://localhost:3000/lynkapi" \
-    --dry-run
+sbommv transfer \
+--input-adapter=s3 \
+--in-s3-bucket-name="demo-test-sbom" \
+--in-s3-prefix="dropwizard" \
+--in-s3-region="us-east-1" \
+--in-s3-access-key="AKIA..." \
+--in-s3-secret-key="wJalr..." \
+--in-s3-processing-mode="parallel" \
+--output-adapter=interlynk \
+--out-interlynk-url="http://localhost:3000/lynkapi" \
+--dry-run
 ```
 
 **What this does**:
