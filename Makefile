@@ -61,7 +61,7 @@ test: generate
 
 .PHONY: build
 build:
-	CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/sbommv main.go
+	CGO_ENABLED=1 go build -trimpath -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/sbommv main.go
 
 .PHONY: clean
 clean:

@@ -3,6 +3,8 @@ version: 2
 
 env:
   - GO111MODULE=on
+  - CGO_ENABLED=1
+
 
 before:
   hooks:
@@ -30,7 +32,7 @@ builds:
     ldflags:
       - "{{ .Env.LDFLAGS }}"
     env:
-      - CGO_ENABLED=0
+      - CGO_ENABLED=1
 
 nfpms:
   - id: sbommv
