@@ -11,7 +11,7 @@ COPY . .
 
 # Build for multiple architectures
 ARG TARGETOS TARGETARCH
-RUN CGO_ENABLED=1 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -a -o sbommv .
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -a -o sbommv .
 
 RUN chmod +x sbommv
 
