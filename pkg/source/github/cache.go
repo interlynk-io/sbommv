@@ -26,7 +26,7 @@ import (
 
 	"github.com/interlynk-io/sbommv/pkg/logger"
 	"github.com/interlynk-io/sbommv/pkg/tcontext"
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 )
 
 const (
@@ -107,7 +107,7 @@ func (c *Cache) InitCache(ctx tcontext.TransferMetadata, outputAdapter, method s
 	dbCtx, cancel := context.WithTimeout(ctx.Context, 5*time.Second)
 	defer cancel()
 
-	db, err := sql.Open("sqlite3", path)
+	db, err := sql.Open("sqlite", path)
 	if err != nil {
 		logger.LogError(ctx.Context, err, "Failed to open SQLite database")
 		return fmt.Errorf("failed to open SQLite database: %w", err)
