@@ -92,6 +92,11 @@ Examples:
   sbommv transfer --input-adapter=github --in-github-url="https://github.com/interlynk-io/sbomqs" --in-github-method=release \
                   --output-adapter=folder --out-folder-path="temp"
 
+  # Continous Fetching From GitHub (release) to Folder in deamon mode with polling repo  every 60s and waiting 180s for assets
+  sbommv transfer --input-adapter=github --in-github-url="https://github.com/interlynk-io/sbomqs" --in-github-method=release \
+                  --output-adapter=folder --out-folder-path="temp" --in-github-poll-interval="60s" --in-github-asset-wait-delay="180s" --daemon
+
+
   # Folder to S3
   sbommv transfer --input-adapter=folder --in-folder-path="temp" --in-folder-recursive \
                   --output-adapter=s3 --out-s3-bucket-name="demo-test-sbom" --out-s3-prefix="sboms" --out-s3-region="us-east-1"
