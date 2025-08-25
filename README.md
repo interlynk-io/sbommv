@@ -30,6 +30,13 @@ This setup allows SBOMs to move seamlessly across different systems, abstracting
 Our SBOM Automation Platform has a new free tier that provides a comprehensive solution to manage SBOMs (Software Bill of Materials) effortlessly. From centralized SBOM storage, built-in SBOM editor, continuous vulnerability mapping and assessment, and support for organizational policies, all while ensuring compliance and enhancing software supply chain security using integrated SBOM quality scores. The free tier is ideal for small teams.
 [Try now](https://app.interlynk.io/)
 
+## sbommv Blogs
+
+- [GitHub Releases are where SBOM's goto die](https://www.linkedin.com/pulse/github-releases-where-sboms-goto-die-vivek-kumar-sahu-etppc/)
+- [Folder Monitoring: SBOM Automation That Never Sleeps 🕵️‍♂️](https://www.linkedin.com/pulse/folder-monitoring-sbom-automation-never-sleeps-vivek-kumar-sahu-fnwbc/)
+- [Modular SBOM Automation: Now with AWS S3 Support](https://www.linkedin.com/pulse/modular-sbom-automation-now-aws-s3-support-vivek-kumar-sahu-jahrc/)
+- [Monitoring External GitHub Repos for SBOMs](https://www.linkedin.com/pulse/monitoring-external-github-repos-sboms-vivek-kumar-sahu-nxtzc/)
+
 ## Getting Started
 
 ### Installation
