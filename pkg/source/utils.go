@@ -21,7 +21,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/interlynk-io/sbomasm/pkg/detect"
+	"github.com/interlynk-io/sbomasm/pkg/sbom"
 )
 
 var sbomRegex *regexp.Regexp
@@ -33,16 +33,16 @@ func init() {
 // IsSBOMFile simply detect SBOMs file format and spec after reading the file.
 func IsSBOMFile(content []byte) bool {
 	reader := bytes.NewReader(content)
-	spec, format, err := detect.Detect(reader)
+	spec, format, err := sbom.Detect(reader)
 	if err != nil {
 		return false
 	}
 
-	if format == detect.FileFormatUnknown {
+	if format == sbom.FileFormatUnknown {
 		return false
 	}
 
-	if spec == detect.SBOMSpecUnknown {
+	if spec == sbom.SBOMSpecUnknown {
 		return false
 	}
 
@@ -52,12 +52,12 @@ func IsSBOMFile(content []byte) bool {
 func IsSBOMJSONFormat(data []byte) bool {
 	reader := bytes.NewReader(data)
 
-	_, format, err := detect.Detect(reader)
+	_, format, err := sbom.Detect(reader)
 	if err != nil {
 		return false
 	}
 
-	if format == detect.FileFormatJSON {
+	if format == sbom.FileFormatJSON {
 		return true
 	}
 

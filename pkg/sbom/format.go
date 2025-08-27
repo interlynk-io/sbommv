@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/interlynk-io/sbomasm/pkg/detect"
+	"github.com/interlynk-io/sbomasm/pkg/sbom"
 )
 
 // Format-specific structs for basic parsing
@@ -51,7 +51,7 @@ func (p *SBOMProcessor) detectAndParse(doc *SBOMDocument) error {
 	sbomReader := bytes.NewReader(doc.Content)
 
 	// Use sbomasms Detect function
-	specFormat, fileFormat, err := detect.Detect(sbomReader)
+	specFormat, fileFormat, err := sbom.Detect(sbomReader)
 	if err != nil {
 		return fmt.Errorf("failed to detect SBOM format: %w", err)
 	}
@@ -59,23 +59,33 @@ func (p *SBOMProcessor) detectAndParse(doc *SBOMDocument) error {
 	// Map detected format to our SBOMFormat type
 	switch specFormat {
 
-	case detect.SBOMSpecSPDX:
-		if fileFormat == detect.FileFormatJSON {
+	case sbom.SBOMSpecSPDX:
+		switch fileFormat {
+		case sbom.FileFormatJSON:
 			doc.Format = FormatSPDXJSON
-		} else if fileFormat == detect.FileFormatTagValue {
+		case sbom.FileFormatTagValue:
 			doc.Format = FormatSPDXTag
-		} else if fileFormat == detect.FileFormatYAML {
+		case sbom.FileFormatYAML:
 			doc.Format = FormatSPDXYAML
+		default:
+			doc.Format = SBOMFormat(sbom.FileFormatUnknown)
+			return fmt.Errorf("unknown SBOM SPDX file format")
+
 		}
-	case detect.SBOMSpecCDX:
-		if fileFormat == detect.FileFormatJSON {
+	case sbom.SBOMSpecCDX:
+		switch fileFormat {
+		case sbom.FileFormatJSON:
 			doc.Format = FormatCycloneDXJSON
-		} else if fileFormat == detect.FileFormatXML {
+		case sbom.FileFormatXML:
 			doc.Format = FormatCycloneDXXML
+		default:
+			doc.Format = SBOMFormat(sbom.FileFormatUnknown)
+			return fmt.Errorf("unknown SBOM CDX file format")
 		}
+
 	default:
-		doc.Format = FormatUnknown
-		return fmt.Errorf("unknown SBOM format")
+		doc.SpecVersion = string(sbom.SBOMSpecUnknown)
+		return fmt.Errorf("unknown SBOM spec")
 	}
 	return p.parseSBOMContent(doc)
 }
