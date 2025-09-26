@@ -48,17 +48,11 @@ func (r *FolderOutputReporter) DryRun(ctx tcontext.TransferMetadata, iter iterat
 			return err
 		}
 
-		namespace := filepath.Base(sbom.Namespace)
-		if namespace == "" {
-			namespace = fmt.Sprintf("sbom_%s.json", uuid.New().String())
-		}
+		outputFolder := r.folderPath
 
-		// outputPath := filepath.Join(r.folderPath, namespace)
-		outputPath := r.folderPath
-
-		outputFile := filepath.Join(outputPath, sbom.Path)
+		outputFile := filepath.Join(outputFolder, sbom.Path)
 		if sbom.Path == "" {
-			outputFile = filepath.Join(outputPath, fmt.Sprintf("%s.sbom.json", uuid.New().String()))
+			outputFile = filepath.Join(outputFolder, fmt.Sprintf("%s.sbom.json", uuid.New().String()))
 		}
 
 		fmt.Printf("- 📂 Would write: %s\n", outputFile)
