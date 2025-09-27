@@ -65,7 +65,7 @@ func (r *DependencyTrackReporter) DryRun(ctx tcontext.TransferMetadata, iter ite
 
 		sourceAdapter := ctx.Value("source")
 
-		finalProjectName, _ := utils.ConstructProjectName(ctx, r.projectName, r.projectVersion, sbom.Namespace, sbom.Version, sbom.Path, sbom.Data, sourceAdapter.(string))
+		finalProjectName, _ := utils.ConstructDTProjectName(ctx, r.projectName, r.projectVersion, sbom.Namespace, sbom.Version, sbom.Path, sbom.Data, sourceAdapter.(string))
 
 		fmt.Printf("- 📁 Would upload to project '%s' | Format: %s | SpecVersion: %s | Filename: %s\n",
 			finalProjectName, doc.Format, doc.SpecVersion, sbom.Path)

@@ -27,7 +27,6 @@ import (
 	"github.com/interlynk-io/sbommv/pkg/iterator"
 	"github.com/interlynk-io/sbommv/pkg/logger"
 	"github.com/interlynk-io/sbommv/pkg/tcontext"
-	"github.com/interlynk-io/sbommv/pkg/utils"
 )
 
 type SBOMUploader interface {
@@ -86,10 +85,10 @@ func (u *S3ParallelUploader) Upload(ctx tcontext.TransferMetadata, config *S3Con
 			defer wg.Done()
 			defer func() { <-semaphore }()
 
-			sourceAdapter := ctx.Value("source")
-			finalProjectName, _ := utils.ConstructProjectName(ctx, "", "", sbom.Namespace, sbom.Version, sbom.Path, sbom.Data, sourceAdapter.(string))
-
-			key := filepath.Join(prefix, finalProjectName)
+			// sourceAdapter := ctx.Value("source")
+			// finalProjectName, _ := utils.ConstructProjectName(ctx, "", "", sbom.Namespace, sbom.Version, sbom.Path, sbom.Data, sourceAdapter.(string))
+			fileName := sbom.Path
+			key := filepath.Join(prefix, fileName)
 
 			// Upload to S3
 			_, err := client.PutObject(ctx.Context, &s3.PutObjectInput{
@@ -107,7 +106,7 @@ func (u *S3ParallelUploader) Upload(ctx tcontext.TransferMetadata, config *S3Con
 			}
 			successfullyUploaded++
 			logger.LogDebug(ctx.Context, "Uploaded SBOM", "bucket", config.BucketName, "key", key, "size", len(sbom.Data))
-			logger.LogInfo(ctx.Context, "upload", "success", true, "bucket", config.BucketName, "prefix", config.Prefix, "filename", finalProjectName)
+			logger.LogInfo(ctx.Context, "upload", "success", true, "bucket", config.BucketName, "prefix", config.Prefix, "filename", fileName)
 
 			mu.Unlock()
 		}(sbom)
@@ -147,19 +146,18 @@ func (u *S3SequentialUploader) Upload(ctx tcontext.TransferMetadata, s3cfg *S3Co
 		if err == io.EOF {
 			break
 		}
-		sourceAdapter := ctx.Value("source")
-		destinationAdapter := ctx.Value("destination")
+		// sourceAdapter := ctx.Value("source")
+		// destinationAdapter := ctx.Value("destination")
 
-		var finalProjectName string
-
-		// if the source adapter is local folder cloud storage(s3), and the o/p adapter is local folder or cloud storage(s3),
-		// use the SBOM file name as the project name instead of primary comp and version
-		// because at the end they have to save the SBOM file as it is.
-		if sourceAdapter.(string) == "folder" && destinationAdapter.(string) == "s3" || sourceAdapter.(string) == "s3" && destinationAdapter.(string) == "s3" {
-			finalProjectName = sbom.Path
-		} else {
-			finalProjectName, _ = utils.ConstructProjectName(ctx, "", "", sbom.Namespace, sbom.Version, sbom.Path, sbom.Data, sourceAdapter.(string))
-		}
+		fileName := sbom.Path
+		// // if the source adapter is local folder cloud storage(s3), and the o/p adapter is local folder or cloud storage(s3),
+		// // use the SBOM file name as the project name instead of primary comp and version
+		// // because at the end they have to save the SBOM file as it is.
+		// if sourceAdapter.(string) == "folder" && destinationAdapter.(string) == "s3" || sourceAdapter.(string) == "s3" && destinationAdapter.(string) == "s3" {
+		// 	finalProjectName = sbom.Path
+		// } else {
+		// 	finalProjectName, _ = utils.ConstructProjectName(ctx, "", "", sbom.Namespace, sbom.Version, sbom.Path, sbom.Data, sourceAdapter.(string))
+		// }
 
 		totalSBOMs++
 		if err != nil {
@@ -167,7 +165,7 @@ func (u *S3SequentialUploader) Upload(ctx tcontext.TransferMetadata, s3cfg *S3Co
 			continue
 		}
 
-		key := filepath.Join(bucketPrefix, finalProjectName)
+		key := filepath.Join(bucketPrefix, fileName)
 
 		// Upload to S3
 		_, err = client.PutObject(ctx.Context, &s3.PutObjectInput{
@@ -182,7 +180,7 @@ func (u *S3SequentialUploader) Upload(ctx tcontext.TransferMetadata, s3cfg *S3Co
 
 		successfullyUploaded++
 		logger.LogDebug(ctx.Context, "Uploaded SBOM", "bucket", s3cfg.BucketName, "key", key, "size", len(sbom.Data))
-		logger.LogInfo(ctx.Context, "upload", "success", true, "bucket", s3cfg.BucketName, "prefix", s3cfg.Prefix, "filename", finalProjectName)
+		logger.LogInfo(ctx.Context, "upload", "success", true, "bucket", s3cfg.BucketName, "prefix", s3cfg.Prefix, "filename", fileName)
 
 	}
 	logger.LogInfo(ctx.Context, "upload", "total", totalSBOMs, "success", successfullyUploaded, "failed", totalSBOMs-successfullyUploaded)

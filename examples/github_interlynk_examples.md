@@ -39,8 +39,13 @@ Now let's dive into various use cases and examples.
 #### Fetch SBOMs from the latest release of a Github repository and upload to Interlynk
 
 ```bash
-sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigstore/cosign" \
-                --in-github-method=release --output-adapter=interlynk --out-interlynk-url="https://api.interlynk.io/lynkapi" --dry-run
+sbommv transfer \
+--input-adapter=github \
+--in-github-url="https://github.com/sigstore/cosign" \
+--in-github-method=release \
+--output-adapter=interlynk \
+--out-interlynk-url="https://api.interlynk.io/lynkapi" \
+--dry-run
 ```
 
 - **What this does**:
@@ -52,22 +57,33 @@ sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigst
   - remove the `dry-run` flag, to process with uploading part.
 
 ```bash
-sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigstore/cosign" \
-                --in-github-method=release --output-adapter=interlynk --out-interlynk-url="https://api.interlynk.io/lynkapi"
+sbommv transfer \
+--input-adapter=github \
+--in-github-url="https://github.com/sigstore/cosign" \
+--in-github-method=release \
+--output-adapter=interlynk --out-interlynk-url="https://api.interlynk.io/lynkapi"
 ```
+
+- **What this does**:
+  - Fetches SBOMs from the latest release of the repository `sigstore/cosign`
+  - And upload the SBOMs on Interlynk with project name `sigstore/cosign`
+  - And under this `sigtore/cosign` all the SBOMs are uploaded.
 
 ### 1.2 GitHub API Method (Dependency Graph): default method
 
 #### Fetch SBOMs using the GitHub API and upload to Interlynk
 
 ```bash
-sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigstore/cosign" \
-                 --output-adapter=interlynk --out-interlynk-url="https://api.interlynk.io/lynkapi"
+sbommv transfer \
+--input-adapter=github \
+--in-github-url="https://github.com/sigstore/cosign" \
+--output-adapter=interlynk \
+--out-interlynk-url="https://api.interlynk.io/lynkapi"
 ```
 
 - **What this does**:
   - Fetches SBOMs from GitHub’s dependency graph API for the repository `sigstore/cosign`
-  - Uploads them to Interlynk
+  - Uploads them to Interlynk with a project name `sigstore/cosign`
 
 **NOTE**:
 
@@ -78,8 +94,12 @@ sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigst
 #### Clone the repo, generate an SBOM using Syft, and upload it to Interlynk.
 
 ```bash
-sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigstore/cosign" \
-                --in-github-method=tool --output-adapter=interlynk --out-interlynk-url="https://api.interlynk.io/lynkapi"
+sbommv transfer \
+--input-adapter=github \
+--in-github-url="https://github.com/sigstore/cosign" \
+--in-github-method=tool \
+--output-adapter=interlynk \
+--out-interlynk-url="https://api.interlynk.io/lynkapi"
 ```
 
 - **What this does**:
@@ -94,9 +114,12 @@ sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigst
 #### 1.3.1 Fetch SBOMs for a Specific GitHub Branch (Tool Method Only)
 
 ```bash
-sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigstore/cosign" \
-                --in-github-method=tool --in-github-branch="main" \
-                --output-adapter=interlynk --out-interlynk-url="https://api.interlynk.io/lynkapi"
+sbommv transfer \
+--input-adapter=github \
+--in-github-url="https://github.com/sigstore/cosign" \
+--in-github-method=tool --in-github-branch="main" \
+--output-adapter=interlynk \
+--out-interlynk-url="https://api.interlynk.io/lynkapi"
 ```
 
 - **What this does**:
@@ -111,8 +134,12 @@ sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigst
 ## 2. Using Dry-Run Mode (No Upload, Just Simulation)
 
 ```bash
-sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigstore/cosign" \
-                --output-adapter=interlynk --out-interlynk-url="https://api.interlynk.io/lynkapi" --dry-run
+sbommv transfer \
+--input-adapter=github \
+--in-github-url="https://github.com/sigstore/cosign" \
+--output-adapter=interlynk \
+--out-interlynk-url="https://api.interlynk.io/lynkapi" \
+--dry-run
 ```
 
 - **What this does**:
@@ -131,9 +158,13 @@ sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigst
 #### 3.1.1 Github Release Method
 
 ```bash
-sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigstore" \
-                --in-github-method=release --in-github-include-repos=cosign,rekor \
-                --output-adapter=interlynk --out-interlynk-url="https://api.interlynk.io/lynkapi"
+sbommv transfer \
+--input-adapter=github \
+--in-github-url="https://github.com/sigstore" \
+--in-github-method=release \
+--in-github-include-repos=cosign,rekor \
+--output-adapter=interlynk \
+--out-interlynk-url="https://api.interlynk.io/lynkapi"
 ```
 
 - **What this does**:
@@ -148,9 +179,12 @@ sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigst
 #### 3.1.2 Github API Method
 
 ```bash
-sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigstore" \
-                --in-github-include-repos=cosign,rekor \
-                --output-adapter=interlynk --out-interlynk-url="https://api.interlynk.io/lynkapi"
+sbommv transfer \
+--input-adapter=github \
+--in-github-url="https://github.com/sigstore" \
+--in-github-include-repos=cosign,rekor \
+--output-adapter=interlynk \
+--out-interlynk-url="https://api.interlynk.io/lynkapi"
 ```
 
 - **What this does**:
@@ -161,24 +195,30 @@ sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigst
 #### 3.1.3 Github Tool Method
 
 ```bash
-sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigstore" \
-                --in-github-method=tool --in-github-include-repos=cosign,rekor \
-                --output-adapter=interlynk --out-interlynk-url="https://api.interlynk.io/lynkapi"
+sbommv transfer \
+--input-adapter=github \
+--in-github-url="https://github.com/sigstore" \
+--in-github-method=tool --in-github-include-repos=cosign,rekor \
+--output-adapter=interlynk \
+--out-interlynk-url="https://api.interlynk.io/lynkapi"
 ```
 
 - **What this does**:
   - Fetches SBOMs only from `cosign` and `rekor` repositories in the `sigstore` organization.
   - Uploads them as separate projects in Interlynk.
-  - `cosign`, `rekor` SBOMs will be uploaded to `sigstore/cosign` and `sigstore/reko` respectively.
+  - `cosign`, `rekor` SBOMs will be uploaded to `sigstore/cosign` and `sigstore/rekor` respectively.
 
 ### 3.2 Exclude Certain Repositories from an Organization
 
 #### 3.2.1  Github Release Method
 
 ```bash
-sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigstore" \
-                --in-github-method=release --in-github-exclude-repos=docs \
-                --output-adapter=interlynk --out-interlynk-url="https://api.interlynk.io/lynkapi"
+sbommv transfer \
+--input-adapter=github \
+--in-github-url="https://github.com/sigstore" \
+--in-github-method=release --in-github-exclude-repos=docs \
+--output-adapter=interlynk \
+--out-interlynk-url="https://api.interlynk.io/lynkapi"
 ```
 
 - **What this does**:
@@ -189,9 +229,12 @@ sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigst
 #### 3.2.2 Github API Method
 
 ```bash
-sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigstore" \
-                --in-github-exclude-repos=docs \
-                --output-adapter=interlynk --out-interlynk-url="https://api.interlynk.io/lynkapi"
+sbommv transfer \
+--input-adapter=github \
+--in-github-url="https://github.com/sigstore" \
+--in-github-exclude-repos=docs \
+--output-adapter=interlynk \
+--out-interlynk-url="https://api.interlynk.io/lynkapi"
 ```
 
 - **What this does**:
@@ -202,27 +245,18 @@ sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigst
 #### 3.2.3 Github Tool Method
 
 ```bash
-sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigstore" \
-                --in-github-method=tool --in-github-exclude-repos=docs \
-                --output-adapter=interlynk --out-interlynk-url="https://api.interlynk.io/lynkapi"
+sbommv transfer \
+--input-adapter=github \
+--in-github-url="https://github.com/sigstore" \
+--in-github-method=tool \
+--in-github-exclude-repos=docs \
+--output-adapter=interlynk \
+--out-interlynk-url="https://api.interlynk.io/lynkapi"
 ```
 
 - **What this does**:
   - Fetches SBOMs from all repositories in `sigstore` except `docs`.
   - Uploads them as separate projects in Interlynk.
-
-## 4. GitHub  → Folder
-
-### Fetch SBOMs from github repo and save it to a folder
-
-```bash
- sbommv transfer --input-adapter=github --in-github-url="https://github.com/sigstore/" --in-github-include-repos=cosign,fulcio,rekor --in-github-method="release" --output-adapter=folder --out-folder-path="temp"
-```
-
-- **What this does**:
-  - Fetches SBOMs from `sigstore` organization for repositories in `cosign`, `fulcio`, and `rekor`.
-  - Save these SBOMs to a folder `temp`.
-  - Under `temp`, seperate sub-dir with name `cosign`, `fulcio` and `rekor` will be created and respective repo SBOMs will be stored there.
 
 ## 4. Continuous Monitoring (Daemon Mode): GitHub → Interlynk
 
@@ -233,9 +267,14 @@ Enable continuous monitoring by adding the `--daemon` or `-d` flag to your comma
 #### 4.1.1 GitHub Release Method (Daemon Mode)
 
 ```bash
-sbommv transfer --input-adapter=github --in-github-url="https://github.com/interlynk-io/sbomqs" \
-                --in-github-method=release --output-adapter=interlynk --out-interlynk-url="https://api.interlynk.io/lynkapi" \
-                --daemon --in-github-poll-interval="60s"
+sbommv transfer \
+--input-adapter=github \
+--in-github-url="https://github.com/interlynk-io/sbomqs" \
+--in-github-method=release \
+--in-github-poll-interval="60s" \
+--output-adapter=interlynk \
+--out-interlynk-url="https://api.interlynk.io/lynkapi" \
+--daemon
 ```
 
 **What this does:**
@@ -243,7 +282,7 @@ sbommv transfer --input-adapter=github --in-github-url="https://github.com/inter
 - Continuously monitors the `interlynk-io/sbomqs` repository for new releases containing SBOM artifacts.
 - Polls every 60 seconds (customizable via `--in-github-poll-interval`).
 - Fetches SBOMs from the GitHub Release page when a new release is detected.
-- Uploads new SBOMs to Interlynk as a project named `interlynk-io/sbomqs-<sbom_file-name>`.
+- Uploads new SBOMs to Interlynk as a project named `interlynk-io/sbomqs`.
 
 **NOTE**:
 
@@ -255,9 +294,13 @@ sbommv transfer --input-adapter=github --in-github-url="https://github.com/inter
 #### 4.1.2 GitHub API Method (Daemon Mode)
 
 ```bash
-sbommv transfer --input-adapter=github --in-github-url="https://github.com/interlynk-io/sbomqs" \
-                --output-adapter=interlynk --out-interlynk-url="https://api.interlynk.io/lynkapi" \
-                --daemon --in-github-poll-interval="24h"
+sbommv transfer \
+--input-adapter=github \
+--in-github-url="https://github.com/interlynk-io/sbomqs" \
+--in-github-poll-interval="24h" \
+--output-adapter=interlynk \
+--out-interlynk-url="https://api.interlynk.io/lynkapi" \
+--daemon
 ```
 
 **What this does:**
@@ -275,9 +318,14 @@ sbommv transfer --input-adapter=github --in-github-url="https://github.com/inter
 #### 4.1.3 GitHub Tool Method (Daemon Mode)
 
 ```bash
-sbommv transfer --input-adapter=github --in-github-url="https://github.com/interlynk-io/sbomqs" \
-                --in-github-method=tool --output-adapter=interlynk --out-interlynk-url="https://api.interlynk.io/lynkapi" \
-                --daemon --in-github-poll-interval="24h"
+sbommv transfer \
+--input-adapter=github \
+--in-github-url="https://github.com/interlynk-io/sbomqs" \
+--in-github-method=tool \
+--in-github-poll-interval="24h" \
+--output-adapter=interlynk \
+--out-interlynk-url="https://api.interlynk.io/lynkapi" \
+--daemon 
 ```
 
 **What this does:**
@@ -298,10 +346,15 @@ sbommv transfer --input-adapter=github --in-github-url="https://github.com/inter
 #### 4.2.1 GitHub Release Method (Daemon Mode)
 
 ```bash
-sbommv transfer --input-adapter=github --in-github-url="https://github.com/interlynk-io" \
-                --in-github-method=release --in-github-include-repos=sbomqs,sbommv \
-                --output-adapter=interlynk --out-interlynk-url="https://api.interlynk.io/lynkapi" \
-                --daemon --in-github-poll-interval="24h"
+sbommv transfer \
+--input-adapter=github \
+--in-github-url="https://github.com/interlynk-io" \
+--in-github-method=release \
+--in-github-include-repos=sbomqs,sbommv \
+--output-adapter=interlynk \
+--out-interlynk-url="https://api.interlynk.io/lynkapi" \
+--daemon \
+--in-github-poll-interval="24h"
 ```
 
 **What this does:**
@@ -309,7 +362,7 @@ sbommv transfer --input-adapter=github --in-github-url="https://github.com/inter
 - Continuously monitors the `sbomqs` and `sbommv` repositories under the `interlynk-io` organization for new releases containing SBOM artifacts.
 - Polls every 24 hours (customizable via `--in-github-poll-interval`).
 - Fetches SBOMs from the GitHub Release pages when new releases are detected.
-- Uploads new SBOMs to Interlynk as projects named `interlynk-io/sbomqs-<sbom-filename` and `interlynk-io/sbommv-<sbom_filename>`.
+- Uploads new SBOMs to Interlynk as projects named `interlynk-io/sbomqs` and `interlynk-io/sbommv`.
 
 **NOTE:**
 
@@ -320,10 +373,15 @@ sbommv transfer --input-adapter=github --in-github-url="https://github.com/inter
 #### 4.2.2 GitHub API Method (Daemon Mode)
 
 ```bash
-sbommv transfer --input-adapter=github --in-github-url="https://github.com/interlynk-io" \
-                --in-github-method=api --in-github-include-repos=sbomqs,sbommv \
-                --output-adapter=interlynk --out-interlynk-url="https://api.interlynk.io/lynkapi" \
-                --daemon --in-github-poll-interval="24h"
+sbommv transfer \
+--input-adapter=github \
+--in-github-url="https://github.com/interlynk-io" \
+--in-github-method=api \
+--in-github-include-repos=sbomqs,sbommv \
+--output-adapter=interlynk \
+--out-interlynk-url="https://api.interlynk.io/lynkapi" \
+--daemon \
+--in-github-poll-interval="24h"
 ```
 
 **What this does:**
@@ -331,7 +389,7 @@ sbommv transfer --input-adapter=github --in-github-url="https://github.com/inter
 - Continuously monitors the `sbomqs` and `sbommv` repositories under the `interlynk-io` organization for Dependency Graph SBOM updates.
 - Polls every 24 hours (customizable via `--in-github-poll-interval`).
 - Fetches SBOMs using GitHub’s Dependency Graph API when updates are detected.
-- Uploads new SBOMs to Interlynk as projects named `interlynk-io/sbomqs-latest-dependency-graph-sbom.json` and `interlynk-io/sbommv-latest-dependency-graph-sbom.json`.
+- Uploads new SBOMs to Interlynk as projects named `interlynk-io/sbomqs` and `interlynk-io/sbommv`.
 
 **NOTE:**
 
@@ -342,10 +400,14 @@ sbommv transfer --input-adapter=github --in-github-url="https://github.com/inter
 #### 4.2.3 GitHub Tool Method (Daemon Mode)
 
 ```bash
-sbommv transfer --input-adapter=github --in-github-url="https://github.com/interlynk-io" \
-                --in-github-method=tool --in-github-include-repos=sbomqs,sbommv \
-                --output-adapter=interlynk --out-interlynk-url="https://api.interlynk.io/lynkapi" \
-                --daemon --in-github-poll-interval="24h"
+sbommv transfer \
+--input-adapter=github \
+--in-github-url="https://github.com/interlynk-io" \
+--in-github-method=tool \
+--in-github-include-repos=sbomqs,sbommv \
+--output-adapter=interlynk \
+--out-interlynk-url="https://api.interlynk.io/lynkapi" \
+--daemon --in-github-poll-interval="24h"
 ```
 
 **What this does:**
@@ -353,7 +415,7 @@ sbommv transfer --input-adapter=github --in-github-url="https://github.com/inter
 - Continuously monitors the `sbomqs` and `sbommv` repositories under the `interlynk-io` organization for new releases containing SBOM artifacts.
 - Polls every 24 hours (customizable via `--in-github-poll-interval`).
 - Clones the repositories and generates SBOMs using Syft when new releases are detected.
-- Uploads new SBOMs to Interlynk as projects named `interlynk-io/sbomqs-latest-syft-generated-sbom.json` and `interlynk-io/sbommv-latest-syft-generated-sbom.json`.
+- Uploads new SBOMs to Interlynk as projects named `interlynk-io/sbomqs` and `interlynk-io/sbommv`.
 
 **NOTE:**
 
@@ -361,41 +423,20 @@ sbommv transfer --input-adapter=github --in-github-url="https://github.com/inter
 - Cache files (e.g., `.sbommv/cache_interlynk_tool.db`) are created per adapter-method combination.
 - To stop the daemon, press Ctrl+C.
 
-## 5. GitHub → Folder
-
-### Fetch SBOMs from GitHub repo and save it to a folder
-
-```bash
-sbommv transfer --input-adapter=github --in-github-url="https://github.com/interlynk-io/" --in-github-include-repos=sbomqs,sbommv --in-github-method="release" --output-adapter=folder --out-folder-path="temp"
-```
-
-- **What this does**:
-  - Fetches SBOMs from the `interlynk-io` organization for repositories `sbomqs` and `sbommv`.
-  - Saves these SBOMs to a folder named `temp`.
-  - Under temp, separate sub-directories named `sbomqs` and `sbommv` will be created, and the respective repo SBOMs will be stored there.
-
-## 6. Folder → Interlynk
-
-### Fetch SBOMs from folder "temp" and upload/push it to Interlynk
-
-```bash
-sbommv transfer --input-adapter=folder --in-folder-path="temp" --in-folder-recursive=true --output-adapter=interlynk --out-interlynk-url="https://api.interlynk.io/lynkapi"
-```
-
-**What this does:**
-
-- Fetches/scans SBOMs from the temp directory for all sub-directories such as `sbomqs` and `sbommv`.
-- Uploads these SBOMs to Interlynk with project IDs `interlynk-io/sbomqs` and `interlynk-io/sbommv`.
-
-## 7. Some More Examples
+## 6. Some More Examples
 
 ### Combine Multiple Flags for Full Customization
 
 ```bash
-sbommv transfer --input-adapter=github --in-github-url="https://github.com/interlynk-io/sbomqs" \
-                --in-github-method=tool --in-github-branch="dev" \
-                --output-adapter=interlynk --out-interlynk-url="https://api.interlynk.io/lynkapi" \
-                --out-interlynk-project-name="sbomqs-dev" --out-interlynk-project-env="development"
+sbommv transfer \
+--input-adapter=github \
+--in-github-url="https://github.com/interlynk-io/sbomqs" \
+--in-github-method=tool \
+--in-github-branch="dev" \
+--output-adapter=interlynk \
+--out-interlynk-url="https://api.interlynk.io/lynkapi" \
+--out-interlynk-project-name="sbomqs-dev" \
+--out-interlynk-project-env="development"
 ```
 
 **What this does:**

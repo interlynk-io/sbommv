@@ -64,7 +64,7 @@ func (u *SequentialUploader) Upload(ctx tcontext.TransferMetadata, config *Depen
 		sourceAdapter := ctx.Value("source")
 
 		// Construct project name and version
-		finalProjectName, _ := utils.ConstructProjectName(ctx, config.ProjectName, config.ProjectVersion, sbom.Namespace, sbom.Version, sbom.Path, sbom.Data, sourceAdapter.(string))
+		finalProjectName, _ := utils.ConstructDTProjectName(ctx, config.ProjectName, config.ProjectVersion, sbom.Namespace, sbom.Version, sbom.Path, sbom.Data, sourceAdapter.(string))
 
 		projectVersion := "latest"
 		if config.ProjectVersion != "" {
@@ -199,7 +199,7 @@ func (u *ParallelUploader) Upload(ctx tcontext.TransferMetadata, config *Depende
 			for sbom := range sbomChan {
 
 				sourceAdapter := ctx.Value("source")
-				finalProjectName, _ := utils.ConstructProjectName(ctx, config.ProjectName, config.ProjectVersion, sbom.Namespace, sbom.Version, sbom.Path, sbom.Data, sourceAdapter.(string))
+				finalProjectName, _ := utils.ConstructDTProjectName(ctx, config.ProjectName, config.ProjectVersion, sbom.Namespace, sbom.Version, sbom.Path, sbom.Data, sourceAdapter.(string))
 
 				projectVersion := "latest"
 				if config.ProjectVersion != "" {

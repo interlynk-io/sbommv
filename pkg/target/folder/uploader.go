@@ -25,7 +25,6 @@ import (
 	"github.com/interlynk-io/sbommv/pkg/logger"
 	"github.com/interlynk-io/sbommv/pkg/tcontext"
 	"github.com/interlynk-io/sbommv/pkg/types"
-	"github.com/interlynk-io/sbommv/pkg/utils"
 )
 
 type SBOMUploader interface {
@@ -65,21 +64,7 @@ func (u *SequentialUploader) Upload(ctx tcontext.TransferMetadata, config *Folde
 			return err
 		}
 
-		sourceAdapter := ctx.Value("source")
-		destinationAdapter := ctx.Value("destination")
-
-		var finalProjectName string
-
-		// if the source adapter is local folder cloud storage(s3), and the o/p adapter is local folder or cloud storage(s3),
-		// use the SBOM file name as the project name instead of primary comp and version
-		// because at the end they have to save the SBOM file as it is.
-		if sourceAdapter.(string) == "folder" && destinationAdapter.(string) == "folder" || sourceAdapter.(string) == "s3" && destinationAdapter.(string) == "folder" {
-			finalProjectName = sbom.Path
-		} else {
-			finalProjectName, _ = utils.ConstructProjectName(ctx, "", "", sbom.Namespace, sbom.Version, sbom.Path, sbom.Data, sourceAdapter.(string))
-		}
-
-		outputFile := filepath.Join(outputDir, finalProjectName)
+		outputFile := filepath.Join(outputDir, sbom.Path)
 		if sbom.Path == "" {
 			outputFile = filepath.Join(outputDir, fmt.Sprintf("%s.sbom.json", uuid.New().String()))
 		}
