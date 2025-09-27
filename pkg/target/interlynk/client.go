@@ -101,28 +101,28 @@ func (c *Client) FindOrCreateProjectGroup(ctx tcontext.TransferMetadata, finalPr
 
 	env := c.ProjectEnv
 
-	projectID, err := c.FindProjectGroup(ctx, finalProjectName, env)
+	envID, err := c.FindProjectGroup(ctx, finalProjectName, env)
 	if err != nil {
 		// create project if the project is not present in the interlynk
-		projectID, err = c.CreateProjectGroup(ctx, finalProjectName, env)
+		envID, err = c.CreateProjectGroup(ctx, finalProjectName, env)
 		if err != nil {
 			return "", "", fmt.Errorf("failed to create project: %s on env %s ", finalProjectName, env)
 		}
 	}
 
-	return projectID, finalProjectName, nil
+	return envID, finalProjectName, nil
 }
 
 // UploadSBOM uploads a single SBOM from memory to Interlynk
-func (c *Client) UploadSBOM(ctx tcontext.TransferMetadata, projectID string, sbomData []byte) error {
-	logger.LogDebug(ctx.Context, "Uploading SBOM", "projectID", projectID, "data size", len(sbomData))
+func (c *Client) UploadSBOM(ctx tcontext.TransferMetadata, envID string, sbomData []byte) error {
+	logger.LogDebug(ctx.Context, "Uploading SBOM", "projectID", envID, "data size", len(sbomData))
 
 	if len(sbomData) == 0 {
 		return fmt.Errorf("SBOM data is empty")
 	}
 
 	// Create a context-aware request with appropriate timeout
-	req, err := c.createUploadRequest(ctx, projectID, sbomData)
+	req, err := c.createUploadRequest(ctx, envID, sbomData)
 	if err != nil {
 		return fmt.Errorf("preparing request: %w", err)
 	}

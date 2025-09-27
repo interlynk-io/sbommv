@@ -21,7 +21,7 @@ import (
 	"github.com/interlynk-io/sbommv/pkg/tcontext"
 )
 
-func ConstructProjectName(ctx tcontext.TransferMetadata, extProjectName, extProjectVersion, ownerRepoGithubName, repoVersion, assetPath string, content []byte, source string) (string, string) {
+func ConstructDTProjectName(ctx tcontext.TransferMetadata, extProjectName, extProjectVersion, ownerRepoGithubName, repoVersion, assetPath string, content []byte, source string) (string, string) {
 	logger.LogDebug(ctx.Context, "Constructing Project Name and Version", "providedProjectName", extProjectName, "providedProjectVersion", extProjectVersion, "ownerRepoName", ownerRepoGithubName, "repoVersion", repoVersion, "source", source, "assetpath", assetPath)
 
 	// user provided project name via flag

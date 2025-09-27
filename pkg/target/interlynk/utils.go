@@ -21,6 +21,9 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/interlynk-io/sbommv/pkg/logger"
+	"github.com/interlynk-io/sbommv/pkg/sbom"
+	"github.com/interlynk-io/sbommv/pkg/source"
 	"github.com/interlynk-io/sbommv/pkg/tcontext"
 )
 
@@ -80,18 +83,46 @@ func formatSetToString(formatSet map[string]struct{}) string {
 	return strings.Join(formats, ", ")
 }
 
-func getExplicitProjectVersion(ctx tcontext.TransferMetadata, providedProjectName string, providedProjectVersion string) (string, string) {
-	if providedProjectVersion == "" {
-		return providedProjectName, "latest"
+// ConstructInterlynkProjectName return project name, in a way that if externally project name is provided, then return it.
+// otherwise depends on source. If sboms fetched from github source, then return project name as <organization>/<repo>
+// for remaining sources like folder, s3, etc. Return their primary component name + it's version, so unique project created for each SBOM file.
+func ConstructInterlynkProjectName(ctx tcontext.TransferMetadata, extProjectName, ownerAndGithubRepoName, sbomPath string, SbomData []byte, source string) string {
+	logger.LogDebug(ctx.Context, "Constructing Project Name", "providedProjectName", extProjectName, "ownerAndGithubRepoName", ownerAndGithubRepoName, "source", source, "assetpath", sbomPath)
+
+	if extProjectName != "" {
+		return extProjectName
 	}
 
-	return providedProjectName, providedProjectVersion
+	if source == "github" {
+		logger.LogDebug(ctx.Context, "Source is a github")
+
+		if strings.Contains(ownerAndGithubRepoName, "-") {
+			return strings.Replace(ownerAndGithubRepoName, "-", "/", 1)
+		}
+		return ownerAndGithubRepoName
+	}
+
+	// if source other than github, then naming would be different
+	return GetProjectNameAndVersion(ctx, SbomData, sbomPath)
 }
 
-func getImplicitProjectVersion(ctx tcontext.TransferMetadata, providedProjectName string, providedProjectVersion string) (string, string) {
-	if providedProjectVersion == "" {
-		return providedProjectName, "unknown"
+// construct project name from it's primary comp name and it's version by reading sbom content
+func GetProjectNameAndVersion(ctx tcontext.TransferMetadata, content []byte, assetPath string) string {
+	// ONLY APPLICABLE FOR JSON FILE FORMAT SBOM
+	if !source.IsSBOMJSONFormat(content) {
+		logger.LogInfo(ctx.Context, "SBOM File Format is not in JSON format")
+		return ""
 	}
 
-	return providedProjectName, providedProjectVersion
+	logger.LogDebug(ctx.Context, "SBOM File Format is in JSON format")
+	primaryComp := sbom.ExtractPrimaryComponentName(content)
+	logger.LogDebug(ctx.Context, "Project Name and Version", "name", primaryComp.Name, "version", primaryComp.Version)
+
+	if primaryComp.Name != "" && primaryComp.Version != "" {
+		return primaryComp.Name + "-" + primaryComp.Version
+	} else if primaryComp.Version == "" {
+		return primaryComp.Name
+	} else {
+		return assetPath
+	}
 }
