@@ -212,6 +212,7 @@ func (i *InterlynkAdapter) uploadSequential(ctx tcontext.TransferMetadata, sboms
 
 		sourceAdapter := ctx.Value("source")
 
+		fmt.Println("++++ sbom.Namespace: ", sbom.Namespace)
 		finalProjectName := ConstructInterlynkProjectName(ctx, i.ProjectName, sbom.Namespace, sbom.Path, sbom.Data, sourceAdapter.(string))
 		projectID, projectName, err := client.FindOrCreateProjectGroup(ctx, finalProjectName)
 		if err != nil {

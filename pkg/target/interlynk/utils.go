@@ -95,10 +95,6 @@ func ConstructInterlynkProjectName(ctx tcontext.TransferMetadata, extProjectName
 
 	if source == "github" {
 		logger.LogDebug(ctx.Context, "Source is a github")
-
-		if strings.Contains(ownerAndGithubRepoName, "-") {
-			return strings.Replace(ownerAndGithubRepoName, "-", "/", 1)
-		}
 		return ownerAndGithubRepoName
 	}
 
