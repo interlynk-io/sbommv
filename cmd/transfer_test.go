@@ -40,14 +40,6 @@ func SBOMFolderPath() string {
 	return defaultSBOMFolder
 }
 
-// mockGitHubRelease mimics a GitHub API release response
-type mockGitHubRelease struct {
-	Assets []struct {
-		Name               string `json:"name"`
-		BrowserDownloadURL string `json:"browser_download_url"`
-	} `json:"assets"`
-}
-
 // upload from github_api to dtrack (without providing project name and project version)
 func TestUploadGithubAPIToDTrack(t *testing.T) {
 	folderPath := SBOMFolderPath()
@@ -178,10 +170,10 @@ func TestUploadGithubAPIToDTrack(t *testing.T) {
 	assert.Contains(t, outBuf.String(), "Initializing SBOMs uploading to Dependency-Track sequentially", "Expected upload start")
 
 	assert.Contains(t, outBuf.String(), "New project will be created", "Expected project creation")
-	assert.Contains(t, outBuf.String(), `{"name": "interlynk-io-sbomqs-latest-dependency-graph-sbom.json", "version": "latest"}`, "Expected new project details")
+	assert.Contains(t, outBuf.String(), `{"name": "interlynk-io/sbomqs-latest-dependency-graph-sbom.json", "version": "latest"}`, "Expected new project details")
 
 	assert.Contains(t, outBuf.String(), "Processing Uploading SBOMs", "Expected successful upload completion")
-	assert.Contains(t, outBuf.String(), `{"project": "interlynk-io-sbomqs-latest-dependency-graph-sbom.json", "version": "latest"}`, "Expected project upload processsing")
+	assert.Contains(t, outBuf.String(), `{"project": "interlynk-io/sbomqs-latest-dependency-graph-sbom.json", "version": "latest"}`, "Expected project upload processsing")
 
 	assert.Contains(t, outBuf.String(), "Fetched SBOM successfully", "Expected fetch success")
 	assert.Contains(t, outBuf.String(), "New project will be created", "Expected project creation")
