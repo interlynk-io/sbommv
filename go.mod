@@ -10,13 +10,13 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.31.15
 	github.com/aws/aws-sdk-go-v2/credentials v1.18.19
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.88.7
-	github.com/interlynk-io/sbomasm v1.0.8
+	github.com/interlynk-io/sbomasm v1.0.9
 	github.com/sirupsen/logrus v1.9.3
-	github.com/spdx/tools-golang v0.5.5
-	github.com/spf13/cobra v1.10.1
+	github.com/spdx/tools-golang v0.5.6
+	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
 	github.com/stretchr/testify v1.11.1
-	go.uber.org/zap v1.27.0
+	go.uber.org/zap v1.27.1
 	modernc.org/sqlite v1.39.1
 	sigs.k8s.io/release-utils v0.12.2
 )
@@ -25,7 +25,7 @@ require github.com/common-nighthawk/go-figure v0.0.0-20210622060536-734e95fb86be
 
 require (
 	github.com/CycloneDX/cyclonedx-go v0.9.3 // indirect
-	github.com/anchore/go-struct-converter v0.0.0-20250211213226-cce56d595160 // indirect
+	github.com/anchore/go-struct-converter v0.1.0 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.2 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.11 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.11 // indirect
