@@ -21,7 +21,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/interlynk-io/sbomasm/pkg/sbom"
+	"github.com/interlynk-io/sbomasm/v2/pkg/sbom"
 )
 
 var sbomRegex *regexp.Regexp
