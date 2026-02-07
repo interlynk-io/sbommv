@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/interlynk-io/sbomasm/pkg/sbom"
+	"github.com/interlynk-io/sbomasm/v2/pkg/sbom"
 )
 
 // Format-specific structs for basic parsing
