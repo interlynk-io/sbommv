@@ -15,7 +15,7 @@ require (
 	github.com/spf13/viper v1.21.0
 	github.com/stretchr/testify v1.11.1
 	go.uber.org/zap v1.27.1
-	modernc.org/sqlite v1.44.3
+	modernc.org/sqlite v1.45.0
 	sigs.k8s.io/release-utils v0.12.3
 )
 
