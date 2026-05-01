@@ -25,10 +25,11 @@ With its modular architecture, sbommv today supports a range of input and output
 
 This setup allows SBOMs to move seamlessly across different systems, abstracting away the complexities of each system's internal workings.
 
-## SBOM Platform - [Interlynk](https://app.interlynk.io/)
+## Interlynk Free Tier — Full SBOM Compliance, Zero Friction
 
-Our SBOM Automation Platform has a new free tier that provides a comprehensive solution to manage SBOMs (Software Bill of Materials) effortlessly. From centralized SBOM storage, built-in SBOM editor, continuous vulnerability mapping and assessment, and support for organizational policies, all while ensuring compliance and enhancing software supply chain security using integrated SBOM quality scores. The free tier is ideal for small teams.
-[Try now](https://app.interlynk.io/)
+Get started with SBOM compliance in under two minutes — no credit card, no time limit. Interlynk's free plan includes a guided setup where you pick your compliance standard (CRA/EU, FDA Cybersecurity, NTIA, or Telecom), upload your SBOM, and instantly see your compliance score with actionable gaps highlighted. You get compliance scoring against one standard, up to 5 products with 5 versions each, unlimited users, built-in vulnerability detection, API access for CI/CD integration, weekly compliance digests, and ShareLynk — a public link to share your compliance posture with customers and partners. Everything beyond the free tier is visible with a clear upgrade path, and you can start a 15-day Enterprise trial anytime to unlock unlimited products, SBOM automation, RBAC, analytics, license management, and workflow integrations. [**Get Started Free →**](https://app.interlynk.io)
+
+📊 **Check your SBOM compliance instantly** directly from your browser in just one click: <https://demo.interlynk.io/>
 
 ## Getting Started
 
