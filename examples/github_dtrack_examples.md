@@ -31,7 +31,7 @@ sbommv transfer \
 --in-github-url="https://github.com/interlynk-io/sbomqs" \
 --in-github-method=release \
 --output-adapter=dtrack \
---out-dtrack-url="http://localhost:8081"
+--out-dtrack-url="http://localhost:8080"
 ```
 
 - **What this does**:
@@ -53,7 +53,7 @@ sbommv transfer \
 --in-github-url="https://github.com/interlynk-io/sbomqs" \
 --in-github-method=release \               
 --output-adapter=dtrack \                                             
---out-dtrack-url="http://localhost:8081" \   
+--out-dtrack-url="http://localhost:8080" \   
 --out-dtrack-project-name="sbomqs_demo" \        
 --out-dtrack-project-version="v1.0.1"
 ```
@@ -74,7 +74,7 @@ sbommv transfer \
 --input-adapter=github \
 --in-github-url="https://github.com/interlynk-io/sbomqs" \
 --output-adapter=dtrack \
---out-dtrack-url="http://localhost:8081"
+--out-dtrack-url="http://localhost:8080"
 ```
 
 - **What this does**:
@@ -94,7 +94,7 @@ sbommv transfer \
 --in-github-url="https://github.com/interlynk-io/sbomqs" \
 --in-github-method=tool \   
 --output-adapter=dtrack \               
---out-dtrack-url="http://localhost:8081"
+--out-dtrack-url="http://localhost:8080"
 ```
 
 - **What this does**:
@@ -116,7 +116,7 @@ sbommv transfer \
 --in-github-method=tool \
 --in-github-branch="main" \
 --output-adapter=dtrack \
---out-dtrack-url="http://localhost:8081" \
+--out-dtrack-url="http://localhost:8080" \
 ```
 
 - **What this does**:
@@ -136,7 +136,7 @@ sbommv transfer \
 --input-adapter=github \
 --in-github-url="https://github.com/interlynk-io/sbomqs" \
 --output-adapter=dtrack \
---out-dtrack-url="http://localhost:8081" \
+--out-dtrack-url="http://localhost:8080" \
 --dry-run
 ```
 
@@ -162,7 +162,7 @@ sbommv transfer \
 --in-github-method=release \
 --in-github-include-repos=sbomqs,sbommv \
 --output-adapter=dtrack \
---out-dtrack-url="http://localhost:8081"
+--out-dtrack-url="http://localhost:8080"
 ```
 
 - **What this does**:
@@ -182,7 +182,7 @@ sbommv transfer \
 --in-github-url="https://github.com/interlynk-io" \
 --in-github-include-repos=sbomqs,sbommv \
 --output-adapter=dtrack \
---out-dtrack-url="http://localhost:8081"
+--out-dtrack-url="http://localhost:8080"
 ```
 
 - **What this does**:
@@ -199,7 +199,7 @@ sbommv transfer \
 --input-adapter=github \
 --in-github-url="https://github.com/interlynk-io" \
 --in-github-method=tool --in-github-include-repos=sbomqs,sbommv \
---output-adapter=dtrack --out-dtrack-url="http://localhost:8081"
+--output-adapter=dtrack --out-dtrack-url="http://localhost:8080"
 ```
 
 - **What this does**:
@@ -220,7 +220,7 @@ sbommv transfer \
 --in-github-method=release \
 --in-github-exclude-repos=cyclonedx-property-taxonomy,homebrew-interlynk,purl-tools \
 --output-adapter=dtrack \
---out-dtrack-url="http://localhost:8081"
+--out-dtrack-url="http://localhost:8080"
 ```
 
 - **What this does**:
@@ -242,7 +242,7 @@ sbommv transfer \
 --in-github-url="https://github.com/interlynk-io" \
 --in-github-exclude-repos=cyclonedx-property-taxonomy,homebrew-interlynk,purl-tools \
 --output-adapter=dtrack \
---out-dtrack-url="http://localhost:8081"
+--out-dtrack-url="http://localhost:8080"
 ```
 
 - **What this does**:
@@ -265,7 +265,7 @@ sbommv transfer \
 --in-github-method=tool \
 --in-github-exclude-repos=cyclonedx-property-taxonomy,homebrew-interlynk,purl-tools \
 --output-adapter=dtrack \
---out-dtrack-url="http://localhost:8081"
+--out-dtrack-url="http://localhost:8080"
 ```
 
 - **What this does**:
@@ -294,7 +294,7 @@ sbommv transfer \
 --in-github-url="https://github.com/interlynk-io/sbomqs" \
 --in-github-method=release \
 --output-adapter=dtrack \
---out-dtrack-url="http://localhost:8081" \
+--out-dtrack-url="http://localhost:8080" \
 --in-github-poll-interval="60s" \
 --daemon
 ```
@@ -319,7 +319,7 @@ sbommv transfer \
 sbommv transfer \
 --input-adapter=github \
 --in-github-url="https://github.com/interlynk-io/sbomqs" \
---output-adapter=dtrack --out-dtrack-url="http://localhost:8081" \
+--output-adapter=dtrack --out-dtrack-url="http://localhost:8080" \
  --in-github-poll-interval="24hr" \
  --daemon
 ```
@@ -345,7 +345,7 @@ sbommv transfer \
 --in-github-url="https://github.com/interlynk-io/sbomqs" \
 --in-github-method=tool \
 --output-adapter=dtrack \
---out-dtrack-url="http://localhost:8081" \
+--out-dtrack-url="http://localhost:8080" \
 --in-github-poll-interval="24hr" \
 --daemon
 ```
@@ -375,7 +375,7 @@ sbommv transfer \
 --in-github-method=release \
 --in-github-include-repos=sbomqs,sbommv \
 --output-adapter=dtrack \
---out-dtrack-url="http://localhost:8081" \
+--out-dtrack-url="http://localhost:8080" \
 --in-github-poll-interval="24hr" \
 --daemon
 ```
@@ -403,7 +403,7 @@ sbommv transfer \
 --in-github-method=api \
 --in-github-include-repos=sbomqs,sbommv \
 --output-adapter=dtrack \
---out-dtrack-url="http://localhost:8081" \
+--out-dtrack-url="http://localhost:8080" \
 --in-github-poll-interval="24hr" \
 --daemon
 ```
@@ -431,7 +431,7 @@ sbommv transfer \
 --in-github-method=tool \
 --in-github-include-repos=sbomqs,sbommv \
 --output-adapter=dtrack \
---out-dtrack-url="http://localhost:8081" \
+--out-dtrack-url="http://localhost:8080" \
 --in-github-poll-interval="24hr" \
 --daemon
 ```

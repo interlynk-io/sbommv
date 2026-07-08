@@ -40,7 +40,7 @@ sbommv transfer \
 --in-s3-access-key="AKIA..." \
 --in-s3-secret-key="wJalr..." \
 --output-adapter=dtrack \
---out-dtrack-url="http://localhost:8081"
+--out-dtrack-url="http://localhost:8080"
 ```
 
 **What this does**:
@@ -61,7 +61,7 @@ sbommv transfer \
 --in-s3-secret-key="wJalr..." \
 --processing-mode="parallel" \
 --output-adapter=dtrack \
---out-dtrack-url="http://localhost:8081"
+--out-dtrack-url="http://localhost:8080"
 ```
 
 **What this does**:
@@ -84,7 +84,7 @@ sbommv transfer \
 --in-s3-access-key="AKIA..." \
 --in-s3-secret-key="wJalr..." \
 --output-adapter=dtrack \
---out-dtrack-url="http://localhost:8081" \
+--out-dtrack-url="http://localhost:8080" \
 --dry-run
 ```
 
@@ -100,7 +100,7 @@ sbommv transfer \
 --in-s3-secret-key="wJalr..." \
 --in-s3-processing-mode="parallel" \
 --output-adapter=dtrack \
---out-dtrack-url="http://localhost:8081" \
+--out-dtrack-url="http://localhost:8080" \
 --dry-run
 ```
 
