@@ -14,6 +14,11 @@
 
 package dependencytrack
 
+import (
+	"encoding/json"
+	"fmt"
+)
+
 type DependencyTrackConfig struct {
 	APIURL         string
 	APIKey         string
@@ -28,4 +33,35 @@ func NewDependencyTrackConfig(apiURL, version string, overwite bool) *Dependency
 		ProjectVersion: version,
 		Overwrite:      overwite,
 	}
+}
+
+// String returns a sanitized string representation of the config (for logging)
+// The API key is masked for security
+func (c *DependencyTrackConfig) String() string {
+	apiKeyMasked := maskAPIKey(c.APIKey)
+	return fmt.Sprintf("{APIURL:%s APIKey:%s ProjectName:%s ProjectVersion:%s Overwrite:%t}",
+		c.APIURL, apiKeyMasked, c.ProjectName, c.ProjectVersion, c.Overwrite)
+}
+
+// MarshalJSON returns a JSON representation with masked API key
+func (c *DependencyTrackConfig) MarshalJSON() ([]byte, error) {
+	type alias DependencyTrackConfig // create alias to avoid infinite recursion
+	return json.Marshal(&struct {
+		*alias
+		APIKey string `json:"APIKey"`
+	}{
+		alias:  (*alias)(c),
+		APIKey: maskAPIKey(c.APIKey),
+	})
+}
+
+// maskAPIKey masks the API key for logging, showing only first 8 and last 4 characters
+func maskAPIKey(apiKey string) string {
+	if apiKey == "" {
+		return ""
+	}
+	if len(apiKey) > 12 {
+		return apiKey[:8] + "***" + apiKey[len(apiKey)-4:]
+	}
+	return "***"
 }
