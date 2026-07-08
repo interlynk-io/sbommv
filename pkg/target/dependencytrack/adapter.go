@@ -125,7 +125,10 @@ func (d *DependencyTrackAdapter) ParseAndValidateParams(cmd *cobra.Command) erro
 	d.Config = cfg
 
 	// Initialize the DependencyTrack client
-	client := NewDependencyTrackClient(cfg)
+	client, err := NewDependencyTrackClient(cfg)
+	if err != nil {
+		return fmt.Errorf("failed to initialize Dependency-Track client: %w", err)
+	}
 	d.client = client
 	d.Uploader = uploader
 

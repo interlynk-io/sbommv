@@ -22,10 +22,10 @@ import (
 	"net/url"
 )
 
-func ValidateDTrackConnection(url, token string) error {
+func ValidateDTrackConnection(apiURL, token string) error {
 	ctx := context.Background()
 
-	baseURL, err := genHealthzUrl(url)
+	baseURL, err := genHealthzUrl(apiURL)
 	if err != nil {
 		return fmt.Errorf("invalid URL format: %w", err)
 	}
