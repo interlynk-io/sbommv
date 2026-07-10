@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"strings"
 	"time"
 
 	dtrack "github.com/DependencyTrack/client-go"
@@ -29,7 +30,7 @@ type DependencyTrackClient struct {
 	Client *dtrack.Client
 }
 
-func NewDependencyTrackClient(config *DependencyTrackConfig) *DependencyTrackClient {
+func NewDependencyTrackClient(config *DependencyTrackConfig) (*DependencyTrackClient, error) {
 	client, err := dtrack.NewClient(
 		config.APIURL,
 		dtrack.WithAPIKey(config.APIKey),
@@ -37,9 +38,16 @@ func NewDependencyTrackClient(config *DependencyTrackConfig) *DependencyTrackCli
 	)
 	if err != nil {
 		logger.LogError(context.Background(), err, "Failed to create Dependency-Track client")
+
+		// Provide a more helpful error message when server returns HTML
+		if strings.Contains(err.Error(), "invalid character '<'") {
+			return nil, fmt.Errorf("Dependency-Track API returned HTML instead of JSON. Please ensure the URL is correct (e.g., http://localhost:8080) and the API server is running. Original error: %w", err)
+		}
+
+		return nil, fmt.Errorf("failed to create Dependency-Track client: %w", err)
 	}
 
-	return &DependencyTrackClient{Client: client}
+	return &DependencyTrackClient{Client: client}, nil
 }
 
 type Project struct {

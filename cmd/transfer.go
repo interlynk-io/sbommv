@@ -103,7 +103,7 @@ Examples:
 
   # S3 to Dependency Track
   sbommv transfer --input-adapter=s3 --in-s3-bucket-name="source-test-sbom" --in-s3-prefix="dropwizard" --in-s3-region="us-east-1" \
-                  --output-adapter=dtrack --out-dtrack-url="http://localhost:8081" --out-dtrack-project-name="my-project"
+                  --output-adapter=dtrack --out-dtrack-url="http://localhost:8080" --out-dtrack-project-name="my-project"
 
   # GitHub (api) to Interlynk
   sbommv transfer --input-adapter=github --in-github-url="https://github.com/interlynk-io/sbomqs" \
@@ -258,7 +258,7 @@ Get started in 3 steps:
    - Interlynk: Upload to the Interlynk platform.
 3. Run a command like:
    sbommv transfer --input-adapter=folder --in-folder-path="sboms" --output-adapter=s3 --out-s3-bucket-name="my-bucket" --out-s3-prefix="sboms"
-   sbommv transfer --input-adapter=github --in-github-url="https://github.com/interlynk-io/sbomqs" --output-adapter=dtrack --out-dtrack-url="http://localhost:8081"
+   sbommv transfer --input-adapter=github --in-github-url="https://github.com/interlynk-io/sbomqs" --output-adapter=dtrack --out-dtrack-url="http://localhost:8080"
 
 For more details and options, run ` + "`sbommv transfer --help`" + `.
 Explore examples at https://github.com/interlynk-io/sbommv/tree/main/examples.`)

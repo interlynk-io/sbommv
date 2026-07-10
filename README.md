@@ -80,7 +80,7 @@ $ sbommv transfer --input-adapter=github \
 $ sbommv transfer  --input-adapter=github  \
 --in-github-url="https://github.com/interlynk-io/sbommv"  \
 --output-adapter=dtrack  \
---out-dtrack-url="http://localhost:8081"
+--out-dtrack-url="http://localhost:8080"
 ```
 
 **NOTE**: Make sure dependency-track is running locally, if not, [refer](https://github.com/interlynk-io/sbommv/blob/main/examples/setup_dependency_track.md) for setup.
