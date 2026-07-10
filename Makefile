@@ -77,4 +77,5 @@ release:
 
 .PHONY: updatedeps
 updatedeps:
-	go get -u all
+	go get -u ./...
+	go mod tidy
